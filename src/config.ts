@@ -283,6 +283,17 @@ export const SHOT = {
   maxFrames: 600, // ~10s hard cap so a wedged ball never stalls the loop
 } as const;
 
+// Foul-line detection (GDD 02-core-loop, REQ-032). The foul line is the plane at
+// the origin (z = 0); the lane runs into -z and the approach is on the +z side.
+// A live ball at or in front of this plane (z >= foulLineZ) has crossed the line
+// and fouled: an over-the-line release or a ball that comes back across the line.
+// A legal ball spawns just inside it (LANE.ballSpawnZ = -0.15, z < 0) and rolls
+// into -z, so it never trips the line in normal play. A foul scores zero pinfall
+// and leaves the rack standing (Q-012 default A).
+export const FOUL = {
+  foulLineZ: 0,
+} as const;
+
 // Ball-containment geometry (GDD REQ-031 gutters, followup F-004 back pit).
 // Pure layout derived from LANE so the world3d meshes and the physics colliders
 // (and the smoke tests) share one source of truth. All boxes are described by a

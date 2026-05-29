@@ -21,11 +21,12 @@ import { SweepMeter, meterBandSpan } from './meter.js';
 import { Game } from './game.js';
 import { Scoreboard } from './scoreboard.js';
 import { ShotWatcher } from './shot.js';
+import { FoulDetector } from './foul.js';
 import { Screens, type Screen } from './screens.js';
 import { Settings } from './settings.js';
 import { Tutorial } from './tutorial.js';
 import { AudioEngine } from './audio.js';
-import { DETECTION, LANE, PIN_REST_Y, POWER, RESET, SHOT, SHOT_CAMERA, SPIN } from './config.js';
+import { DETECTION, FOUL, LANE, PIN_REST_Y, POWER, RESET, SHOT, SHOT_CAMERA, SPIN } from './config.js';
 
 const canvas = document.getElementById('lane') as HTMLCanvasElement | null;
 if (!canvas) {
@@ -89,6 +90,10 @@ const scoreboard = scoreboardEl ? new Scoreboard(scoreboardEl) : null;
 const reset = new ResetCycle({ ...RESET, restY: PIN_REST_Y });
 const settle = new SettleWindow(DETECTION, DETECTION.settleAtRestFrames, DETECTION.settleMaxFrames);
 const shotWatcher = new ShotWatcher(SHOT);
+// Over-the-line release detection (REQ-032). Watches the thrown ball's down-lane
+// position; if the ball is ever at or in front of the foul line while live the
+// throw is a foul and scores zero pinfall.
+const foulDetector = new FoulDetector(FOUL);
 
 // Shot-setup camera: pick the ball up at the return, walk up to the foul line,
 // then shift your line and lock in before the throw (GDD 08-controls, REQ-033).
@@ -284,6 +289,7 @@ function throwBall(): void {
   audio.playBallThunk();
   audio.playBallRoll();
   shotWatcher.begin();
+  foulDetector.begin();
   phase = 'watching';
   setStatus('Rolling...');
 }
@@ -503,11 +509,15 @@ function stepShotLoop(dt: number): void {
     renderMeters();
   } else if (phase === 'watching') {
     const k = ball.kinematics();
+    // Flag an over-the-line release the moment the ball crosses the foul line
+    // while live (REQ-032). The throw still plays out; the foul is applied when
+    // the ball resolves so the dead ball scores zero regardless of any pinfall.
+    if (foulDetector.step(k.z)) setStatus('Foul! Over the line.');
     if (shotWatcher.step(k.speed, k.z)) {
       // The ball has resolved; begin settling the rack before counting.
       settle.reset();
       phase = 'settling';
-      setStatus('Counting pins...');
+      if (!foulDetector.fouled) setStatus('Counting pins...');
     }
   } else if (phase === 'settling') {
     const result = settle.step(pins.pinStates());
@@ -534,14 +544,25 @@ function applyCameraPose(pose: { pos: { x: number; y: number; z: number }; lookA
 // The rack has settled: count this ball's pinfall (the drop in standing pins),
 // feed it to the Game spine, render the new score, and act on the outcome.
 function recordSettledBall(standingNow: number): void {
-  const pinsDowned = Math.max(0, standingBeforeBall - standingNow);
+  // An over-the-line release is a foul: the ball is dead and scores zero pinfall
+  // regardless of any pins it disturbed (REQ-032, Q-012 default A). Recording a
+  // zero ball leaves the rack standing for the next ball, and the returned
+  // between-balls reset reels any pins the dead ball knocked back to their home
+  // spots, so the foul costs the throw but not the rack.
+  const fouled = foulDetector.fouled;
+  const pinsDowned = fouled ? 0 : Math.max(0, standingBeforeBall - standingNow);
   const result = game.recordBall(pinsDowned);
   renderScore();
+
+  if (fouled) {
+    // A neutral mechanical acknowledgement; no clatter or sting on a dead ball.
+    audio.playClick();
+  }
 
   // Mechanical feedback for the count (REQ-043). Pins falling clatter (louder for
   // a bigger count); clearing the rack rings a flourish: the bigger strike sting
   // when the first ball takes all ten, the smaller spare cue otherwise.
-  if (result.pinsDowned > 0) audio.playPinClatter(result.pinsDowned);
+  if (!fouled && result.pinsDowned > 0) audio.playPinClatter(result.pinsDowned);
   if (result.pinsStanding === 0) {
     if (result.ballInFrame === 1 && result.pinsDowned === 10) audio.playStrike();
     else audio.playSpare();
