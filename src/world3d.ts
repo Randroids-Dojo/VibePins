@@ -12,15 +12,18 @@ import {
   LANE,
   SHOT_CAMERA,
   PINSETTER,
+  MACHINE_ROOM,
   VICTORY,
   MATERIALS,
   gutterBoxes,
   pitBoxes,
   pinsetterRigParts,
+  machineRoomParts,
   type Box,
   type RigBeam,
   type RigCylinder,
   type SurfaceMaterial,
+  type Vec3,
 } from './config.js';
 import { pinRackPositions } from './pins.js';
 import type { Debris } from './victory.js';
@@ -59,6 +62,7 @@ export class World3D {
     this.camera.lookAt(LANE.cameraLookAt.x, LANE.cameraLookAt.y, LANE.cameraLookAt.z);
 
     this.buildLighting();
+    this.buildMachineRoom();
     this.buildApproach();
     this.buildLane();
     this.buildLaneMarkers();
@@ -283,6 +287,65 @@ export class World3D {
     this.scene.add(lamp);
   }
 
+  // The machine-room interior the lane sits inside (GDD 04-look-and-feel
+  // #environment, REQ-039). The scene is enclosed by a dark shell (side, back, and
+  // front walls plus a ceiling) so it reads as an interior, not a lane in void,
+  // and the room is suggested through background machinery: exposed conduit runs
+  // along the upper walls, a row of brass-rimmed gauge dials on the back wall, and
+  // the dim silhouette of a neighbouring lane rig off to one side. All set dressing
+  // (no colliders), staged well outside the playfield from the pure machineRoomParts
+  // layout, lit by the existing warm work-light against the scene fog.
+  private buildMachineRoom(): void {
+    const room = machineRoomParts();
+
+    const shellMat = new THREE.MeshStandardMaterial({
+      color: MACHINE_ROOM.shellColor,
+      roughness: 0.92,
+      metalness: 0.1,
+      side: THREE.BackSide, // inward-facing, so the camera sees the room interior
+    });
+    const conduitMat = new THREE.MeshStandardMaterial({
+      color: MACHINE_ROOM.conduitColor,
+      roughness: 0.5,
+      metalness: 0.6,
+    });
+    const neighborMat = new THREE.MeshStandardMaterial({
+      color: MACHINE_ROOM.neighborColor,
+      roughness: 0.8,
+      metalness: 0.3,
+    });
+
+    for (const wall of room.walls) this.scene.add(this.rigBeamMesh(wall, shellMat));
+    this.scene.add(this.rigBeamMesh(room.ceiling, shellMat));
+    for (const conduit of room.conduits) this.scene.add(this.rigCylinderMesh(conduit, conduitMat));
+    this.scene.add(this.rigBeamMesh(room.neighborRig, neighborMat));
+    this.buildMachineRoomGauges(room.gauges);
+  }
+
+  // Brass-rimmed gauge dials mounted flat on the back wall (REQ-039 background
+  // machinery, REQ-041 brass accent). Each is a brass rim disc with a darker face
+  // set just in front of it, facing back down-lane toward the camera (+z).
+  private buildMachineRoomGauges(gauges: readonly { center: Vec3; radius: number }[]): void {
+    const rimMat = this.surfaceMaterial({
+      color: MACHINE_ROOM.gaugeRimColor,
+      roughness: 0.35,
+      metalness: 0.85,
+    });
+    const faceMat = this.surfaceMaterial({
+      color: MACHINE_ROOM.gaugeFaceColor,
+      roughness: 0.6,
+      metalness: 0.2,
+    });
+    for (const g of gauges) {
+      const rim = new THREE.Mesh(new THREE.CircleGeometry(g.radius, 24), rimMat);
+      rim.position.set(g.center.x, g.center.y, g.center.z);
+      this.scene.add(rim);
+      const face = new THREE.Mesh(new THREE.CircleGeometry(g.radius * 0.8, 24), faceMat);
+      face.position.set(g.center.x, g.center.y, g.center.z + 0.01);
+      this.scene.add(face);
+    }
+  }
+
   // The strike victory-routine debris pool (REQ-044). One small cube per bit,
   // pre-built and hidden; a burst un-hides and positions them each frame from
   // the pure sim. Even bits are hot-brass sparks, odd bits dark steel scrap, so
@@ -344,9 +407,9 @@ export class World3D {
     return mesh;
   }
 
-  // A cylindrical rig part (guide tube, drum, or cross-shaft). Three.js cylinders
-  // stand on +y by default; an 'x' axis part is rotated a quarter turn about z to
-  // lie across the lane.
+  // A cylindrical rig part (guide tube, drum, cross-shaft, or conduit). Three.js
+  // cylinders stand on +y by default; an 'x' axis part is rotated a quarter turn
+  // about z to lie across the lane, a 'z' axis part about x to run down-lane.
   private rigCylinderMesh(part: RigCylinder, mat: THREE.Material): THREE.Mesh {
     const mesh = new THREE.Mesh(
       new THREE.CylinderGeometry(part.radius, part.radius, part.length, 16),
@@ -354,6 +417,7 @@ export class World3D {
     );
     mesh.position.set(part.center.x, part.center.y, part.center.z);
     if (part.axis === 'x') mesh.rotation.z = Math.PI / 2;
+    else if (part.axis === 'z') mesh.rotation.x = Math.PI / 2;
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     return mesh;
