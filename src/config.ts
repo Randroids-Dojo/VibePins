@@ -70,6 +70,22 @@ export const LANE = {
 
   floorY: 0,
   gravity: -9.82,
+
+  // Ball containment (GDD REQ-031 gutters, followup F-004 back pit). Duckpin
+  // gutters are smaller than tenpin: a shallow channel runs along each side of
+  // the bed, its floor recessed below floorY so a ball that drifts off the lane
+  // drops in and is carried down toward the pit rather than rolling off the
+  // side into the void. An inner lip rises just above the bed so the ball does
+  // not climb back out onto the lane; an outer wall keeps it from escaping
+  // sideways. The pit sits behind the pin deck: a recessed floor with a back
+  // wall that stops a ball clearing the rack so it comes to rest down-lane
+  // instead of falling forever (the ball-roll smoke previously fell into nothing).
+  gutterDepth: 0.09, //   how far the gutter floor sits below the lane bed top
+  gutterLipHeight: 0.03, // inner lip above the bed, to keep a gutter ball in
+  gutterWallHeight: 0.18, // outer side-wall height above the bed
+  pitDepth: 0.25, //      how far the pit floor sits below the lane bed top
+  pitLength: 1.4, //      pit extent behind the back of the pin deck (-z)
+  pitWallHeight: 0.5, //  back-wall and side-wall height above the bed
 } as const;
 
 // Shot-setup camera sequence (GDD 08-controls, REQ-033 lineup). The camera
@@ -185,3 +201,102 @@ export const RESET = {
 // A pin's centre height at rest on the deck (base on the deck surface). Single
 // source for the reset lower target and the detection/rack geometry.
 export const PIN_REST_Y = LANE.floorY + LANE.pinHeight / 2;
+
+// Ball-containment geometry (GDD REQ-031 gutters, followup F-004 back pit).
+// Pure layout derived from LANE so the world3d meshes and the physics colliders
+// (and the smoke tests) share one source of truth. All boxes are described by a
+// centre and a half-extent in each axis, matching Three.js BoxGeometry (full
+// size) and Rapier ColliderDesc.cuboid (half-extents).
+
+export interface Box {
+  readonly center: Vec3;
+  readonly half: Vec3; // half-extents (x, y, z)
+}
+
+// The lane-and-deck run in z: from just behind the foul line back to the back
+// of the pin deck. Gutters span this whole run alongside the bed.
+const LANE_RUN_BACK_Z = LANE.headSpot.z - LANE.pinDeckDepth;
+const LANE_RUN_FRONT_Z = 0;
+const LANE_RUN_CENTER_Z = (LANE_RUN_FRONT_Z + LANE_RUN_BACK_Z) / 2;
+const LANE_RUN_HALF_Z = (LANE_RUN_FRONT_Z - LANE_RUN_BACK_Z) / 2;
+
+// One gutter channel beside the lane, on the given side (-1 left, +1 right). The
+// floor is a thin slab recessed below the bed; an inner lip and an outer wall
+// box it so a ball drops in, stays in, and is carried down toward the pit.
+function gutterParts(side: -1 | 1): { floor: Box; innerLip: Box; outerWall: Box } {
+  const channelOuterX = LANE.width / 2 + LANE.gutterWidth;
+  const channelCenterX = side * (LANE.width / 2 + LANE.gutterWidth / 2);
+  const floorTopY = LANE.floorY - LANE.gutterDepth;
+  const slab = 0.05; // half-thickness of the channel floor/wall slabs
+
+  return {
+    floor: {
+      center: { x: channelCenterX, y: floorTopY - slab, z: LANE_RUN_CENTER_Z },
+      half: { x: LANE.gutterWidth / 2, y: slab, z: LANE_RUN_HALF_Z },
+    },
+    // Inner lip: a thin wall between the bed edge and the channel, rising just
+    // above the bed so a gutter ball cannot climb back onto the lane.
+    innerLip: {
+      center: {
+        x: side * (LANE.width / 2 - slab),
+        y: LANE.floorY + LANE.gutterLipHeight / 2,
+        z: LANE_RUN_CENTER_Z,
+      },
+      half: { x: slab, y: LANE.gutterLipHeight / 2, z: LANE_RUN_HALF_Z },
+    },
+    // Outer wall: closes the far side of the channel so the ball cannot escape.
+    outerWall: {
+      center: {
+        x: side * (channelOuterX + slab),
+        y: LANE.floorY + (LANE.gutterWallHeight - LANE.gutterDepth) / 2,
+        z: LANE_RUN_CENTER_Z,
+      },
+      half: { x: slab, y: (LANE.gutterWallHeight + LANE.gutterDepth) / 2, z: LANE_RUN_HALF_Z },
+    },
+  };
+}
+
+// Both gutter channels (left then right), each a floor + inner lip + outer wall.
+export function gutterBoxes(): Box[] {
+  return ([-1, 1] as const).flatMap((side) => {
+    const parts = gutterParts(side);
+    return [parts.floor, parts.innerLip, parts.outerWall];
+  });
+}
+
+// The back pit behind the pin deck: a recessed floor plus a back wall and two
+// side walls, so a ball clearing the rack drops in and comes to rest instead of
+// rolling off the back into the void.
+export function pitBoxes(): Box[] {
+  const deckBackZ = LANE.headSpot.z - LANE.pinDeckDepth;
+  const pitFrontZ = deckBackZ;
+  const pitBackZ = deckBackZ - LANE.pitLength;
+  const pitCenterZ = (pitFrontZ + pitBackZ) / 2;
+  const pitHalfZ = (pitFrontZ - pitBackZ) / 2;
+  // The pit spans the full lane-plus-gutter width so a ball that came down a
+  // gutter or off the deck is caught.
+  const pitHalfX = LANE.width / 2 + LANE.gutterWidth;
+  const floorTopY = LANE.floorY - LANE.pitDepth;
+  const slab = 0.05;
+
+  const floor: Box = {
+    center: { x: 0, y: floorTopY - slab, z: pitCenterZ },
+    half: { x: pitHalfX, y: slab, z: pitHalfZ },
+  };
+  // Back wall closes the far (-z) end.
+  const backWall: Box = {
+    center: { x: 0, y: LANE.floorY + (LANE.pitWallHeight - LANE.pitDepth) / 2, z: pitBackZ - slab },
+    half: { x: pitHalfX + slab, y: (LANE.pitWallHeight + LANE.pitDepth) / 2, z: slab },
+  };
+  // Two side walls along the pit so a ball cannot escape sideways out of it.
+  const sideWalls: Box[] = ([-1, 1] as const).map((side) => ({
+    center: {
+      x: side * (pitHalfX + slab),
+      y: LANE.floorY + (LANE.pitWallHeight - LANE.pitDepth) / 2,
+      z: pitCenterZ,
+    },
+    half: { x: slab, y: (LANE.pitWallHeight + LANE.pitDepth) / 2, z: pitHalfZ },
+  }));
+
+  return [floor, backWall, ...sideWalls];
+}

@@ -8,7 +8,7 @@
 
 import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier3d-compat';
-import { LANE, SHOT_CAMERA } from './config.js';
+import { LANE, SHOT_CAMERA, gutterBoxes, pitBoxes, type Box } from './config.js';
 
 const FIXED_STEP = 1 / 60;
 const MAX_STEPS_PER_FRAME = 5;
@@ -43,6 +43,8 @@ export class World3D {
     this.buildApproach();
     this.buildLane();
     this.buildLaneMarkers();
+    this.buildGutters();
+    this.buildPit();
     this.buildBallReturn();
     this.buildPinDeck();
 
@@ -52,6 +54,8 @@ export class World3D {
     this.physics.timestep = FIXED_STEP;
     this.buildLaneCollider();
     this.buildPinDeckCollider();
+    this.buildGutterColliders();
+    this.buildPitColliders();
 
     window.addEventListener('resize', this.resizeHandler);
     this.handleResize();
@@ -162,6 +166,55 @@ export class World3D {
       dot.position.set(x, y, -0.9);
       this.scene.add(dot);
     }
+  }
+
+  // The gutters: a recessed channel along each side of the bed (REQ-031). Dark
+  // steel troughs, in keeping with the industrial palette. The shared geometry
+  // (gutterBoxes) is the same set of boxes the colliders use.
+  private buildGutters(): void {
+    const mat = new THREE.MeshStandardMaterial({ color: 0x23262b, roughness: 0.55, metalness: 0.55 });
+    for (const box of gutterBoxes()) {
+      this.scene.add(this.boxMesh(box, mat));
+    }
+  }
+
+  // The back pit behind the pin deck (followup F-004): a recessed catch with a
+  // back wall and side walls so a ball clearing the rack comes to rest.
+  private buildPit(): void {
+    const mat = new THREE.MeshStandardMaterial({ color: 0x1a1c1f, roughness: 0.7, metalness: 0.45 });
+    for (const box of pitBoxes()) {
+      this.scene.add(this.boxMesh(box, mat));
+    }
+  }
+
+  private buildGutterColliders(): void {
+    for (const box of gutterBoxes()) this.addStaticBox(box);
+  }
+
+  private buildPitColliders(): void {
+    for (const box of pitBoxes()) this.addStaticBox(box);
+  }
+
+  // A shadow-receiving box mesh from a shared Box (centre + half-extents).
+  private boxMesh(box: Box, mat: THREE.Material): THREE.Mesh {
+    const mesh = new THREE.Mesh(
+      new THREE.BoxGeometry(box.half.x * 2, box.half.y * 2, box.half.z * 2),
+      mat,
+    );
+    mesh.position.set(box.center.x, box.center.y, box.center.z);
+    mesh.receiveShadow = true;
+    return mesh;
+  }
+
+  // A fixed cuboid collider from a shared Box (centre + half-extents).
+  private addStaticBox(box: Box): void {
+    const body = this.physics.createRigidBody(
+      RAPIER.RigidBodyDesc.fixed().setTranslation(box.center.x, box.center.y, box.center.z),
+    );
+    this.physics.createCollider(
+      RAPIER.ColliderDesc.cuboid(box.half.x, box.half.y, box.half.z),
+      body,
+    );
   }
 
   // The pin deck sits behind the lane bed, since the lane length runs only to

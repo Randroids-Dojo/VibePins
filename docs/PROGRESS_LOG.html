@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="ball-containment-gutters-pit" data-date="2026-05-29">
+    <h3>Ball Containment (Gutters and the Back Pit)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/20260529-gutters-and-pit</code></dd>
+      <dt>PR</dt><dd>#TBD</dd>
+      <dt>Changed</dt><dd>Gave the lane real edges so a ball can no longer roll into the void (REQ-031 gutters, followup F-004 back pit). New shared geometry helpers in <code>src/config.ts</code>, <code>gutterBoxes()</code> and <code>pitBoxes()</code>, each returning a list of axis-aligned boxes (centre plus half-extents, matching Three.js <code>BoxGeometry</code> and Rapier <code>cuboid</code>) so the renderer meshes and the physics colliders are built from one source. A recessed gutter channel runs each side of the bed the full lane-plus-deck length: a floor below the bed top (<code>gutterDepth</code>), an inner lip just above the bed so a gutter ball cannot climb back onto the lane, and an outer wall so it cannot escape sideways. A recessed back pit (floor, back wall, two side walls) sits behind the pin deck so a ball clearing the rack drops in and comes to rest. <code>src/world3d.ts</code> builds the meshes (dark steel troughs / pit) and the static colliders via small shared <code>boxMesh</code> / <code>addStaticBox</code> helpers, wired into the constructor next to the existing lane and deck.</dd>
+      <dt>Verification</dt><dd>em-dash grep clean on changed files; <code>git diff --check</code> clean; <code>tsc --noEmit</code> clean; full Vitest suite 156/156 (10 new: <code>tests/containment.test.ts</code> guards the gutter/pit layout, <code>tests/containment.smoke.test.ts</code> runs the real Rapier WASM to prove a ball thrown wide drops into a gutter and is held, and a ball clearing the rack rests in the pit on its floor rather than falling forever); <code>vite build</code> succeeds (known single-chunk size warning, F-003).</dd>
+      <dt>Assumptions</dt><dd>Duckpin gutters are a shallow recessed channel sized by <code>LANE.gutterWidth</code> (smaller than tenpin per REQ-031). The containment is physical only: removing or scoring a gutter ball as zero pinfall is a game-loop concern (F-008), so REQ-031 stays <code>partial</code>. Gutter and pit tunables (depths, wall heights, pit length) are first-pass values for the playtest gate. Slice discipline: no edits to the ball launch or controls; lateral aim that exercises the gutters is the next slice (F-005/F-006).</dd>
+      <dt>GDD coverage</dt><dd>REQ-031 flipped <code>not_started</code> to <code>partial</code> (refs <code>src/config.ts</code>, <code>src/world3d.ts</code>, the two new tests, F-004). Build log appended to <code>docs/gdd/06-reuse-and-tech.html</code>.</dd>
+      <dt>Followups</dt><dd>None new. Progress note and PR reference added to <a href="FOLLOWUPS.html">F-004</a>: the physical containment landed; gutter-ball scoring rolls into the game loop (F-008).</dd>
+    </dl>
+  </article>
+
   <article data-slice="game-loop-orchestrator" data-date="2026-05-29">
     <h3>Game-Loop Orchestrator (Frame/Ball State Machine)</h3>
     <dl>
