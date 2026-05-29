@@ -603,9 +603,16 @@
    "id": "REQ-040",
    "requirement": "The pinsetter rig is visible on stage: guide tubes, cords, winding drums, overhead drive unit",
    "gddRef": "docs/gdd/04-look-and-feel.html#rube-goldberg",
-   "status": "not_started",
-   "implementationRefs": [],
-   "testRefs": [],
+   "status": "done",
+   "note": "The string machine is now staged above the pin deck as set dressing. pinsetterRigParts in src/config.ts is pure layout derived from the rack home spots and a single tunable PINSETTER block: two longitudinal painted-red rails plus a cross beam over each pin row at the cord anchor height (PINSETTER.frameTopY = TETHER.topY, so the beams visibly carry the strings the pins already hang from), one blackened-steel guide tube hung below the frame over each pin (above the standing pins, below the frame), one winding drum per pin riding a per-row cross-shaft, and a dark cast-iron overhead drive unit mounted at the down-lane back end. world3d.buildPinsetterRig turns the parts into box and cylinder meshes via rigBeamMesh/rigCylinderMesh; the cords themselves were already rendered per pin in src/pins.ts (REQ-013). No colliders: the rig never touches physics or the cords' behaviour. The pure layout is unit tested headless (one tube and drum per pin, one shaft and cross beam per row, frame at anchor height, tubes clear of the standing pins, drive unit above and behind the rack, frame within lane width).",
+   "implementationRefs": [
+    "src/config.ts",
+    "src/world3d.ts",
+    "src/pins.ts"
+   ],
+   "testRefs": [
+    "tests/pinsetter.test.ts"
+   ],
    "followupRefs": []
   },
   {

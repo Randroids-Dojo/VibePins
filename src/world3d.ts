@@ -8,7 +8,18 @@
 
 import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier3d-compat';
-import { LANE, SHOT_CAMERA, gutterBoxes, pitBoxes, type Box } from './config.js';
+import {
+  LANE,
+  SHOT_CAMERA,
+  PINSETTER,
+  gutterBoxes,
+  pitBoxes,
+  pinsetterRigParts,
+  type Box,
+  type RigBeam,
+  type RigCylinder,
+} from './config.js';
+import { pinRackPositions } from './pins.js';
 
 const FIXED_STEP = 1 / 60;
 const MAX_STEPS_PER_FRAME = 5;
@@ -47,6 +58,7 @@ export class World3D {
     this.buildPit();
     this.buildBallReturn();
     this.buildPinDeck();
+    this.buildPinsetterRig();
 
     // Physics world. Gravity straight down; a fixed bed collider gives the
     // ball and pins something to rest on in later slices.
@@ -193,6 +205,66 @@ export class World3D {
 
   private buildPitColliders(): void {
     for (const box of pitBoxes()) this.addStaticBox(box);
+  }
+
+  // The visible string-pinsetter rig over the pin deck (GDD REQ-040): the frame
+  // of beams, the per-pin guide tubes and winding drums on cross-shafts, and the
+  // overhead drive unit the cords hang from. Pure set dressing (no colliders);
+  // the layout is derived from the rack home spots so the rig sits exactly above
+  // the pins the cords already anchor to (TETHER.topY). Materials follow the
+  // industrial palette (REQ-041): painted-red frame, blackened-steel drums/tubes
+  // and shafts, dark cast-iron drive unit.
+  private buildPinsetterRig(): void {
+    const rig = pinsetterRigParts(pinRackPositions());
+
+    const frameMat = new THREE.MeshStandardMaterial({
+      color: PINSETTER.frameColor,
+      roughness: 0.55,
+      metalness: 0.45,
+    });
+    const steelMat = new THREE.MeshStandardMaterial({
+      color: PINSETTER.steelColor,
+      roughness: 0.4,
+      metalness: 0.7,
+    });
+    const driveMat = new THREE.MeshStandardMaterial({
+      color: PINSETTER.driveColor,
+      roughness: 0.6,
+      metalness: 0.6,
+    });
+
+    for (const beam of rig.beams) this.scene.add(this.rigBeamMesh(beam, frameMat));
+    for (const shaft of rig.shafts) this.scene.add(this.rigCylinderMesh(shaft, steelMat));
+    for (const drum of rig.drums) this.scene.add(this.rigCylinderMesh(drum, steelMat));
+    for (const tube of rig.guideTubes) this.scene.add(this.rigCylinderMesh(tube, steelMat));
+    this.scene.add(this.rigBeamMesh(rig.driveUnit, driveMat));
+  }
+
+  // A shadow-casting box mesh from a RigBeam (centre + half-extents).
+  private rigBeamMesh(beam: RigBeam, mat: THREE.Material): THREE.Mesh {
+    const mesh = new THREE.Mesh(
+      new THREE.BoxGeometry(beam.half.x * 2, beam.half.y * 2, beam.half.z * 2),
+      mat,
+    );
+    mesh.position.set(beam.center.x, beam.center.y, beam.center.z);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    return mesh;
+  }
+
+  // A cylindrical rig part (guide tube, drum, or cross-shaft). Three.js cylinders
+  // stand on +y by default; an 'x' axis part is rotated a quarter turn about z to
+  // lie across the lane.
+  private rigCylinderMesh(part: RigCylinder, mat: THREE.Material): THREE.Mesh {
+    const mesh = new THREE.Mesh(
+      new THREE.CylinderGeometry(part.radius, part.radius, part.length, 16),
+      mat,
+    );
+    mesh.position.set(part.center.x, part.center.y, part.center.z);
+    if (part.axis === 'x') mesh.rotation.z = Math.PI / 2;
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    return mesh;
   }
 
   // A shadow-receiving box mesh from a shared Box (centre + half-extents).
