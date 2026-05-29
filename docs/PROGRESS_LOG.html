@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="hanging-pin-detection-smoke" data-date="2026-05-29">
+    <h3>Hanging-Pin Detection Verified Against The Real Cord (REQ-022 complete)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/20260529-184739-req022-hanging-pin-smoke</code></dd>
+      <dt>PR</dt><dd>#TBD</dd>
+      <dt>Changed</dt><dd>Finished REQ-022 (a pin left hanging by its cord counts as fallen per the detection rule, GDD 03-string-pinsetter#tangle-hang). No runtime change: the rule already lives in <code>src/detection.ts</code>, where a pin that is off the deck footprint (including one lifted above <code>DETECTION.deckFootprint.maxCenterY</code>) reads fallen with no special case. The remaining gap was test depth: the unit tests pinned the classifier math against a synthetic off-deck position, but nothing proved the rule against the actual Rapier rope joint, that a pin genuinely suspended by a taut cord is read fallen. New headless Rapier smoke <code>tests/hang.smoke.test.ts</code> hangs a single tethered pin from an overhead anchor placed high enough that the slack cord, once taut, holds the pin centre above the deck footprint, drops the pin near the anchor so it falls onto the cord, and lets it settle into a genuine taut, upright, at-rest hang. It then asserts the pin is aloft (centre above <code>maxCenterY</code>) and at rest within the production at-rest thresholds, yet <code>classifyPinStanding</code> reads it fallen, and the authoritative <code>SettleWindow</code> resolves it fallen (standingCount 0, fallenCount 1) over the real settling physics.</dd>
+      <dt>Verification</dt><dd>em-dash grep (U+2014/U+2013) clean on changed files; <code>git diff --check</code> clean; <code>tsc --noEmit</code> clean; <code>vitest run</code> full suite green (2 new in <code>tests/hang.smoke.test.ts</code>: the classifier reads a taut-cord aloft pin fallen, and the SettleWindow resolves it fallen). Dependency upgrade gate run before the PR: rapier 0.19.3 and three 0.184.0 match the pinned values; vibekit not installed. No bump due.</dd>
+      <dt>Assumptions</dt><dd>The anchor height in the smoke is a test-only value chosen so the taut-cord resting hang lands above the deck footprint; the production rig hangs lower (TETHER.topY 2.5), but the detection rule under test is anchor-height independent, so the proof holds for the production geometry. This matches the GDD "dangling above the deck" case and the Pins Mechanical "no untangling of strings" house rule: the lane plays it as-is and the detection rule alone decides it. Slice discipline: test-only addition, no source touched.</dd>
+      <dt>GDD coverage</dt><dd>REQ-022 flipped <code>partial</code> to <code>done</code> in <code>docs/GDD_COVERAGE.json</code> (41 of 64 done). Test ref <code>tests/hang.smoke.test.ts</code> added. Build log appended to <code>docs/gdd/03-string-pinsetter.html</code> (the section stays <code>partial</code> overall: REQ-014 and REQ-018 remain partial pending the playtest gate).</dd>
+      <dt>Followups</dt><dd>None opened.</dd>
+    </dl>
+  </article>
+
   <article data-slice="machine-room-interior" data-date="2026-05-29">
     <h3>Machine-Room Interior Staging (REQ-039 complete)</h3>
     <dl>

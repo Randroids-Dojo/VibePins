@@ -325,12 +325,13 @@
    "id": "REQ-022",
    "requirement": "A pin left hanging by its cord counts as fallen per the detection rule",
    "gddRef": "docs/gdd/03-string-pinsetter.html#tangle-hang",
-   "status": "partial",
+   "status": "done",
    "implementationRefs": [
     "src/detection.ts"
    ],
    "testRefs": [
-    "tests/detection.test.ts"
+    "tests/detection.test.ts",
+    "tests/hang.smoke.test.ts"
    ],
    "followupRefs": []
   },
