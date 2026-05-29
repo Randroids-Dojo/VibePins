@@ -16,10 +16,16 @@ export interface SettingsState {
   // Whether the procedural audio engine is allowed to make sound. Defaults on;
   // the player can mute from the menu. Persisted across sessions.
   audioEnabled: boolean;
+  // Whether the player has seen the first-run control tutorial (REQ-047).
+  // Defaults false so a brand-new player gets the coach on their first game;
+  // set true after the first throw so it never nags again. Replayable from the
+  // menu, which clears it back to false.
+  tutorialSeen: boolean;
 }
 
 const DEFAULTS: SettingsState = {
   audioEnabled: true,
+  tutorialSeen: false,
 };
 
 // A minimal storage port so the store works without a real localStorage (tests,
@@ -38,6 +44,7 @@ function parse(raw: string | null): SettingsState {
     const data = JSON.parse(raw) as Partial<Record<keyof SettingsState, unknown>>;
     return {
       audioEnabled: typeof data.audioEnabled === 'boolean' ? data.audioEnabled : DEFAULTS.audioEnabled,
+      tutorialSeen: typeof data.tutorialSeen === 'boolean' ? data.tutorialSeen : DEFAULTS.tutorialSeen,
     };
   } catch {
     return { ...DEFAULTS };
@@ -80,6 +87,18 @@ export class Settings {
   // Set the audio-enable flag explicitly and persist.
   setAudioEnabled(enabled: boolean): void {
     this.state = { ...this.state, audioEnabled: enabled };
+    this.save();
+  }
+
+  get tutorialSeen(): boolean {
+    return this.state.tutorialSeen;
+  }
+
+  // Set the tutorial-seen flag explicitly and persist. Called with true after
+  // the first throw completes the coach, and with false when the player chooses
+  // to replay the tutorial from the menu.
+  setTutorialSeen(seen: boolean): void {
+    this.state = { ...this.state, tutorialSeen: seen };
     this.save();
   }
 

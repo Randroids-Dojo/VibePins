@@ -33,7 +33,7 @@ describe('Settings: persisted audio-enable toggle (REQ-046)', () => {
     const storage = fakeStorage();
     const settings = new Settings(storage);
     settings.toggleAudio();
-    expect(storage.store[KEY]).toBe(JSON.stringify({ audioEnabled: false }));
+    expect(storage.store[KEY]).toBe(JSON.stringify({ audioEnabled: false, tutorialSeen: false }));
   });
 
   it('reloads a persisted value across instances (survives a session)', () => {
@@ -72,5 +72,45 @@ describe('Settings: persisted audio-enable toggle (REQ-046)', () => {
     expect(settings.audioEnabled).toBe(true); // load swallowed the throw
     expect(settings.toggleAudio()).toBe(false); // save swallowed the throw
     expect(settings.audioEnabled).toBe(false);
+  });
+});
+
+describe('Settings: persisted tutorial-seen flag (REQ-047)', () => {
+  it('defaults tutorial unseen so a new player gets the coach', () => {
+    expect(new Settings(fakeStorage()).tutorialSeen).toBe(false);
+  });
+
+  it('setTutorialSeen writes and reports the explicit value', () => {
+    const settings = new Settings(fakeStorage());
+    settings.setTutorialSeen(true);
+    expect(settings.tutorialSeen).toBe(true);
+    settings.setTutorialSeen(false);
+    expect(settings.tutorialSeen).toBe(false);
+  });
+
+  it('persists the tutorial-seen flag across instances (survives a session)', () => {
+    const storage = fakeStorage();
+    new Settings(storage).setTutorialSeen(true);
+    expect(new Settings(storage).tutorialSeen).toBe(true);
+  });
+
+  it('persists tutorial-seen alongside audio in one payload', () => {
+    const storage = fakeStorage();
+    const settings = new Settings(storage);
+    settings.setTutorialSeen(true);
+    expect(storage.store[KEY]).toBe(JSON.stringify({ audioEnabled: true, tutorialSeen: true }));
+  });
+
+  it('ignores a non-boolean tutorialSeen and keeps the default', () => {
+    const settings = new Settings(fakeStorage({ [KEY]: JSON.stringify({ tutorialSeen: 'yes' }) }));
+    expect(settings.tutorialSeen).toBe(false);
+  });
+
+  it('reads a persisted unseen flag without disturbing audio', () => {
+    const settings = new Settings(
+      fakeStorage({ [KEY]: JSON.stringify({ audioEnabled: false, tutorialSeen: true }) }),
+    );
+    expect(settings.audioEnabled).toBe(false);
+    expect(settings.tutorialSeen).toBe(true);
   });
 });
