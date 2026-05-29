@@ -56,3 +56,29 @@ export const GROUP = {
   GUTTER: 1 << 3,
   STRING: 1 << 4,
 } as const;
+
+// String pinsetter tether tunables (GDD 03-string-pinsetter, REQ-013 to REQ-015).
+// Each pin hangs from a fixed overhead anchor by a slack cord modeled as a Rapier
+// rope joint (a max-distance constraint: slack until the anchor-to-neck distance
+// reaches slackLength, then taut). The cord must never go taut during normal play.
+export const TETHER = {
+  // Overhead anchor height above floorY, directly above each pin home spot.
+  // Midpoint of the GDD's 2.2 to 2.8m drive-unit range.
+  topY: 2.5,
+
+  // Cord attach point on the pin, as a local +y offset above the body centre:
+  // the neck, above the dropped belly/centre-of-mass and below the geometric top.
+  neckLocalY: LANE.pinHeight * 0.3,
+
+  // Rope joint maximum length. It must exceed the largest anchor-to-neck distance
+  // the cord can ever see in normal play so a struck pin falls freely (REQ-014),
+  // yet stay finite so a later reset slice can reel a pin up off the deck (REQ-015).
+  // Worst case (metres): an outer back-row pin's neck lying flat (y = floorY +
+  // pinBellyRadius) slid to the far corner of the deck footprint gives a distance
+  // of ~2.81. At rest the distance is only ~2.31. 2.96 clears the worst case by a
+  // ~0.15 margin. tether.test.ts recomputes the worst case and guards this value.
+  slackLength: 2.96,
+
+  // Thin neutral-grey cord line, in keeping with the industrial palette.
+  cordColor: 0x8a8a8a,
+} as const;
