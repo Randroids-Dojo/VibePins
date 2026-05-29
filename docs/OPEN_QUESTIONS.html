@@ -38,6 +38,23 @@
 <main id="open">
   <h2>Open</h2>
 
+  <section data-q="Q-012" data-status="open">
+    <h3>Q-012: Foul scoring and rack handling</h3>
+    <dl>
+      <dt>Context</dt><dd>Foul-line detection (REQ-032) flags an over-the-line release: the ball is at or in front of the foul line plane (z = 0, the approach side) while live. The detector exists; the question is how a foul scores. In sanctioned bowling a foul counts the ball as zero, and any pins the fouling ball knocked are reset (the rack is restored to before the throw), so the foul costs the throw but not the rack.</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li>Foul scores zero pinfall for that ball and the rack is restored to its pre-ball standing state. Pins the dead ball disturbed are reeled back by the between-balls reset, so the player still has the same pins to clear on the next ball (or the next frame if it was the third ball). Matches sanctioned play.</li>
+          <li>Foul scores zero but any pins the ball physically knocked stay down (no restoration), so a foul can still "help" by clearing pins for free. Simpler to implement but rewards fouling.</li>
+          <li>Foul ends the frame immediately (harshest), treating the over-the-line release as forfeiting the rest of the frame.</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>A. It matches universal bowling convention (a foul is a dead ball, zero, rack restored) and stays consistent with the existing zero-count ball path in the Game spine (a foul is recorded as recordBall(0), and the returned between-balls reset reels any disturbed pins back to their home spots). Shipped under A; flip here if a target duckpin house scores fouls differently.</dd>
+      <dt>Status</dt><dd>open</dd>
+      <dt>Resolution</dt><dd>(shipped under Recommended default A in the foul-detection slice; left open for dev override)</dd>
+    </dl>
+  </section>
+
   <section data-q="Q-011" data-status="open">
     <h3>Q-011: Tenth-frame bonus-ball rack semantics</h3>
     <dl>
