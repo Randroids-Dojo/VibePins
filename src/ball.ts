@@ -9,7 +9,7 @@
 
 import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier3d-compat';
-import { LANE, SPIN, POWER, GROUP, type Vec3 } from './config.js';
+import { LANE, SPIN, POWER, AIM, GROUP, type Vec3 } from './config.js';
 import type { World3D } from './world3d.js';
 
 // Ball membership plus a filter that collides with everything (lane, deck,
@@ -53,15 +53,33 @@ export function powerSpeed(stop: number): number {
   return POWER.maxSpeed + t * (POWER.minSpeed - POWER.maxSpeed);
 }
 
-// Launch velocity for a given spin/angle and power stop: down-lane (-z) at the
-// power-resolved speed, plus the lateral nudge from the spin. With no power stop
-// (undefined) the speed is the legacy fixed launch speed; a spin stop of 0 is a
-// straight ball. Down-lane speed scales the spin's lateral nudge so the launch
-// angle (not just the absolute sideways speed) tracks the chosen spin.
-export function ballLaunchVelocity(stop = 0, power?: number): Vec3 {
+// Base-aim lateral velocity from the line-up stance (GDD REQ-033 step 1). When
+// the ball starts off-centre (lateralOffset != 0, the chosen stance in metres),
+// the base aim points it back toward the aim spot at (headSpot.x, AIM.targetZ)
+// instead of rolling dead-straight down -z. The required x-velocity to reach
+// headSpot.x by the time the ball travels from its start z to the target is
+// (headSpot.x - startX) / travelTime, and travelTime is the down-lane distance
+// over the down-lane speed, so the term scales with speed and cancels the offset
+// at AIM.strength = 1. A positive offset (right stance) yields a negative aim x
+// (point back left toward centre). Pure, so the launch resolve stays testable.
+export function baseAimLateralSpeed(lateralOffset: number, speed: number): number {
+  const startX = LANE.headSpot.x + lateralOffset;
+  const travel = Math.abs(LANE.ballSpawnZ - AIM.targetZ);
+  if (travel === 0) return 0;
+  return AIM.strength * ((LANE.headSpot.x - startX) / travel) * speed;
+}
+
+// Launch velocity for a given spin/angle stop, power stop, and line-up stance:
+// down-lane (-z) at the power-resolved speed, plus the spin nudge and the base
+// aim from the lateral start position. With no power stop (undefined) the speed
+// is the legacy fixed launch speed; a spin stop of 0 and a centred stance (0) is
+// a straight ball. Down-lane speed scales both lateral terms so the launch angle
+// (not just the absolute sideways speed) tracks the chosen spin and stance.
+export function ballLaunchVelocity(stop = 0, power?: number, lateralOffset = 0): Vec3 {
   const speed = power === undefined ? LANE.ballLaunchSpeed : powerSpeed(power);
+  const spinX = spinFraction(stop) * SPIN.maxLateralSpeed * (speed / LANE.ballLaunchSpeed);
   return {
-    x: spinFraction(stop) * SPIN.maxLateralSpeed * (speed / LANE.ballLaunchSpeed),
+    x: spinX + baseAimLateralSpeed(lateralOffset, speed),
     y: 0,
     z: -speed,
   };
@@ -109,9 +127,11 @@ export class Ball {
   // the legacy straight shot) adds a lateral launch nudge and a vertical-axis
   // spin that hooks the roll toward the chosen side as it travels (REQ-036).
   // The power stop (REQ-035, default the legacy fixed speed) sets the down-lane
-  // speed; the forward roll follows from the resulting velocity.
-  launch(stop = 0, power?: number): void {
-    const velocity = ballLaunchVelocity(stop, power);
+  // speed; the forward roll follows from the resulting velocity. The line-up
+  // stance (REQ-033, lateralOffset in metres, default 0 for a centred shot) sets
+  // the base aim so an off-centre stance points the ball back at the pins.
+  launch(stop = 0, power?: number, lateralOffset = 0): void {
+    const velocity = ballLaunchVelocity(stop, power, lateralOffset);
     this.body.setLinvel(velocity, true);
     this.body.setAngvel(
       { x: velocity.z / LANE.ballRadius, y: spinFraction(stop) * SPIN.maxSpinYaw, z: 0 },

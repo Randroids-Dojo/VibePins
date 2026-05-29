@@ -160,6 +160,24 @@ export const POWER = {
   minSpeed: 3.5,
 } as const;
 
+// Step 1 base-aim direction (GDD 08-controls REQ-033, REQ-036 release). The
+// line-up sets a lateral start position (SHOT_CAMERA.alignLimit) AND the base direction
+// the ball points. Lining up off-centre points the ball back toward an aim spot
+// down-lane so the stance reads as "aim from here at the pins" rather than a
+// blind sideways slide that always rolls dead-straight and misses the pocket.
+export const AIM = {
+  // Down-lane z the base aim points toward. The pin deck (head spot) is the
+  // natural target, so a left/right stance angles the ball back at the rack.
+  targetZ: LANE.headSpot.z,
+
+  // How strongly the stance steers the aim, 0..1. 1 points the ball exactly at
+  // (headSpot.x, targetZ) from the stance; 0 is always straight down-lane. A
+  // partial weight keeps off-centre stances meaningful without fully cancelling
+  // the lateral start, so the player still owns where on the deck they attack.
+  // Forgiving first pass to tighten against the playtest gate (Q-010).
+  strength: 0.7,
+} as const;
+
 // Collision-group bitmask for the physics layers (GDD reuse, GROUP pattern).
 export const GROUP = {
   BALL: 1 << 0,

@@ -225,7 +225,9 @@ function startReset(mode: ResetMode): void {
 // watching it. One confirm per step drives the aiming phase (REQ-037).
 function throwBall(): void {
   ball.release();
-  ball.launch(spinMeter.position, powerMeter.position);
+  // The line-up stance (metres off centre) sets the base aim so an off-centre
+  // line points the ball back at the pins (REQ-033 step 1, REQ-036 release).
+  ball.launch(spinMeter.position, powerMeter.position, shotCamera.alignment);
   // The ball leaves the hand and meets the lane: a release thunk plus a rumble
   // down the wood (REQ-043).
   audio.playBallThunk();
