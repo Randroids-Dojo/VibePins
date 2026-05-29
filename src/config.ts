@@ -25,6 +25,19 @@ export const LANE = {
   ballRadius: 0.0635,
   ballMass: 1.64,
 
+  // Ball launch and surface tunables (GDD REQ-029). The ball spawns at
+  // ballSpawnZ, just inside the foul line on the lane bed (the bed runs from the
+  // foul line at z=0 to the head pin), and rolls down-lane at ballLaunchSpeed
+  // toward the pins. An approach floor behind the foul line is a later scene
+  // slice. These are first-pass values to tighten against the playtest gate
+  // (a polished ball skids then rolls and barely bounces).
+  ballSpawnZ: -0.15,
+  ballLaunchSpeed: 8.0,
+  ballFriction: 0.25,
+  ballRestitution: 0.1,
+  ballLinearDamping: 0.05,
+  ballAngularDamping: 0.05,
+
   // Pin: squat and belly-heavy for low energy transfer (GDD REQ-026).
   pinHeight: 0.2381,
   pinBellyRadius: 0.0476,

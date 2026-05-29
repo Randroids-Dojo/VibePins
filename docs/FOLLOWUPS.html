@@ -53,6 +53,16 @@
     </dl>
   </section>
 
+  <section data-f="F-004" data-priority="nice-to-have">
+    <h3>F-004: Ball containment (gutters and a back pit)</h3>
+    <dl>
+      <dt>Context</dt><dd>The ball slice launches the ball straight down-lane on the bed (x=0), so it stays on the lane and reaches the pins. But there are no gutters (REQ-031) on the sides and no pit/backstop behind the pin deck, so a ball with any lateral component would roll off the side and a ball that clears the rack rolls off the back of the deck and falls into the void (the ball-roll smoke confirms this). Both are scene/physics additions.</dd>
+      <dt>Blocker</dt><dd>none to start; it has no value until the ball can travel sideways.</dd>
+      <dt>Unblock condition</dt><dd>This becomes a hard prerequisite for the three-step control scheme (REQ-033, REQ-034 lateral aim and spin): gutters must exist before the ball can be aimed off-centre, and a back pit/backstop should exist so a thrown ball comes to rest rather than falling forever. Implement gutters (REQ-031) and a simple back pit before or alongside the lateral-aim controls slice.</dd>
+      <dt>PR / Dot reference</dt><dd>(not started)</dd>
+    </dl>
+  </section>
+
   <section data-f="F-002" data-priority="nice-to-have">
     <h3>F-002: Optional web push for "your turn"</h3>
     <dl>
