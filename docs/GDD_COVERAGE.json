@@ -607,9 +607,17 @@
    "id": "REQ-042",
    "requirement": "Scoreboard is styled as an electromechanical display (split-flap / rolling counters / relay digits)",
    "gddRef": "docs/gdd/04-look-and-feel.html#ui",
-   "status": "not_started",
-   "implementationRefs": [],
-   "testRefs": [],
+   "status": "done",
+   "note": "The scoreboard now reads as an electromechanical split-flap board on a blackened-steel plate. Every ball glyph and running total renders on a two-leaf split-flap card (top and bottom leaf split by a centre hinge seam) in src/scoreboard.ts, and when a cell's glyph changes between paints only that card gets a .vp-flip class and its top leaf folds over the hinge via the vp-flap-fold keyframe in index.html, the way a real split-flap board snaps a new digit. Which cells changed is a pure diff (cellGlyphs + changedCellKeys) so the flip targeting is unit tested without a DOM; the Scoreboard class adds/clears the class and is verified against a fake DOM. The flip is suppressed under prefers-reduced-motion (both in JS and the media query).",
+   "implementationRefs": [
+    "src/scoreboard.ts",
+    "index.html",
+    "src/main.ts"
+   ],
+   "testRefs": [
+    "tests/scoreboard.test.ts",
+    "tests/scoreboard.flip.test.ts"
+   ],
    "followupRefs": []
   },
   {

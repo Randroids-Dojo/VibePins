@@ -9,31 +9,80 @@
     html, body { margin: 0; height: 100%; background: #05060a; overflow: hidden; }
     #lane { display: block; width: 100vw; height: 100vh; }
 
-    /* Scoreboard overlay (REQ-012). A plain readable board for now; the
-       electromechanical split-flap skin (REQ-042) is a later slice. */
+    /* Scoreboard overlay (REQ-012, REQ-042). The board reads as an
+       electromechanical split-flap display bolted to a blackened-steel plate:
+       each ball glyph and each running total sits on a split-flap card (a top
+       and bottom leaf split by a centre hinge gap). When a cell's glyph changes
+       between renders, src/scoreboard.ts adds .vp-flip to just that card and the
+       leaf flips into place (the keyframes below), the way a real split-flap
+       board snaps a new digit over. The flip is suppressed for users who ask to
+       reduce motion (handled in src/scoreboard.ts and the media query below). */
     #scoreboard {
       position: fixed; top: 0; left: 0; right: 0;
-      display: flex; justify-content: center; gap: 2px;
-      padding: 6px 8px;
-      font: 600 13px/1.2 ui-monospace, "SFMono-Regular", Menlo, monospace;
-      color: #f4ecd6; background: rgba(8, 10, 16, 0.55);
+      display: flex; justify-content: center; gap: 3px;
+      padding: 7px 8px 9px;
+      font: 700 13px/1.2 ui-monospace, "SFMono-Regular", Menlo, monospace;
+      color: #f4ecd6;
+      background: linear-gradient(rgba(18, 16, 12, 0.92), rgba(9, 8, 6, 0.92));
+      border-bottom: 1px solid #6b5326;
+      box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.04), 0 2px 8px rgba(0, 0, 0, 0.55);
       pointer-events: none; user-select: none;
     }
     .vp-frame {
-      display: flex; flex-direction: column; align-items: stretch;
-      border: 1px solid rgba(244, 236, 214, 0.35); min-width: 38px;
+      display: flex; flex-direction: column; align-items: stretch; gap: 2px;
+      padding: 3px 3px 2px;
+      background: linear-gradient(#26221a, #15120d);
+      border: 1px solid #3a3326; border-radius: 3px;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+      min-width: 40px;
     }
     .vp-frame-num {
-      text-align: center; font-size: 10px; color: #b9a87a;
-      border-bottom: 1px solid rgba(244, 236, 214, 0.2);
+      text-align: center; font-size: 9px; letter-spacing: 0.08em; color: #b9923c;
     }
-    .vp-balls { display: flex; }
-    .vp-ball {
-      flex: 1; text-align: center; min-width: 12px; min-height: 14px;
-      border-left: 1px solid rgba(244, 236, 214, 0.15);
+    .vp-balls { display: flex; gap: 2px; }
+    /* A single split-flap card. Each leaf renders the full glyph at the card's
+       full height but is clipped to its half (overflow: hidden), so the top leaf
+       shows the glyph's upper half and the bottom leaf the lower half. The seam
+       between them is the hinge line of a split-flap board. */
+    .vp-flap {
+      position: relative; display: inline-block;
+      width: 14px; height: 20px; border-radius: 2px;
+      background: #0a0907; border: 1px solid #000;
+      box-shadow: inset 0 0 3px rgba(0, 0, 0, 0.8);
+      color: #ffcf7a; perspective: 80px;
     }
-    .vp-ball:first-child { border-left: none; }
-    .vp-cumulative { text-align: center; min-height: 16px; font-size: 15px; }
+    .vp-flap-leaf {
+      position: absolute; left: 0; right: 0; height: 10px; overflow: hidden;
+      background: linear-gradient(#26231b, #16140f);
+      text-align: center; font-size: 15px; font-weight: 700;
+    }
+    /* Both leaves lay the glyph out across the full 20px card height, then clip:
+       the top leaf is anchored at the card top, the bottom leaf at the card
+       bottom, so each shows the matching half of the same glyph. */
+    .vp-flap-top {
+      top: 0; line-height: 20px; border-bottom: 1px solid #000;
+    }
+    .vp-flap-bottom {
+      bottom: 0; line-height: 0;
+    }
+    .vp-cumulative { display: flex; justify-content: center; }
+    .vp-cumulative .vp-flap { width: 18px; color: #f4ecd6; }
+    .vp-ball .vp-flap-leaf { font-size: 13px; }
+
+    /* The flip: the top leaf folds down over the hinge and back. Short and
+       mechanical so the board snaps a new glyph rather than eases. */
+    @keyframes vp-flap-fold {
+      0% { transform: rotateX(0deg); }
+      55% { transform: rotateX(-88deg); }
+      100% { transform: rotateX(0deg); }
+    }
+    .vp-flip .vp-flap-top {
+      transform-origin: bottom center; backface-visibility: hidden;
+      animation: vp-flap-fold 0.4s ease-in;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .vp-flip .vp-flap-top { animation: none; }
+    }
 
     #status {
       position: fixed; bottom: 14px; left: 0; right: 0; text-align: center;
