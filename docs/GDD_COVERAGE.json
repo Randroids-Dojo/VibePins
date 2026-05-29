@@ -598,9 +598,14 @@
    "id": "REQ-043",
    "requirement": "Procedural Web Audio engine synthesizes pin clatter, ball roll, and the string-reset whir",
    "gddRef": "docs/gdd/04-look-and-feel.html#audio",
-   "status": "not_started",
-   "implementationRefs": [],
-   "testRefs": [],
+   "status": "done",
+   "implementationRefs": [
+    "src/audio.ts",
+    "src/main.ts"
+   ],
+   "testRefs": [
+    "tests/audio.test.ts"
+   ],
    "followupRefs": []
   },
   {
