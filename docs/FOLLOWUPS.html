@@ -73,7 +73,8 @@
       <dt>Context</dt><dd>Wire the existing systems into an actual game: after the throw, wait for the rack to settle, run detection (<code>src/detection.ts</code>) to count this ball's pinfall, feed it into the scoring engine (<code>src/scoring.ts</code> <code>scoreGame</code>), run the reset cycle (<code>src/reset.ts</code>) to reel fallen pins and re-rack between frames, advance through three balls per frame and ten frames, and show the end-of-game summary (REQ-001, REQ-002, REQ-008, REQ-009, REQ-010, REQ-011). The pieces all exist and are unit tested in isolation; this is the orchestration slice that makes VibePins a game. A visible scoreboard (REQ-012, REQ-042) can land here or as a paired UI slice.</dd>
       <dt>Blocker</dt><dd>best after the throw is player-driven (F-006/F-007) so real pinfall flows in, though it can be prototyped with the current fixed launch.</dd>
       <dt>Unblock condition</dt><dd>scoring, detection, and reset are merged (they are); wire them together.</dd>
-      <dt>PR / Dot reference</dt><dd>(not started)</dd>
+      <dt>Progress</dt><dd>The pure orchestration spine landed as <code>src/game.ts</code> (the <code>Game</code> class): it consumes per-ball pinfall, tracks frame and ball, leaves standing pins between balls and re-racks at frame end, runs the tenth-frame bonus-ball logic, and ends the game with a summary (REQ-009, REQ-010, REQ-011 now partial). What remains for F-008: wire it into <code>src/main.ts</code> so detection feeds <code>recordBall</code>, the returned <code>between-balls</code> / <code>rerack</code> reset drives <code>ResetCycle</code> / <code>PinSet</code>, and the <code>game-over</code> summary renders on screen. The visible scoreboard (REQ-012, REQ-042) can land with the wiring or as a paired UI slice.</dd>
+      <dt>PR / Dot reference</dt><dd>orchestrator: PR #TBD; physics/UI wiring: (not started)</dd>
     </dl>
   </section>
 </section>
