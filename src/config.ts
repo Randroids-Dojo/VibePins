@@ -249,6 +249,22 @@ export const RESET = {
 // source for the reset lower target and the detection/rack geometry.
 export const PIN_REST_Y = LANE.floorY + LANE.pinHeight / 2;
 
+// Post-throw shot watcher (GDD 02-core-loop, REQ-009). Decides when a thrown
+// ball has resolved so the loop can count pinfall and advance the frame. A shot
+// resolves when the ball is at rest, has cleared the deck into the pit, or hits
+// the hard timeout. Frame counts are in fixed (1/60s) steps.
+export const SHOT = {
+  // A ball this slow (m/s) is no longer acting on the pins. Above the pin
+  // at-rest threshold because a rolling ball carries more residual speed than a
+  // standing pin's jitter, and we want to call the shot reasonably promptly.
+  atRestSpeed: 0.2,
+  atRestFrames: 18, //  ~0.30s held at rest before the shot resolves
+  // The ball has cleared the pin deck into the pit once past the deepest back
+  // row; from there it cannot return to the rack, so the shot resolves at once.
+  pitZ: LANE.headSpot.z - LANE.pinDeckDepth,
+  maxFrames: 600, // ~10s hard cap so a wedged ball never stalls the loop
+} as const;
+
 // Ball-containment geometry (GDD REQ-031 gutters, followup F-004 back pit).
 // Pure layout derived from LANE so the world3d meshes and the physics colliders
 // (and the smoke tests) share one source of truth. All boxes are described by a

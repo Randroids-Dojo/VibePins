@@ -1,28 +1,42 @@
 // VibePins entry point and game loop. Boots the 3D lane scene and physics world,
-// drives the shot-setup camera sequence (pickup, walk-up, align, lock), carries
-// and throws the ball, and handles the placeholder controls. The full three-step
-// control scheme and the scoring/reset game loop layer on in later slices.
+// drives the shot-setup camera sequence (pickup, walk-up, align, lock), runs the
+// three-step throw (line-up, spin, power), then orchestrates the full game loop:
+// watch the thrown ball, wait for the rack to settle, count this ball's pinfall,
+// feed the pure Game spine, run the string-pinsetter reset between balls or a
+// full re-rack at frame end, advance through three balls per frame and ten
+// frames, and show the end-of-game summary (GDD 02-core-loop, F-008).
 
 import { createWorld3D } from './world3d.js';
 import { PinSet, pinRackPositions } from './pins.js';
 import { Ball, ballSpawnPosition } from './ball.js';
-import { detectPins } from './detection.js';
-import { ResetCycle } from './reset.js';
+import { detectPins, SettleWindow } from './detection.js';
+import { ResetCycle, type ResetMode } from './reset.js';
 import { ShotCamera, canThrow } from './camera.js';
 import { SweepMeter } from './meter.js';
-import { DETECTION, LANE, PIN_REST_Y, POWER, RESET, SHOT_CAMERA, SPIN } from './config.js';
+import { Game } from './game.js';
+import { Scoreboard } from './scoreboard.js';
+import { ShotWatcher } from './shot.js';
+import { DETECTION, LANE, PIN_REST_Y, POWER, RESET, SHOT, SHOT_CAMERA, SPIN } from './config.js';
 
 const canvas = document.getElementById('lane') as HTMLCanvasElement | null;
 if (!canvas) {
   throw new Error('VibePins: missing required <canvas id="lane"> element.');
 }
+const scoreboardEl = document.getElementById('scoreboard');
+const statusEl = document.getElementById('status');
 
 const world = await createWorld3D(canvas);
 const pins = new PinSet(world);
 const ball = new Ball(world);
 
+// The pure game spine: tracks frames/balls, decides re-racks, and scores. It has
+// no reset of its own, so a new game replaces this instance (see restartGame).
+let game = new Game();
+const scoreboard = scoreboardEl ? new Scoreboard(scoreboardEl) : null;
+
 const reset = new ResetCycle({ ...RESET, restY: PIN_REST_Y });
-let resetting: number[] | null = null;
+const settle = new SettleWindow(DETECTION, DETECTION.settleAtRestFrames, DETECTION.settleMaxFrames);
+const shotWatcher = new ShotWatcher(SHOT);
 
 // Shot-setup camera: pick the ball up at the return, walk up to the foul line,
 // then shift your line and lock in before the throw (GDD 08-controls, REQ-033).
@@ -33,90 +47,140 @@ const shotCamera = new ShotCamera(
   { rest: SHOT_CAMERA.ballReturnPos, held: SHOT_CAMERA.ballHeldPos, ready: ballSpawnPosition() },
 );
 
-// Step 2 of the throw: a spin/angle meter sweeps once the line is locked; one
-// confirm stops it, capturing the spin (GDD 08-controls, REQ-034). The captured
-// stop feeds the launch (REQ-036).
+// Step 2 and 3 of the throw: a spin/angle meter then a power meter, each a single
+// sweep stopped by one confirm (GDD 08-controls, REQ-034, REQ-035). The captured
+// stops feed the launch (REQ-036).
 const spinMeter = new SweepMeter({ sweepsPerSecond: SPIN.sweepsPerSecond });
-
-// Step 3 of the throw: a power meter sweeps once the spin is set; one confirm
-// stops it (capturing the speed) and triggers the release (GDD 08-controls,
-// REQ-035). The centred sweet spot is the best shot; the extremes are weak.
 const powerMeter = new SweepMeter({ sweepsPerSecond: POWER.sweepsPerSecond });
 
-// The ball is carried (kinematic) through the setup, then released on the throw.
-let holding = false;
+// Phases of one shot through the loop:
+//   aiming   the player lines up, sets spin, sets power, then throws.
+//   watching the ball is in flight; wait for it to resolve (rest or pit).
+//   settling the rack is settling; wait, then count pinfall and record it.
+//   resetting the pinsetter is reeling fallen pins or re-racking.
+//   over      the game is complete; the summary is shown.
+type Phase = 'aiming' | 'watching' | 'settling' | 'resetting' | 'over';
+let phase: Phase = 'aiming';
+
+// Pins standing before the current ball was thrown, so pinfall = before - after.
+let standingBeforeBall = 10;
+// The pin indices the active reset is carrying (handed back when it completes).
+let resetTargets: number[] | null = null;
+
+const ALIGN_STEP = 0.04;
+
+function setStatus(text: string): void {
+  if (statusEl) statusEl.textContent = text;
+}
+
+function renderScore(): void {
+  scoreboard?.render(game.score);
+}
+
+// Begin a fresh shot: carry the ball to the return and start the walk-up. Set
+// the standing-before count so the next pinfall reading is a delta against it.
 function beginShot(): void {
+  ball.respawn();
   ball.grab();
   shotCamera.start();
-  holding = true;
+  standingBeforeBall = countStandingPins();
+  phase = 'aiming';
+  setStatus(shotStatus());
 }
-beginShot();
 
-// Controls: while aligning, A / left and D / right shift your line; a confirm
-// (Space / Enter / click) locks the line and starts the spin meter; the next
-// confirm stops the spin meter and starts the power meter; the next confirm
-// stops the power meter and throws with the captured spin and power. N sets up a
-// fresh shot; R reels the fallen pins back up. One confirm per step (REQ-037).
-const ALIGN_STEP = 0.04;
+function shotStatus(): string {
+  return `Frame ${game.currentFrame + 1} - Ball ${game.currentBall} - Aim, spin, power. Space/click to confirm.`;
+}
+
+function countStandingPins(): number {
+  return detectPins(pins, DETECTION).filter((p) => p.standing).length;
+}
+
+// Start a reset cycle in the given mode, making the carried pins kinematic.
+function startReset(mode: ResetMode): void {
+  const fallen =
+    mode === 'rerack'
+      ? pinRackPositions().map((_, i) => i)
+      : detectPins(pins, DETECTION)
+          .filter((p) => !p.standing)
+          .map((p) => p.pinIndex);
+  const settled = pins.pinStates().map((s) => s.position);
+  if (fallen.length === 0) {
+    // Nothing to reel (a clean miss between balls): skip straight to the next shot.
+    beginShot();
+    return;
+  }
+  pins.beginReset(fallen);
+  reset.start(mode, fallen, pinRackPositions(), settled);
+  resetTargets = fallen;
+  phase = 'resetting';
+}
+
+// The throw: release the ball with the captured spin and power, then start
+// watching it. One confirm per step drives the aiming phase (REQ-037).
+function throwBall(): void {
+  ball.release();
+  ball.launch(spinMeter.position, powerMeter.position);
+  shotWatcher.begin();
+  phase = 'watching';
+  setStatus('Rolling...');
+}
+
 function confirm(): void {
+  if (phase === 'over') {
+    // After the summary, a confirm starts a brand-new game.
+    restartGame();
+    return;
+  }
+  if (phase !== 'aiming') return;
+
   if (shotCamera.isAligning) {
-    // Lock the line and begin the spin/angle sweep.
     shotCamera.lock();
     spinMeter.start();
     return;
   }
   if (spinMeter.isSweeping) {
-    // Stop the spin meter, then begin the power sweep.
     spinMeter.stop();
     powerMeter.start();
     return;
   }
   if (powerMeter.isSweeping) {
-    // Stop the power meter, then throw with the captured spin and power.
     powerMeter.stop();
-    if (canThrow(shotCamera.currentPhase, holding)) {
-      ball.release();
-      ball.launch(spinMeter.position, powerMeter.position);
-      holding = false;
-    }
+    if (canThrow(shotCamera.currentPhase, true)) throwBall();
   }
 }
+
+function restartGame(): void {
+  // The Game spine has no reset; replace it with a fresh one. Re-rack the deck
+  // and start the first shot of the new game.
+  game = new Game();
+  renderScore();
+  startReset('rerack');
+}
+
 window.addEventListener('pointerdown', () => confirm());
 window.addEventListener('keydown', (event) => {
   switch (event.code) {
     case 'ArrowLeft':
     case 'KeyA':
-      shotCamera.nudgeAlign(-ALIGN_STEP);
+      if (phase === 'aiming') shotCamera.nudgeAlign(-ALIGN_STEP);
       break;
     case 'ArrowRight':
     case 'KeyD':
-      shotCamera.nudgeAlign(ALIGN_STEP);
+      if (phase === 'aiming') shotCamera.nudgeAlign(ALIGN_STEP);
       break;
     case 'Enter':
     case 'Space':
       event.preventDefault();
       confirm();
       break;
-    case 'KeyN':
-      beginShot();
-      break;
-    case 'KeyR':
-      if (!reset.isRunning) {
-        const fallen = detectPins(pins, DETECTION)
-          .filter((p) => !p.standing)
-          .map((p) => p.pinIndex);
-        if (fallen.length > 0) {
-          const settled = pins.pinStates().map((s) => s.position);
-          pins.beginReset(fallen);
-          reset.start('between-balls', fallen, pinRackPositions(), settled);
-          resetting = fallen;
-        }
-      }
-      break;
     default:
       break;
   }
 });
+
+renderScore();
+beginShot();
 
 let last = performance.now();
 function frame(now: number): void {
@@ -125,25 +189,30 @@ function frame(now: number): void {
   const dt = Math.min((now - last) / 1000, 0.05);
   last = now;
 
-  // Sweep the spin and power meters while they run (the cursor must keep moving
-  // until the player stops it; only the running meter moves), and drive the
-  // shot-setup camera each frame, carrying the ball while holding it.
-  spinMeter.update(dt);
-  powerMeter.update(dt);
-  const { pose, ballPos } = shotCamera.update(dt);
-  world.camera.position.set(pose.pos.x, pose.pos.y, pose.pos.z);
-  world.camera.lookAt(pose.lookAt.x, pose.lookAt.y, pose.lookAt.z);
-  if (world.camera.fov !== pose.fov) {
-    world.camera.fov = pose.fov;
-    world.camera.updateProjectionMatrix();
-  }
-  if (holding) ball.holdAt(ballPos);
-
-  if (resetting) {
+  if (phase === 'aiming') {
+    // Only the running meter sweeps; the camera carries the held ball.
+    spinMeter.update(dt);
+    powerMeter.update(dt);
+    const { pose, ballPos } = shotCamera.update(dt);
+    applyCameraPose(pose);
+    ball.holdAt(ballPos);
+  } else if (phase === 'watching') {
+    const k = ball.kinematics();
+    if (shotWatcher.step(k.speed, k.z)) {
+      // The ball has resolved; begin settling the rack before counting.
+      settle.reset();
+      phase = 'settling';
+      setStatus('Counting pins...');
+    }
+  } else if (phase === 'settling') {
+    const result = settle.step(pins.pinStates());
+    if (result.settled) recordSettledBall(result.standingCount);
+  } else if (phase === 'resetting') {
     pins.resetStep(reset.update(dt));
     if (reset.isComplete()) {
-      pins.endReset(resetting);
-      resetting = null;
+      if (resetTargets) pins.endReset(resetTargets);
+      resetTargets = null;
+      beginShot();
     }
   }
 
@@ -153,4 +222,34 @@ function frame(now: number): void {
   world.render();
   requestAnimationFrame(frame);
 }
+
+function applyCameraPose(pose: { pos: { x: number; y: number; z: number }; lookAt: { x: number; y: number; z: number }; fov: number }): void {
+  world.camera.position.set(pose.pos.x, pose.pos.y, pose.pos.z);
+  world.camera.lookAt(pose.lookAt.x, pose.lookAt.y, pose.lookAt.z);
+  if (world.camera.fov !== pose.fov) {
+    world.camera.fov = pose.fov;
+    world.camera.updateProjectionMatrix();
+  }
+}
+
+// The rack has settled: count this ball's pinfall (the drop in standing pins),
+// feed it to the Game spine, render the new score, and act on the outcome.
+function recordSettledBall(standingNow: number): void {
+  const pinsDowned = Math.max(0, standingBeforeBall - standingNow);
+  const result = game.recordBall(pinsDowned);
+  renderScore();
+
+  if (result.outcome === 'game-over') {
+    phase = 'over';
+    const summary = game.summary();
+    setStatus(`Game over. Final score ${summary?.finalScore ?? 0}. Space/click for a new game.`);
+    return;
+  }
+
+  // The Game spine returns 'between-balls' (lift only fallen pins, REQ-009) or
+  // 'rerack' (full re-rack at frame end, REQ-010); 'none' only accompanies the
+  // game-over outcome handled above, so the remaining values are valid ResetModes.
+  if (result.reset !== 'none') startReset(result.reset);
+}
+
 requestAnimationFrame(frame);
