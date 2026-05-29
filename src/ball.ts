@@ -9,7 +9,7 @@
 
 import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier3d-compat';
-import { LANE, SPIN, GROUP, type Vec3 } from './config.js';
+import { LANE, SPIN, POWER, GROUP, type Vec3 } from './config.js';
 import type { World3D } from './world3d.js';
 
 // Ball membership plus a filter that collides with everything (lane, deck,
@@ -40,11 +40,31 @@ export function spinFraction(stop: number): number {
   return sign * ((Math.abs(s) - SPIN.straightBand) / (1 - SPIN.straightBand));
 }
 
-// Launch velocity for a given spin/angle stop: straight down-lane (-z) plus the
-// lateral nudge from the spin. A stop of 0 (or undefined, the legacy fixed shot)
-// is straight down-lane at the configured speed.
-export function ballLaunchVelocity(stop = 0): Vec3 {
-  return { x: spinFraction(stop) * SPIN.maxLateralSpeed, y: 0, z: -LANE.ballLaunchSpeed };
+// Resolve the chosen power stop (normalized [-1, +1] from the power meter) into
+// a down-lane launch speed (GDD REQ-035). The centred sweet-spot band is full
+// power (the best shot); outside it the speed ramps down linearly to the minimum
+// at the track extreme, so a mistimed stop is a weak push but never a dead ball.
+// Symmetric in the stop's sign: only the distance from centre matters for speed.
+export function powerSpeed(stop: number): number {
+  const d = Math.min(1, Math.abs(stop));
+  if (d <= POWER.sweetSpotBand) return POWER.maxSpeed;
+  // Fraction from the band edge (0) to the extreme (1).
+  const t = (d - POWER.sweetSpotBand) / (1 - POWER.sweetSpotBand);
+  return POWER.maxSpeed + t * (POWER.minSpeed - POWER.maxSpeed);
+}
+
+// Launch velocity for a given spin/angle and power stop: down-lane (-z) at the
+// power-resolved speed, plus the lateral nudge from the spin. With no power stop
+// (undefined) the speed is the legacy fixed launch speed; a spin stop of 0 is a
+// straight ball. Down-lane speed scales the spin's lateral nudge so the launch
+// angle (not just the absolute sideways speed) tracks the chosen spin.
+export function ballLaunchVelocity(stop = 0, power?: number): Vec3 {
+  const speed = power === undefined ? LANE.ballLaunchSpeed : powerSpeed(power);
+  return {
+    x: spinFraction(stop) * SPIN.maxLateralSpeed * (speed / LANE.ballLaunchSpeed),
+    y: 0,
+    z: -speed,
+  };
 }
 
 export class Ball {
@@ -88,8 +108,10 @@ export class Ball {
   // -v, that equals velocity.z / r. The spin/angle stop (REQ-034, default 0 for
   // the legacy straight shot) adds a lateral launch nudge and a vertical-axis
   // spin that hooks the roll toward the chosen side as it travels (REQ-036).
-  launch(stop = 0): void {
-    const velocity = ballLaunchVelocity(stop);
+  // The power stop (REQ-035, default the legacy fixed speed) sets the down-lane
+  // speed; the forward roll follows from the resulting velocity.
+  launch(stop = 0, power?: number): void {
+    const velocity = ballLaunchVelocity(stop, power);
     this.body.setLinvel(velocity, true);
     this.body.setAngvel(
       { x: velocity.z / LANE.ballRadius, y: spinFraction(stop) * SPIN.maxSpinYaw, z: 0 },

@@ -137,6 +137,29 @@ export const SPIN = {
   maxSpinYaw: 12,
 } as const;
 
+// Step 3 of the throw: the power meter (GDD 08-controls REQ-035). A second sweep
+// on the same [-1, +1] track sets the down-lane ball speed and triggers release.
+// The track reads as a gradient with a sweet spot in the centre (the cursor
+// starts at an end and passes through the centre, so the player times the stop
+// to catch the peak): a centred stop gives the fastest, best shot, and the
+// extremes are weak. Sweep speed and the sweet-spot width are tunable (Q-010:
+// start forgiving, tighten via the playtest gate).
+export const POWER = {
+  // Full end-to-end sweeps per second. Forgiving first pass for the playtest gate.
+  sweepsPerSecond: 1.0,
+
+  // Half-width of the centred sweet-spot band on the [-1, +1] track. Stops with
+  // abs(position) at or below this read as full power, so catching the peak is
+  // forgiving rather than a knife edge.
+  sweetSpotBand: 0.15,
+
+  // Down-lane launch speed (m/s) at the sweet spot (best shot) and at the track
+  // extremes (a weak push). Speed ramps linearly from max at the band edge down
+  // to min at the extreme, so a mistimed stop is slow but never stalls.
+  maxSpeed: 8.0,
+  minSpeed: 3.5,
+} as const;
+
 // Collision-group bitmask for the physics layers (GDD reuse, GROUP pattern).
 export const GROUP = {
   BALL: 1 << 0,
