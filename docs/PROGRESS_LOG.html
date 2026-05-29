@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="scoring-engine" data-date="2026-05-29">
+    <h3>Duckpin Scoring Engine</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/scoring-engine</code></dd>
+      <dt>PR</dt><dd>#TBD</dd>
+      <dt>Changed</dt><dd>Added the duckpin scoring rules as a pure, framework-free, JSON-serializable module <code>src/scoring.ts</code> (consumed later by the scoreboard UI, the multiplayer authority REQ-053, and leaderboard validation REQ-059). <code>scoreGame(frames)</code> classifies each frame as strike, spare, flat_ten, or open and computes per-frame and running cumulative scores; helpers <code>classifyFrameMark</code>, <code>flattenAllBalls</code>, and <code>validateGameInput</code> are exported for reuse and testing. Implements the three duckpin specifics: three balls per frame; the candlepin flat ten (cleared only on ball 3) scores a flat 10 with no bonus and is never a spare; the tenth frame grants two bonus balls for a strike, one for a spare, none otherwise. Strike and spare bonuses resolve from a flat throw tape so they span later frames and into the tenth, and running totals go null from the first pending frame for in-progress games (REQ-008). Validation rejects impossible inputs (out-of-range/non-integer pins, more than ten pins within a rack, malformed frames, wrong frame count) and never throws.</dd>
+      <dt>Verification</dt><dd>em-dash grep clean; <code>git diff --check</code> clean; <code>npm run typecheck</code> clean; <code>npm run test</code> 77/77 passing; <code>npm run build</code> succeeds (known single-chunk size warning, F-003). The 77 tests cover every frame mark, consecutive strikes, strike-then-spare, the flat-ten-is-not-a-spare distinction, all four tenth-frame outcomes, cross-boundary bonus chains, a perfect 300, an all-zero 0, all-spares 150, a realistic mixed game asserted frame-by-frame, incomplete games, eight validation-reject cases, and a JSON round-trip; expected totals were hand-verified. An adversarial four-lens review workflow (rules red-team, GDD faithfulness, test rigor, style) found no mis-scores; its confirmed test-coverage gaps (more cross-boundary cases, frame-level assertions, an empty-frame reject) were closed before this entry, and stray scratch test files left by review agents were removed.</dd>
+      <dt>Assumptions</dt><dd>Tenth-frame bonus balls re-rack only as needed (Q-011, recommended default A): a tenth strike's two bonus balls satisfy bonus1 + bonus2 &lt;= 10 unless bonus1 is itself a strike. Shipped under that default; logged open for override.</dd>
+      <dt>GDD coverage</dt><dd>REQ-003 to REQ-008 flipped to <code>done</code>; REQ-001 and REQ-002 to <code>partial</code> (rules implemented; the playable browser frame loop is a later slice). <code>docs/gdd/02-core-loop.html</code> status to <code>partial</code> with a build log entry. Added open question <a href="OPEN_QUESTIONS.html">Q-011</a>.</dd>
+      <dt>Followups</dt><dd>None new. The scoreboard display (REQ-012, REQ-042) and the game-loop orchestration that calls this engine are later slices.</dd>
+    </dl>
+  </article>
+
   <article data-slice="string-tether" data-date="2026-05-29">
     <h3>String Pinsetter Tether: Slack Overhead Cord Per Pin</h3>
     <dl>
