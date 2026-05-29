@@ -13,6 +13,32 @@
 
 export type MeterPhase = 'idle' | 'sweeping' | 'stopped';
 
+// Geometry for the mechanical gauge skin (REQ-038). The centred sweet-spot
+// (straight band for spin, full-power band for power) is drawn as a highlighted
+// segment of the gauge track. Given the band half-width on the [-1, +1] track,
+// the track pixel width, and the rail inset on each end (the same inset the
+// needle uses via lineupMarkerOffset), return the band's left edge and width in
+// pixels so the render can position the highlight under the rail. The band is
+// centred on 0, so it spans [-halfWidth, +halfWidth] mapped onto the rail.
+export interface MeterBandSpan {
+  readonly leftPx: number;
+  readonly widthPx: number;
+}
+
+export function meterBandSpan(
+  bandHalfWidth: number,
+  trackWidth: number,
+  railInset: number,
+): MeterBandSpan {
+  const railSpan = trackWidth - 2 * railInset;
+  // Clamp so a band wider than the track cannot spill past the rail ends.
+  const half = Math.min(Math.max(bandHalfWidth, 0), 1);
+  // Map fraction f in [-1, +1] to a rail x: railInset + (f + 1) / 2 * railSpan.
+  const leftPx = railInset + ((-half + 1) / 2) * railSpan;
+  const widthPx = half * railSpan;
+  return { leftPx, widthPx };
+}
+
 export interface SweepMeterConfig {
   // Full sweeps per second across the track (one sweep is one end-to-end pass,
   // so a full back-and-forth cycle takes 2 / sweepsPerSecond seconds).

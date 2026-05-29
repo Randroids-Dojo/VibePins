@@ -116,6 +116,71 @@
       text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
     }
 
+    /* Spin and power gauges (REQ-038 step 2 and step 3 of the throw). The two
+       sweeping meters render as mechanical gauges on riveted metal plates: a
+       recessed rail, a highlighted centred sweet-spot/straight band, L/R or
+       SLOW/FAST end labels, and a brass needle that slides to the live cursor
+       position each frame. Only the active step's gauge is shown; the click on
+       each stop is the existing Web Audio cue (REQ-043). Non-interactive
+       (pointer-events: none) so a tap anywhere still confirms through it, and it
+       sits below the scoreboard/coach and above the status line. */
+    #meters {
+      position: fixed; left: 0; right: 0; bottom: 56px;
+      display: flex; flex-direction: column; align-items: center; gap: 10px;
+      pointer-events: none; user-select: none; padding: 0 16px; z-index: 40;
+    }
+    #meters[hidden] { display: none; }
+    .vp-gauge[hidden] { display: none; }
+    .vp-gauge {
+      width: min(420px, 80vw);
+      padding: 8px 12px 10px; border-radius: 6px;
+      background: linear-gradient(rgba(30, 26, 20, 0.94), rgba(18, 16, 12, 0.94));
+      border: 1px solid #6b5326;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.06),
+        0 3px 10px rgba(0, 0, 0, 0.55);
+    }
+    .vp-gauge-label {
+      font: 700 10px/1 ui-monospace, "SFMono-Regular", Menlo, monospace;
+      letter-spacing: 0.18em; text-transform: uppercase; color: #ffcf7a;
+      text-align: center; margin-bottom: 7px;
+    }
+    .vp-gauge-track {
+      position: relative; height: 26px; display: flex; align-items: center;
+    }
+    .vp-gauge-rail {
+      position: absolute; left: 20px; right: 20px; height: 8px; border-radius: 4px;
+      background: linear-gradient(#15140f, #0a0907);
+      border: 1px solid #3a3326;
+      box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.7);
+    }
+    /* The highlighted centred sweet-spot/straight band on the rail. Positioned
+       in px by src/main.ts from meterBandSpan so it always matches the tuned
+       config band, never a hardcoded width. */
+    .vp-gauge-band {
+      position: absolute; top: 50%; height: 8px; border-radius: 4px;
+      transform: translateY(-50%);
+      background: linear-gradient(#3fae5a, #2a7d40);
+      box-shadow: 0 0 6px rgba(74, 200, 110, 0.5);
+    }
+    .vp-gauge-end {
+      position: absolute; top: 50%; transform: translateY(-50%);
+      font: 700 11px/1 ui-monospace, "SFMono-Regular", Menlo, monospace;
+      color: #b9a87a; letter-spacing: 0.08em;
+    }
+    .vp-gauge-end.vp-lo { left: 0; }
+    .vp-gauge-end.vp-hi { right: 0; }
+    /* The brass needle that slides to the live cursor; positioned in px by
+       src/main.ts each aiming frame so the motion is observable (RULE 10). */
+    .vp-gauge-needle {
+      position: absolute; top: 50%;
+      width: 4px; height: 24px; border-radius: 2px;
+      transform: translate(-50%, -50%);
+      background: linear-gradient(#ffe0a0, #c8923c 60%, #7a5a22);
+      border: 1px solid #5a4418;
+      box-shadow: 0 0 6px rgba(255, 207, 122, 0.6);
+    }
+
     /* App-shell overlays (REQ-045): the title menu and the end-of-game summary.
        Industrial metal-plate look per the look-and-feel UI direction; the full
        split-flap / engraved-gauge skin (REQ-042, REQ-038) is a later slice.
@@ -184,6 +249,33 @@
       <span class="vp-lineup-end vp-r">R</span>
     </div>
     <div class="vp-lineup-caption">Drag to aim &middot; tap to lock</div>
+  </div>
+
+  <!-- Spin and power gauges (REQ-038). The mechanical-gauge skin for the two
+       sweeping meters: a needle slides along a rail with a highlighted centred
+       band. src/main.ts shows the active step's gauge, sizes the band from the
+       tuned config, and slides the needle to the live cursor each aiming frame. -->
+  <div id="meters" aria-hidden="true" hidden>
+    <div id="gauge-spin" class="vp-gauge" hidden>
+      <div class="vp-gauge-label">Spin</div>
+      <div class="vp-gauge-track">
+        <span class="vp-gauge-end vp-lo">L</span>
+        <div class="vp-gauge-rail"></div>
+        <div id="gauge-spin-band" class="vp-gauge-band"></div>
+        <div id="gauge-spin-needle" class="vp-gauge-needle"></div>
+        <span class="vp-gauge-end vp-hi">R</span>
+      </div>
+    </div>
+    <div id="gauge-power" class="vp-gauge" hidden>
+      <div class="vp-gauge-label">Power</div>
+      <div class="vp-gauge-track">
+        <span class="vp-gauge-end vp-lo">SLOW</span>
+        <div class="vp-gauge-rail"></div>
+        <div id="gauge-power-band" class="vp-gauge-band"></div>
+        <div id="gauge-power-needle" class="vp-gauge-needle"></div>
+        <span class="vp-gauge-end vp-hi">SLOW</span>
+      </div>
+    </div>
   </div>
 
   <!-- Title menu (REQ-045). Shown on boot and after returning from a summary. -->

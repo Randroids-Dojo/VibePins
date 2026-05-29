@@ -17,7 +17,7 @@ import { Ball, ballSpawnPosition } from './ball.js';
 import { detectPins, SettleWindow } from './detection.js';
 import { ResetCycle, type ResetMode } from './reset.js';
 import { ShotCamera, canThrow, lineupMarkerOffset, lineupFractionFromOffset } from './camera.js';
-import { SweepMeter } from './meter.js';
+import { SweepMeter, meterBandSpan } from './meter.js';
 import { Game } from './game.js';
 import { Scoreboard } from './scoreboard.js';
 import { ShotWatcher } from './shot.js';
@@ -55,10 +55,27 @@ const lineupEl = document.getElementById('lineup');
 const lineupTrackEl = document.getElementById('lineup-track');
 const lineupMarkerEl = document.getElementById('lineup-marker');
 
+// Spin and power gauges (REQ-038 step 2 and step 3). The mechanical-gauge skin
+// for the two sweeping meters: a needle that slides to the live cursor and a
+// highlighted centred sweet-spot/straight band. Only the active step's gauge is
+// shown during the aiming phase.
+const metersEl = document.getElementById('meters');
+const gaugeSpinEl = document.getElementById('gauge-spin');
+const gaugeSpinBandEl = document.getElementById('gauge-spin-band');
+const gaugeSpinNeedleEl = document.getElementById('gauge-spin-needle');
+const gaugePowerEl = document.getElementById('gauge-power');
+const gaugePowerBandEl = document.getElementById('gauge-power-band');
+const gaugePowerNeedleEl = document.getElementById('gauge-power-needle');
+
 // The rail inset (px) on each end of the track, matching .vp-lineup-rail's
 // left/right in index.html. The marker travels across the rail span only, so
 // fraction -1 sits at the left end of the rail and +1 at the right end.
 const LINEUP_RAIL_INSET = 20;
+
+// The rail inset (px) on each end of a gauge track, matching .vp-gauge-rail's
+// left/right in index.html. The needle and the sweet-spot band both span the
+// rail only, so a [-1, +1] cursor maps across the rail span (REQ-038).
+const GAUGE_RAIL_INSET = 20;
 
 const world = await createWorld3D(canvas);
 const pins = new PinSet(world);
@@ -165,6 +182,40 @@ function renderLineup(): void {
   if (!aligning) return;
   const px = lineupMarkerOffset(shotCamera.alignFraction, lineupTrackEl.clientWidth, LINEUP_RAIL_INSET);
   lineupMarkerEl.style.left = `${px}px`;
+}
+
+// Show or hide the spin/power gauges and slide each needle to its meter's live
+// cursor (REQ-038). During the aiming phase exactly one gauge is shown: the spin
+// gauge while the spin meter sweeps or is stopped before the power step starts,
+// then the power gauge while the power meter sweeps. The needle uses the same
+// [-1, +1] -> rail-px map as the line-up marker; the centred band is sized from
+// the tuned config so the highlight always matches the real sweet spot. Called
+// every aiming frame so the sweep motion is observable (RULE 10).
+function renderMeters(): void {
+  if (!metersEl) return;
+  const aiming = phase === 'aiming';
+  const showSpin = aiming && !shotCamera.isAligning && !powerMeter.isSweeping;
+  const showPower = aiming && powerMeter.isSweeping;
+  metersEl.hidden = !(showSpin || showPower);
+  if (gaugeSpinEl) gaugeSpinEl.hidden = !showSpin;
+  if (gaugePowerEl) gaugePowerEl.hidden = !showPower;
+
+  if (showSpin && gaugeSpinNeedleEl && gaugeSpinBandEl) {
+    const track = gaugeSpinEl?.querySelector('.vp-gauge-track') as HTMLElement | null;
+    const w = track?.clientWidth ?? 0;
+    const band = meterBandSpan(SPIN.straightBand, w, GAUGE_RAIL_INSET);
+    gaugeSpinBandEl.style.left = `${band.leftPx}px`;
+    gaugeSpinBandEl.style.width = `${band.widthPx}px`;
+    gaugeSpinNeedleEl.style.left = `${lineupMarkerOffset(spinMeter.position, w, GAUGE_RAIL_INSET)}px`;
+  }
+  if (showPower && gaugePowerNeedleEl && gaugePowerBandEl) {
+    const track = gaugePowerEl?.querySelector('.vp-gauge-track') as HTMLElement | null;
+    const w = track?.clientWidth ?? 0;
+    const band = meterBandSpan(POWER.sweetSpotBand, w, GAUGE_RAIL_INSET);
+    gaugePowerBandEl.style.left = `${band.leftPx}px`;
+    gaugePowerBandEl.style.width = `${band.widthPx}px`;
+    gaugePowerNeedleEl.style.left = `${lineupMarkerOffset(powerMeter.position, w, GAUGE_RAIL_INSET)}px`;
+  }
 }
 
 // Map a pointer x (clientX) on the line-up track to a normalized [-1, +1] stance
@@ -307,6 +358,8 @@ function showScreen(screen: Screen): void {
   if (tutorialEl && screen !== 'playing') tutorialEl.hidden = true;
   // The line-up track likewise belongs only over the live align phase.
   if (lineupEl && screen !== 'playing') lineupEl.hidden = true;
+  // The spin/power gauges belong only over the live aiming phase.
+  if (metersEl && screen !== 'playing') metersEl.hidden = true;
   if (isMenu) {
     syncAudioToggle();
     setStatus('');
@@ -446,6 +499,8 @@ function stepShotLoop(dt: number): void {
     ball.holdAt(ballPos);
     // Reflect the lateral stance on the line-up track (shown only while aligning).
     renderLineup();
+    // Slide the spin/power gauge needles to their live cursors (REQ-038).
+    renderMeters();
   } else if (phase === 'watching') {
     const k = ball.kinematics();
     if (shotWatcher.step(k.speed, k.z)) {

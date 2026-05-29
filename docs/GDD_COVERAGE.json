@@ -557,9 +557,17 @@
    "id": "REQ-038",
    "requirement": "Spin and power meters render as mechanical gauges with a click on each stop, sweep speed/sweet-spot tunable",
    "gddRef": "docs/gdd/08-controls.html#feedback",
-   "status": "not_started",
-   "implementationRefs": [],
-   "testRefs": [],
+   "status": "done",
+   "note": "The spin and power meters render as mechanical gauges on riveted metal plates (#meters in index.html): each has a recessed rail, a highlighted centred sweet-spot/straight band sized from the tuned config (SPIN.straightBand, POWER.sweetSpotBand) via the pure meterBandSpan in src/meter.ts, end labels, and a brass needle that slides to the live cursor each aiming frame using lineupMarkerOffset. Only the active step's gauge is shown. The click on each stop is the existing audio.playClick() cue (REQ-043). Sweep speed and sweet-spot width stay tunable in the SPIN/POWER config blocks.",
+   "implementationRefs": [
+    "src/meter.ts",
+    "src/main.ts",
+    "index.html",
+    "src/config.ts"
+   ],
+   "testRefs": [
+    "tests/meter.test.ts"
+   ],
    "followupRefs": []
   },
   {

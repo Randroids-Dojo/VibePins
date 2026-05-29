@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { SweepMeter, type SweepMeterConfig } from '../src/meter.js';
+import { SweepMeter, meterBandSpan, type SweepMeterConfig } from '../src/meter.js';
 
 const cfg: SweepMeterConfig = { sweepsPerSecond: 1 };
 const make = () => new SweepMeter(cfg);
@@ -82,5 +82,39 @@ describe('SweepMeter stop', () => {
     m.update(0.5);
     m.stop();
     expect(m.position).toBeCloseTo(0, 4);
+  });
+});
+
+describe('meterBandSpan (REQ-038 gauge sweet-spot geometry)', () => {
+  // A 420px track with a 20px rail inset on each end: rail span is 380px,
+  // centred at 20 + 190 = 210px.
+  const W = 420;
+  const INSET = 20;
+
+  it('centres the band on the rail midpoint', () => {
+    const { leftPx, widthPx } = meterBandSpan(0.2, W, INSET);
+    // Band spans [-0.2, +0.2] of the rail: width = 0.2 * 380 = 76px,
+    // centred at 210, so left = 210 - 38 = 172.
+    expect(widthPx).toBeCloseTo(76, 6);
+    expect(leftPx).toBeCloseTo(172, 6);
+    expect(leftPx + widthPx / 2).toBeCloseTo(210, 6); // midpoint is the rail centre
+  });
+
+  it('widens the band as the half-width grows (observable, monotonic)', () => {
+    const narrow = meterBandSpan(0.1, W, INSET).widthPx;
+    const wide = meterBandSpan(0.3, W, INSET).widthPx;
+    expect(wide).toBeGreaterThan(narrow);
+  });
+
+  it('a zero band has no width and sits at the rail centre', () => {
+    const { leftPx, widthPx } = meterBandSpan(0, W, INSET);
+    expect(widthPx).toBeCloseTo(0, 6);
+    expect(leftPx).toBeCloseTo(210, 6);
+  });
+
+  it('clamps a band wider than the track to the full rail span', () => {
+    const { leftPx, widthPx } = meterBandSpan(5, W, INSET);
+    expect(widthPx).toBeCloseTo(380, 6); // full rail span, no spill past the ends
+    expect(leftPx).toBeCloseTo(20, 6); // starts at the left rail inset
   });
 });
