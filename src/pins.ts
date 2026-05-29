@@ -17,6 +17,9 @@ import RAPIER from '@dimforge/rapier3d-compat';
 import { LANE, GROUP, TETHER, type Vec3 } from './config.js';
 import type { World3D } from './world3d.js';
 import type { PinKinematics } from './detection.js';
+import type { ResetTarget } from './reset.js';
+
+const UPRIGHT = { x: 0, y: 0, z: 0, w: 1 };
 
 // Down-lane distance between triangle rows. The pins are on a triangular grid
 // with `pinSpacing` between neighbours, so the row-to-row gap is the triangle
@@ -198,6 +201,34 @@ export class PinSet {
         angSpeed: Math.hypot(av.x, av.y, av.z),
       };
     });
+  }
+
+  // Make the given pins kinematic so the reset cycle can carry them by their
+  // cords. Their tether joints go inert while kinematic; the rendered cords still
+  // follow each pin neck. Call once at the start of a reset.
+  beginReset(pinIndices: readonly number[]): void {
+    for (const i of pinIndices) this.pins[i].body.setBodyType(RAPIER.RigidBodyType.KinematicPositionBased, true);
+  }
+
+  // Apply one step of reset targets: carry each targeted pin to the given centre,
+  // upright. Pins not in the target list are untouched (respot in place, REQ-021).
+  resetStep(targets: readonly ResetTarget[]): void {
+    for (const target of targets) {
+      const body = this.pins[target.pinIndex].body;
+      body.setNextKinematicTranslation({ x: target.x, y: target.y, z: target.z });
+      body.setNextKinematicRotation(UPRIGHT);
+    }
+  }
+
+  // Hand the given pins back to the dynamics, at rest. Call when the reset
+  // completes; the pins are then standing on their home spots under gravity.
+  endReset(pinIndices: readonly number[]): void {
+    for (const i of pinIndices) {
+      const body = this.pins[i].body;
+      body.setBodyType(RAPIER.RigidBodyType.Dynamic, true);
+      body.setLinvel({ x: 0, y: 0, z: 0 }, true);
+      body.setAngvel({ x: 0, y: 0, z: 0 }, true);
+    }
   }
 
   // Copy each body's transform onto its mesh, then drag the cord's lower end to
