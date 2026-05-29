@@ -3,6 +3,7 @@
 // onto this World3D in later slices.
 
 import { createWorld3D } from './world3d.js';
+import { PinSet } from './pins.js';
 
 const canvas = document.getElementById('lane') as HTMLCanvasElement | null;
 if (!canvas) {
@@ -10,12 +11,14 @@ if (!canvas) {
 }
 
 const world = await createWorld3D(canvas);
+const pins = new PinSet(world);
 
 let last = performance.now();
 function frame(now: number): void {
   const dt = (now - last) / 1000;
   last = now;
   world.step(dt);
+  pins.sync();
   world.render();
   requestAnimationFrame(frame);
 }

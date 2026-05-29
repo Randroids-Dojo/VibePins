@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="pin-rack" data-date="2026-05-29">
+    <h3>Pin Rack: Ten Duckpins on the Deck</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/pin-rack</code></dd>
+      <dt>PR</dt><dd>#3</dd>
+      <dt>Changed</dt><dd>Racked the ten duckpins. Added <code>src/pins.ts</code> with a <code>PinSet</code> that spawns ten dynamic Rapier bodies and their Three.js meshes in the standard 1-2-3-4 triangle at the head spot, plus pure exported helpers <code>pinRackPositions()</code> (triangle layout, REQ-027) and <code>pinMassProperties()</code> (squat cylinder, belly-heavy low centre of mass and cylinder inertia for low energy transfer, REQ-026). The three back rows recede past the head spot, so a steel pin deck (collider + mesh, top coplanar with the lane bed) was added to <code>world3d.ts</code>, sized by the new <code>LANE.pinDeckDepth</code>. <code>src/main.ts</code> instantiates the rack and syncs pin meshes to bodies each frame.</dd>
+      <dt>Verification</dt><dd>em-dash grep clean; <code>git diff --check</code> clean; <code>npm run typecheck</code> clean; <code>npm run test</code> 16/16 passing (includes a headless Rapier smoke that drops the real rack onto the deck and asserts pins rest upright and in place); <code>npm run build</code> succeeds. Build still emits the known single-chunk size warning tracked by F-003 (not a blocker).</dd>
+      <dt>Assumptions</dt><dd>Pin colliders use a plain belly-radius cylinder and the belly drop is a first-pass 0.18 of pin height; both are duckpin-scaled tunables to tighten against the playtest gate (Q-010). Pins spawn free-standing; the overhead string tether (REQ-013 to REQ-015) is the next slice.</dd>
+      <dt>GDD coverage</dt><dd>REQ-026 and REQ-027 flipped to <code>partial</code>. Build log appended to <code>docs/gdd/06-reuse-and-tech.html</code> (scene scaffolding).</dd>
+      <dt>Followups</dt><dd>None new.</dd>
+    </dl>
+  </article>
+
   <article data-slice="project-bootstrap" data-date="2026-05-28">
     <h3>Project Bootstrap: Toolchain and Booting 3D Scene</h3>
     <dl>
