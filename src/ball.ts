@@ -9,7 +9,7 @@
 
 import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier3d-compat';
-import { LANE, GROUP, type Vec3 } from './config.js';
+import { LANE, SPIN, GROUP, type Vec3 } from './config.js';
 import type { World3D } from './world3d.js';
 
 // Ball membership plus a filter that collides with everything (lane, deck,
@@ -22,10 +22,29 @@ export function ballSpawnPosition(): Vec3 {
   return { x: LANE.headSpot.x, y: LANE.floorY + LANE.ballRadius, z: LANE.ballSpawnZ };
 }
 
-// Launch velocity: straight down-lane toward the pins (-z). No lateral aim or
-// lift in this slice.
-export function ballLaunchVelocity(): Vec3 {
-  return { x: 0, y: 0, z: -LANE.ballLaunchSpeed };
+// Resolve the chosen spin/angle stop (normalized [-1, +1] from the sweep meter)
+// into a launch (GDD REQ-034, REQ-036). A stop inside the straight band is a
+// straight, no-spin ball. Outside it, the spin ramps from 0 at the band edge to
+// its peak at the extreme, giving a lateral launch nudge (the ball points toward
+// the chosen side) plus a vertical-axis spin that hooks the roll that way. The
+// down-lane speed is the fixed launch speed until the power meter slice (F-007).
+//
+// Sign: +x is to the right, so a positive stop sends the ball and its hook to
+// the right. Yaw about +y spins counter-clockwise viewed from above (rotating
+// +z toward +x), which steers a -z roll toward +x, so spinYaw shares the sign.
+export function spinFraction(stop: number): number {
+  const s = Math.max(-1, Math.min(1, stop));
+  if (Math.abs(s) <= SPIN.straightBand) return 0;
+  const sign = Math.sign(s);
+  // Ramp 0 -> 1 across the band edge to the extreme.
+  return sign * ((Math.abs(s) - SPIN.straightBand) / (1 - SPIN.straightBand));
+}
+
+// Launch velocity for a given spin/angle stop: straight down-lane (-z) plus the
+// lateral nudge from the spin. A stop of 0 (or undefined, the legacy fixed shot)
+// is straight down-lane at the configured speed.
+export function ballLaunchVelocity(stop = 0): Vec3 {
+  return { x: spinFraction(stop) * SPIN.maxLateralSpeed, y: 0, z: -LANE.ballLaunchSpeed };
 }
 
 export class Ball {
@@ -66,11 +85,16 @@ export class Ball {
   // Send the ball down-lane with a matching forward roll so it rolls rather
   // than skids off the line. Rolling without slip for motion along -z means an
   // angular velocity about the x-axis of omega_x = -v / r; since velocity.z is
-  // -v, that equals velocity.z / r.
-  launch(): void {
-    const velocity = ballLaunchVelocity();
+  // -v, that equals velocity.z / r. The spin/angle stop (REQ-034, default 0 for
+  // the legacy straight shot) adds a lateral launch nudge and a vertical-axis
+  // spin that hooks the roll toward the chosen side as it travels (REQ-036).
+  launch(stop = 0): void {
+    const velocity = ballLaunchVelocity(stop);
     this.body.setLinvel(velocity, true);
-    this.body.setAngvel({ x: velocity.z / LANE.ballRadius, y: 0, z: 0 }, true);
+    this.body.setAngvel(
+      { x: velocity.z / LANE.ballRadius, y: spinFraction(stop) * SPIN.maxSpinYaw, z: 0 },
+      true,
+    );
   }
 
   // Carry the ball kinematically during the shot-setup sequence (pickup, walk-up).

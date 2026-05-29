@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="spin-angle-meter" data-date="2026-05-29">
+    <h3>Throw Spin/Angle Meter (Step 2 of the Three-Step Release)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/20260529-154042-spin-meter</code></dd>
+      <dt>PR</dt><dd>#TBD</dd>
+      <dt>Changed</dt><dd>Added the timed spin/angle step of the throw (GDD 08-controls, REQ-034) and wired it into the release (REQ-036, spin component). New framework-free module <code>src/meter.ts</code> exposing a reusable <code>SweepMeter</code>: a cursor oscillates across a normalized <code>[-1, +1]</code> track at a steady, readable speed (a symmetric triangle wave, so it reverses smoothly at each end rather than wrapping), and one confirm input stops it and freezes the captured value. A stray second confirm is a no-op. The same mechanic will drive the power meter (REQ-035, F-007), so it is one small state machine rather than a spin-specific one. New <code>SPIN</code> config block in <code>src/config.ts</code> (sweep speed, a forgiving straight/sweet-spot band, peak lateral speed and peak yaw spin). <code>src/ball.ts</code> gained <code>spinFraction(stop)</code> (centre band reads as straight, then ramps 0 to 1 to the extreme, sign-preserving) and an optional spin argument on <code>ballLaunchVelocity</code> and <code>launch</code>: the resolved spin adds a lateral launch nudge and a vertical-axis angular velocity so the ball both points and hooks toward the chosen side as it rolls. <code>src/main.ts</code> now runs a consistent single-confirm flow: while aligning, Space/Enter/click locks the line and starts the spin sweep; the next confirm stops the meter and throws with the captured spin. The meter is advanced every frame so the cursor keeps moving until stopped.</dd>
+      <dt>Verification</dt><dd>em-dash grep clean on changed files; <code>git diff --check</code> clean; <code>npm run typecheck</code> clean; <code>npm run test</code> 170/170 (14 new: <code>tests/meter.test.ts</code> proves the cursor starts at an end, sweeps to the far end and back within range, freezes on stop, ignores a second stop, and can capture a centre stop; new cases in <code>tests/ball.test.ts</code> guard the straight band, the spin ramp and sign, the clamp, the lateral launch nudge, and the spin config sanity bounds); <code>npm run build</code> succeeds (known single-chunk size warning, F-003).</dd>
+      <dt>Assumptions</dt><dd>Power (REQ-035) is the next slice (F-007), so down-lane speed stays at the fixed <code>ballLaunchSpeed</code> and the throw fires on the spin stop rather than a third power stop; the control flow is built so the power step slots in between. Sweep speed, straight-band width, and the spin magnitudes are forgiving first-pass values for the playtest gate (Q-010). The on-screen mechanical gauge skin (REQ-038) renders in a later UI slice; this slice lands the pure mechanic and physics. Slice discipline: no edits to scoring, detection, or reset.</dd>
+      <dt>GDD coverage</dt><dd>REQ-034 flipped <code>not_started</code> to <code>done</code> (refs <code>src/meter.ts</code>, <code>src/config.ts</code>, <code>src/main.ts</code>, <code>tests/meter.test.ts</code>). REQ-036 flipped <code>not_started</code> to <code>partial</code> (spin curve and lineup feed the launch; power pending, refs <code>src/ball.ts</code>, <code>src/config.ts</code>, <code>tests/ball.test.ts</code>, F-006/F-007). Build log appended to <code>docs/gdd/08-controls.html</code>.</dd>
+      <dt>Followups</dt><dd>None new. Progress note added to <a href="FOLLOWUPS.html">F-006</a>: the spin/angle meter and spin release landed; the power meter (F-007) finishes the three-step release and REQ-036.</dd>
+    </dl>
+  </article>
+
   <article data-slice="ball-containment-gutters-pit" data-date="2026-05-29">
     <h3>Ball Containment (Gutters and the Back Pit)</h3>
     <dl>

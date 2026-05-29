@@ -9,7 +9,8 @@ import { Ball, ballSpawnPosition } from './ball.js';
 import { detectPins } from './detection.js';
 import { ResetCycle } from './reset.js';
 import { ShotCamera, canThrow } from './camera.js';
-import { DETECTION, LANE, PIN_REST_Y, RESET, SHOT_CAMERA } from './config.js';
+import { SweepMeter } from './meter.js';
+import { DETECTION, LANE, PIN_REST_Y, RESET, SHOT_CAMERA, SPIN } from './config.js';
 
 const canvas = document.getElementById('lane') as HTMLCanvasElement | null;
 if (!canvas) {
@@ -32,6 +33,11 @@ const shotCamera = new ShotCamera(
   { rest: SHOT_CAMERA.ballReturnPos, held: SHOT_CAMERA.ballHeldPos, ready: ballSpawnPosition() },
 );
 
+// Step 2 of the throw: a spin/angle meter sweeps once the line is locked; one
+// confirm stops it, capturing the spin (GDD 08-controls, REQ-034). The captured
+// stop feeds the launch (REQ-036). The power meter (REQ-035) is the next slice.
+const spinMeter = new SweepMeter({ sweepsPerSecond: SPIN.sweepsPerSecond });
+
 // The ball is carried (kinematic) through the setup, then released on the throw.
 let holding = false;
 function beginShot(): void {
@@ -41,18 +47,29 @@ function beginShot(): void {
 }
 beginShot();
 
-// Controls (placeholders ahead of the full three-step scheme): while aligning,
-// A / left and D / right shift your line and Enter locks it in; when locked,
-// Space or click throws; N sets up a fresh shot; R reels the fallen pins back up.
+// Controls: while aligning, A / left and D / right shift your line; a confirm
+// (Space / Enter / click) locks the line and starts the spin meter; the next
+// confirm stops the meter and throws with the captured spin. N sets up a fresh
+// shot; R reels the fallen pins back up. The power meter step lands in F-007.
 const ALIGN_STEP = 0.04;
-function throwBall(): void {
-  if (canThrow(shotCamera.currentPhase, holding)) {
-    ball.release();
-    ball.launch();
-    holding = false;
+function confirm(): void {
+  if (shotCamera.isAligning) {
+    // Lock the line and begin the spin/angle sweep.
+    shotCamera.lock();
+    spinMeter.start();
+    return;
+  }
+  if (spinMeter.isSweeping) {
+    // Stop the meter, then throw with the captured spin.
+    spinMeter.stop();
+    if (canThrow(shotCamera.currentPhase, holding)) {
+      ball.release();
+      ball.launch(spinMeter.position);
+      holding = false;
+    }
   }
 }
-window.addEventListener('pointerdown', () => throwBall());
+window.addEventListener('pointerdown', () => confirm());
 window.addEventListener('keydown', (event) => {
   switch (event.code) {
     case 'ArrowLeft':
@@ -64,11 +81,9 @@ window.addEventListener('keydown', (event) => {
       shotCamera.nudgeAlign(ALIGN_STEP);
       break;
     case 'Enter':
-      shotCamera.lock();
-      break;
     case 'Space':
       event.preventDefault();
-      throwBall();
+      confirm();
       break;
     case 'KeyN':
       beginShot();
@@ -98,7 +113,10 @@ function frame(now: number): void {
   const dt = Math.min((now - last) / 1000, 0.05);
   last = now;
 
-  // Drive the shot-setup camera each frame, and carry the ball while holding it.
+  // Sweep the spin meter while it runs (the cursor must keep moving until the
+  // player stops it), and drive the shot-setup camera each frame, carrying the
+  // ball while holding it.
+  spinMeter.update(dt);
   const { pose, ballPos } = shotCamera.update(dt);
   world.camera.position.set(pose.pos.x, pose.pos.y, pose.pos.z);
   world.camera.lookAt(pose.lookAt.x, pose.lookAt.y, pose.lookAt.z);

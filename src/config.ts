@@ -113,6 +113,30 @@ export const SHOT_CAMERA = {
   alignLimit: 0.34,
 } as const;
 
+// Spin/angle meter (GDD 08-controls, REQ-034 step 2, REQ-036 release). A cursor
+// sweeps across a normalized [-1, +1] track; where the player stops it sets the
+// spin/hook. A stop near 0 is straight and low-spin; a stop toward a side gives
+// that-side spin that curves the roll. Sweep speed and the straight (sweet-spot)
+// band are tunable (Q-010: start forgiving, tighten via playtest). The release
+// resolves the chosen spin into a lateral launch nudge plus a vertical-axis
+// angular velocity, so the ball both points and curves toward the chosen side.
+export const SPIN = {
+  // Full end-to-end sweeps per second. Forgiving first pass for the playtest gate.
+  sweepsPerSecond: 1.2,
+
+  // Stops with abs(position) at or below this read as straight (no spin/curve),
+  // so a centred stop is reliably a low-spin ball rather than a knife edge.
+  straightBand: 0.12,
+
+  // Peak lateral launch velocity (m/s, at full spin) added to the down-lane
+  // throw, so a full-side stop angles the ball across the lane at release.
+  maxLateralSpeed: 1.1,
+
+  // Peak spin about the vertical (y) axis (rad/s, at full spin). With the ball
+  // rolling on the bed this hooks the path toward the chosen side as it travels.
+  maxSpinYaw: 12,
+} as const;
+
 // Collision-group bitmask for the physics layers (GDD reuse, GROUP pattern).
 export const GROUP = {
   BALL: 1 << 0,
