@@ -12,6 +12,7 @@ import {
   LANE,
   SHOT_CAMERA,
   PINSETTER,
+  VICTORY,
   gutterBoxes,
   pitBoxes,
   pinsetterRigParts,
@@ -20,6 +21,7 @@ import {
   type RigCylinder,
 } from './config.js';
 import { pinRackPositions } from './pins.js';
+import type { Debris } from './victory.js';
 
 const FIXED_STEP = 1 / 60;
 const MAX_STEPS_PER_FRAME = 5;
@@ -32,6 +34,10 @@ export class World3D {
 
   private accumulator = 0;
   private readonly resizeHandler = () => this.handleResize();
+
+  // Strike victory-routine debris meshes (REQ-044). A fixed pool, hidden when no
+  // burst is playing, mirrored each frame from the pure VictoryRoutine sim.
+  private readonly debrisMeshes: THREE.Mesh[] = [];
 
   constructor(canvas: HTMLCanvasElement) {
     // Renderer: pixel-ratio cap at 2, soft shadows, sRGB output (Hoops convention).
@@ -59,6 +65,7 @@ export class World3D {
     this.buildBallReturn();
     this.buildPinDeck();
     this.buildPinsetterRig();
+    this.buildVictoryDebris();
 
     // Physics world. Gravity straight down; a fixed bed collider gives the
     // ball and pins something to rest on in later slices.
@@ -238,6 +245,55 @@ export class World3D {
     for (const drum of rig.drums) this.scene.add(this.rigCylinderMesh(drum, steelMat));
     for (const tube of rig.guideTubes) this.scene.add(this.rigCylinderMesh(tube, steelMat));
     this.scene.add(this.rigBeamMesh(rig.driveUnit, driveMat));
+  }
+
+  // The strike victory-routine debris pool (REQ-044). One small cube per bit,
+  // pre-built and hidden; a burst un-hides and positions them each frame from
+  // the pure sim. Even bits are hot-brass sparks, odd bits dark steel scrap, so
+  // the burst reads as the contraption flinging scrap (industrial palette,
+  // REQ-041). The sparks are emissive so they glow against the dark venue.
+  private buildVictoryDebris(): void {
+    const geo = new THREE.BoxGeometry(
+      VICTORY.debrisHalfSize * 2,
+      VICTORY.debrisHalfSize * 2,
+      VICTORY.debrisHalfSize * 2,
+    );
+    const sparkMat = new THREE.MeshStandardMaterial({
+      color: VICTORY.sparkColor,
+      emissive: VICTORY.sparkColor,
+      emissiveIntensity: 0.9,
+      roughness: 0.4,
+      metalness: 0.6,
+    });
+    const scrapMat = new THREE.MeshStandardMaterial({
+      color: VICTORY.scrapColor,
+      roughness: 0.5,
+      metalness: 0.8,
+    });
+    for (let i = 0; i < VICTORY.debrisCount; i += 1) {
+      const mesh = new THREE.Mesh(geo, i % 2 === 0 ? sparkMat : scrapMat);
+      mesh.castShadow = true;
+      mesh.visible = false;
+      this.debrisMeshes.push(mesh);
+      this.scene.add(mesh);
+    }
+  }
+
+  // Mirror the live debris states onto the pool and (un)hide unused meshes.
+  // Called every frame with the routine's current debris (empty when idle, so
+  // every mesh hides once the burst ends).
+  syncVictoryDebris(debris: readonly Debris[]): void {
+    for (let i = 0; i < this.debrisMeshes.length; i += 1) {
+      const mesh = this.debrisMeshes[i];
+      const bit = debris[i];
+      if (!bit) {
+        mesh.visible = false;
+        continue;
+      }
+      mesh.visible = true;
+      mesh.position.set(bit.position.x, bit.position.y, bit.position.z);
+      mesh.rotation.set(bit.rotation.x, bit.rotation.y, bit.rotation.z);
+    }
   }
 
   // A shadow-casting box mesh from a RigBeam (centre + half-extents).

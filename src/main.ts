@@ -27,7 +27,8 @@ import { Screens, type Screen } from './screens.js';
 import { Settings } from './settings.js';
 import { Tutorial } from './tutorial.js';
 import { AudioEngine } from './audio.js';
-import { DETECTION, FOUL, GUTTER, LANE, PIN_REST_Y, POWER, RESET, SHOT, SHOT_CAMERA, SPIN } from './config.js';
+import { VictoryRoutine } from './victory.js';
+import { DETECTION, FOUL, GUTTER, LANE, PIN_REST_Y, POWER, RESET, SHOT, SHOT_CAMERA, SPIN, VICTORY } from './config.js';
 
 const canvas = document.getElementById('lane') as HTMLCanvasElement | null;
 if (!canvas) {
@@ -142,6 +143,16 @@ const tutorial = new Tutorial(settings.tutorialSeen);
 // gesture (browsers block audio until then). Sound is the machine's voice; see
 // GDD 04-look-and-feel.
 const audio = new AudioEngine(settings.audioEnabled);
+
+// Strike victory routine (REQ-044, GDD 04-look-and-feel "juice"). A strike runs
+// a brief mechanical flourish: a burst of debris flung off the deck plus a quick
+// camera shake, alongside the audio strike sting. The pure sim lives in
+// src/victory.ts; the visual layer (debris meshes, shake offset) lives in
+// world3d. Triggered on a first-ball ten and advanced each frame below.
+const victory = new VictoryRoutine(VICTORY);
+// The camera's resting position captured when a victory burst starts, so the
+// per-frame shake is applied as an absolute offset rather than accumulating.
+let shakeBase: { x: number; y: number; z: number } | null = null;
 
 // Wake the audio context on the first gesture and keep it resumed thereafter.
 // Both pointer and key paths route through here so any confirm/menu interaction
@@ -492,6 +503,24 @@ function frame(now: number): void {
   // the player presses Play.
   if (screens.screen === 'playing') stepShotLoop(dt);
 
+  // Strike victory routine (REQ-044). Advance the burst, mirror the debris onto
+  // their meshes, and rattle the camera by the decaying shake offset. The
+  // routine fires after a strike during the settle/reset beat (camera locked at
+  // the line), so adding the offset on top of the current camera position reads
+  // as a rattle; it decays to zero and the next applyCameraPose resets cleanly.
+  if (victory.active && shakeBase) {
+    victory.update(dt);
+    world.syncVictoryDebris(victory.debris);
+    const s = victory.shakeOffset;
+    world.camera.position.set(shakeBase.x + s.x, shakeBase.y + s.y, shakeBase.z + s.z);
+  } else if (shakeBase) {
+    // The burst just ended: hide any lingering debris and clear the shake so the
+    // camera sits back at its resting position before the next shot's pose runs.
+    world.syncVictoryDebris(victory.debris);
+    world.camera.position.set(shakeBase.x, shakeBase.y, shakeBase.z);
+    shakeBase = null;
+  }
+
   world.step(dt);
   pins.sync();
   ball.sync();
@@ -575,8 +604,23 @@ function recordSettledBall(standingNow: number): void {
   // when the first ball takes all ten, the smaller spare cue otherwise.
   if (!deadBall && result.pinsDowned > 0) audio.playPinClatter(result.pinsDowned);
   if (result.pinsStanding === 0) {
-    if (result.ballInFrame === 1 && result.pinsDowned === 10) audio.playStrike();
-    else audio.playSpare();
+    if (result.ballInFrame === 1 && result.pinsDowned === 10) {
+      audio.playStrike();
+      // A strike is rare in duckpin, so it earns the Rube Goldberg flourish:
+      // debris flung off the rack and a quick camera shake (REQ-044). Burst
+      // originates at the rack head spot on the deck. Capture the camera's
+      // resting position so the per-frame shake is an absolute offset from it
+      // (the camera is locked at the line through the settle/reset beat, so it
+      // does not move on its own while the burst plays).
+      shakeBase = {
+        x: world.camera.position.x,
+        y: world.camera.position.y,
+        z: world.camera.position.z,
+      };
+      victory.start(LANE.headSpot);
+    } else {
+      audio.playSpare();
+    }
   }
 
   if (result.outcome === 'game-over') {

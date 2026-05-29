@@ -429,6 +429,46 @@ export const RESET = {
 // source for the reset lower target and the detection/rack geometry.
 export const PIN_REST_Y = LANE.floorY + LANE.pinHeight / 2;
 
+// Strike victory routine (GDD 04-look-and-feel "juice", REQ-044). A strike is
+// genuinely rare in duckpin, so it earns a brief mechanical flourish: a burst of
+// debris particles flung up off the pin deck (bolts, sparks, scrap thrown by the
+// contraption) plus a quick camera shake, sized to stay short so the loop never
+// drags (the GDD warns against long unskippable animations). Pure-sim tunables;
+// the visual layer in world3d turns these into meshes and a camera offset, and
+// the audio sting (REQ-043) plays alongside. All values are tuned to land the
+// burst, settle the shake, and clear well inside the reset settle beat.
+export const VICTORY = {
+  // How many debris bits the burst spawns. A readable handful, not a fountain.
+  debrisCount: 24,
+  // Where the burst originates: just above the rack head spot on the deck.
+  originY: LANE.floorY + LANE.pinHeight,
+  // Lateral/down-lane spread of spawn points around the head spot (metres).
+  spawnSpread: 0.35,
+  // Initial velocity of a bit: a strong upward kick plus random sideways spray.
+  upMin: 2.6,
+  upMax: 4.2,
+  sidewaysSpeed: 1.8,
+  // Debris half-size (metres) and how fast each bit tumbles (radians/sec).
+  debrisHalfSize: 0.018,
+  spinSpeed: 12,
+  // Gravity on the debris (m/s^2, negative is down). Matches the world so the
+  // bits arc believably.
+  gravity: LANE.gravity,
+  // The bits fade and the routine ends after this long (seconds). Kept short so
+  // the flourish is over before the next ball, well inside the reset beat.
+  durationSeconds: 1.4,
+  // Camera shake: peak positional amplitude (metres) that decays to zero over
+  // shakeSeconds. The shake is the briefest part so aiming is never disturbed.
+  shakeAmplitude: 0.05,
+  shakeSeconds: 0.5,
+  // Shake oscillation frequency (Hz) on each axis; coprime-ish so x/y differ.
+  shakeFreqX: 38,
+  shakeFreqY: 47,
+  // Debris palette (REQ-041 industrial): hot brass sparks and dark steel scrap.
+  sparkColor: 0xffb347,
+  scrapColor: 0x6a6d72,
+} as const;
+
 // Post-throw shot watcher (GDD 02-core-loop, REQ-009). Decides when a thrown
 // ball has resolved so the loop can count pinfall and advance the frame. A shot
 // resolves when the ball is at rest, has cleared the deck into the pit, or hits
