@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="ball-roll" data-date="2026-05-29">
+    <h3>Ball: Spawns and Rolls Down the Lane</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/ball-roll</code></dd>
+      <dt>PR</dt><dd>#TBD</dd>
+      <dt>Changed</dt><dd>Added the bowling ball (REQ-028, REQ-029). New <code>src/ball.ts</code> with a <code>Ball</code> class that mirrors PinSet (owns one mesh plus one dynamic body and a <code>sync()</code>) and pure helpers <code>ballSpawnPosition()</code> and <code>ballLaunchVelocity()</code>. A dark polished sphere with no finger holes spawns just inside the foul line on the lane bed and is launched straight down-lane at <code>LANE.ballLaunchSpeed</code> with a matching forward roll, rolling into the tethered pins. Continuous collision detection is enabled so the fast ball cannot tunnel through the thin bed, deck, or pins; the ball uses <code>GROUP.BALL</code> collision membership, and mass, friction, restitution, and damping are new <code>LANE</code> tunables. <code>src/main.ts</code> launches the ball on boot and re-rolls it on pointerdown or Space (a minimal placeholder, not the three-step control scheme).</dd>
+      <dt>Verification</dt><dd>em-dash grep clean; <code>git diff --check</code> clean; <code>npm run typecheck</code> clean; <code>npm run test</code> 87/87 passing; <code>npm run build</code> succeeds (known single-chunk size warning, F-003). Tests include pure spawn/launch math and a headless Rapier suite: the ball rolls many metres down-lane while still spinning and without tunnelling, rests on the bed with its motion damped out, and (integration) a launched ball reaches the rack and topples a tethered pin. A four-lens adversarial review ran; its confirmed test-rigor findings (assert maintained roll, track minimum pin tilt over the whole sim, assert damping settles the resting ball, spawn-on-bed guard) were applied. One review finding claimed a roll-direction sign bug; re-deriving rolling-without-slip for -z motion confirmed the code (omega_x = velocity.z / r = -v/r) is correct, so that fix was rejected and the comment clarified instead.</dd>
+      <dt>Assumptions</dt><dd>The ball spawns just inside the foul line on the existing bed (the bed runs from the foul line to the head pin); an approach floor behind the foul line is a later scene slice. Launch speed 8 m/s, friction 0.25, restitution 0.1, and light damping are first-pass tunables for the playtest gate. The integration smoke caught that the design's original spawn (behind the foul line, off the bed) fell through; it was corrected to sit on the bed.</dd>
+      <dt>GDD coverage</dt><dd>REQ-028 flipped to <code>done</code>; REQ-029 to <code>partial</code> (rolls under a fixed launch; the control-driven impulse and ball containment remain). Build log appended to <code>docs/gdd/06-reuse-and-tech.html</code>.</dd>
+      <dt>Followups</dt><dd>Added <a href="FOLLOWUPS.html">F-004</a> (ball containment: gutters and a back pit, a prerequisite for the lateral-aim controls slice).</dd>
+    </dl>
+  </article>
+
   <article data-slice="scoring-engine" data-date="2026-05-29">
     <h3>Duckpin Scoring Engine</h3>
     <dl>
