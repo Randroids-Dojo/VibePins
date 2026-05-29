@@ -53,7 +53,8 @@
       <dt>Context</dt><dd>Step 2 of the control scheme: after locking the line, a sweeping meter sets spin/angle (centre is straight, sides curve). On release this must feed the launch: the lineup lateral position plus the chosen angle/spin combine into the ball's launch velocity and angular velocity (REQ-036), so the ball curves. Today the ball launches straight down-lane from the aligned x; this slice makes aim and spin actually steer the shot. Meter sweep speed and sweet-spot width start forgiving and tighten via the playtest gate (Q-010), and render as mechanical gauges (REQ-038).</dd>
       <dt>Blocker</dt><dd>none; the lineup (F-005 / REQ-033) and the rolling ball (REQ-029) exist.</dd>
       <dt>Unblock condition</dt><dd>ready now.</dd>
-      <dt>PR / Dot reference</dt><dd>(not started)</dd>
+      <dt>Progress</dt><dd>The spin/angle half landed (REQ-034 done, REQ-036 partial). A reusable <code>SweepMeter</code> (<code>src/meter.ts</code>) sweeps a cursor across <code>[-1, +1]</code> and freezes on one confirm; a new <code>SPIN</code> config block plus <code>spinFraction</code> in <code>src/ball.ts</code> resolve the stop into a lateral launch nudge and a vertical-axis hook spin, so center is straight and the sides curve. <code>src/main.ts</code> wires the single-confirm flow (lock line, sweep, stop-and-throw). What remains for F-006/REQ-036: the power meter (its own slice, F-007) sets the down-lane speed and becomes the third stop that triggers release, and the mechanical gauge skin (REQ-038) renders the meters. Covered by <code>tests/meter.test.ts</code> and new cases in <code>tests/ball.test.ts</code>.</dd>
+      <dt>PR / Dot reference</dt><dd>spin/angle half: PR #12. Power half tracked in F-007.</dd>
     </dl>
   </section>
 
