@@ -343,13 +343,14 @@ export interface RigBeam {
   readonly half: Vec3;
 }
 
-// A cylindrical rig part (guide tube, drum, or shaft) with an axis. axis 'y' is
-// upright (tubes), 'x' is across the lane (drums and shafts).
+// A cylindrical rig part (guide tube, drum, shaft, or conduit) with an axis.
+// axis 'y' is upright (tubes), 'x' is across the lane (drums and shafts), 'z' runs
+// down-lane (machine-room conduit).
 export interface RigCylinder {
   readonly center: Vec3;
   readonly radius: number;
   readonly length: number;
-  readonly axis: 'x' | 'y';
+  readonly axis: 'x' | 'y' | 'z';
 }
 
 // Pure layout of the visible pinsetter rig (REQ-040), derived from the rack
@@ -429,6 +430,128 @@ export function pinsetterRigParts(rackPositions: readonly Vec3[]): {
   };
 
   return { beams, guideTubes, drums, shafts, driveUnit };
+}
+
+// Machine-room interior staging (GDD 04-look-and-feel#environment, REQ-039). The
+// single 3D lane is set inside a machine room: the scene is enclosed so it reads
+// as an interior rather than a lane floating in void, and the room is suggested
+// through background machinery (conduit runs, gauge dials, the silhouette of a
+// neighbouring lane rig) lit by the warm work-light, NOT through neon signage or
+// an explorable space. Everything here is set dressing: pure geometry, no
+// colliders, well off the playfield so it never touches the ball, pins, or cords.
+// All sizes are tunable here so the room can be re-staged from one place (REQ-025).
+export const MACHINE_ROOM = {
+  // The room shell: a floor-to-ceiling box around the lane. Walls sit just outside
+  // the gutters; the ceiling hangs above the pinsetter frame so the rig stays clear.
+  wallHalfX: LANE.width / 2 + LANE.gutterWidth + 0.5, // each side wall offset from centre
+  ceilingY: TETHER.topY + 0.9, //        ceiling height above the floor
+  // The room runs from behind the bowler (+z, past the approach) to behind the pit
+  // (-z, past the pin deck), enclosing the whole playfield.
+  frontZ: LANE.approachDepth + 0.6, //   back wall behind the bowler
+  backZ: LANE.headSpot.z - LANE.pinDeckDepth - LANE.pitLength - 0.6, // wall behind the pit
+  wallThickness: 0.1, //                 half-thickness of the shell slabs
+
+  // Background conduit: horizontal pipe runs along the upper side walls, the kind
+  // of exposed plumbing a machine room is full of. One run per side, up high so it
+  // sits in the background behind the rig.
+  conduitRadius: 0.05,
+  conduitY: TETHER.topY + 0.35,
+  conduitInset: 0.08, //                 how far the pipe sits in front of the wall
+
+  // Gauge dials mounted on the back wall behind the pit: small round faces, the
+  // engraved instrument look the GDD calls for. Count and spacing across the wall.
+  gaugeCount: 4,
+  gaugeRadius: 0.13,
+  gaugeSpacing: 0.4,
+  gaugeY: 1.4,
+
+  // The silhouette of a neighbouring lane rig: a dark vertical frame standing off
+  // to one side in the background, so the room reads as one lane among several
+  // rather than a solo booth. Set back near the side wall, dim against the fog.
+  neighborRigX: LANE.width / 2 + LANE.gutterWidth + 0.42,
+  neighborRigZ: LANE.headSpot.z * 0.5, // roughly mid-lane, deep in the background
+  neighborRigSize: { x: 0.12, y: 2.4, z: 0.12 } as Vec3,
+
+  // Industrial palette (REQ-041): the room shell is dark cast-iron-toned concrete,
+  // the conduit and neighbour rig blackened steel, the gauges a brass-rimmed face.
+  // All warm-neutral (red >= blue) so the room stays in the warm machine palette.
+  shellColor: 0x161310,
+  conduitColor: 0x3a3733,
+  gaugeRimColor: 0x6b5320,
+  gaugeFaceColor: 0x2a2723,
+  neighborColor: 0x100e0c,
+} as const;
+
+// Pure layout of the machine-room interior (REQ-039), derived from LANE / TETHER
+// and the MACHINE_ROOM tunables so the world3d meshes and a unit test share one
+// source of truth. Returns the enclosing shell slabs (floor is the existing lane
+// floor, so the shell here is the four walls plus ceiling), the background
+// conduit runs, the back-wall gauge dials, and the neighbouring-lane silhouette.
+// No physics: this is dressing well outside the playfield.
+export function machineRoomParts(): {
+  walls: RigBeam[];
+  ceiling: RigBeam;
+  conduits: RigCylinder[];
+  gauges: { center: Vec3; radius: number }[];
+  neighborRig: RigBeam;
+} {
+  const m = MACHINE_ROOM;
+  const t = m.wallThickness;
+  const centerZ = (m.frontZ + m.backZ) / 2;
+  const halfZ = (m.frontZ - m.backZ) / 2;
+  const wallHeight = m.ceilingY - LANE.floorY;
+  const wallCenterY = LANE.floorY + wallHeight / 2;
+
+  // Two side walls and a back/front wall enclose the lane.
+  const walls: RigBeam[] = [];
+  for (const side of [-1, 1] as const) {
+    walls.push({
+      center: { x: side * m.wallHalfX, y: wallCenterY, z: centerZ },
+      half: { x: t, y: wallHeight / 2, z: halfZ },
+    });
+  }
+  // Back wall (behind the pit, -z) and front wall (behind the bowler, +z).
+  walls.push({
+    center: { x: 0, y: wallCenterY, z: m.backZ - t },
+    half: { x: m.wallHalfX + t, y: wallHeight / 2, z: t },
+  });
+  walls.push({
+    center: { x: 0, y: wallCenterY, z: m.frontZ + t },
+    half: { x: m.wallHalfX + t, y: wallHeight / 2, z: t },
+  });
+
+  const ceiling: RigBeam = {
+    center: { x: 0, y: m.ceilingY, z: centerZ },
+    half: { x: m.wallHalfX + t, y: t, z: halfZ },
+  };
+
+  // One conduit run along the top of each side wall, just inside it.
+  const conduits: RigCylinder[] = ([-1, 1] as const).map((side) => ({
+    center: { x: side * (m.wallHalfX - m.conduitInset), y: m.conduitY, z: centerZ },
+    radius: m.conduitRadius,
+    length: 2 * halfZ,
+    axis: 'z',
+  }));
+
+  // Gauge dials in a row on the back wall, centred on the lane.
+  const gauges: { center: Vec3; radius: number }[] = [];
+  const firstX = -((m.gaugeCount - 1) * m.gaugeSpacing) / 2;
+  for (let i = 0; i < m.gaugeCount; i += 1) {
+    gauges.push({
+      center: { x: firstX + i * m.gaugeSpacing, y: m.gaugeY, z: m.backZ + 0.02 },
+      radius: m.gaugeRadius,
+    });
+  }
+
+  // The neighbouring-lane silhouette: a dark vertical post off to the right, deep
+  // in the background near the side wall.
+  const d = m.neighborRigSize;
+  const neighborRig: RigBeam = {
+    center: { x: m.neighborRigX, y: LANE.floorY + d.y / 2, z: m.neighborRigZ },
+    half: { x: d.x / 2, y: d.y / 2, z: d.z / 2 },
+  };
+
+  return { walls, ceiling, conduits, gauges, neighborRig };
 }
 
 // Pin standing/fallen detection tunables (GDD 03-string-pinsetter, REQ-016/017).
