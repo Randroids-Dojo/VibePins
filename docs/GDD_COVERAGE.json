@@ -1,16 +1,17 @@
 {
  "_comment_1": "ATOMIC GRANULARITY ONLY. One row per requirement, not per chapter. A 14-day project should produce on the order of 100 rows. If your row count is implausibly low for project age, the loop will self-terminate before the product is good. This is the Flatline failure mode.",
  "_comment_2": "Allowed status values: not_started | partial | done | out_of_scope. Every row should carry implementationRefs and testRefs once status >= partial. followupRefs link to F-NNN entries in FOLLOWUPS.html.",
- "updatedAt": "2026-05-29T15:55",
+ "updatedAt": "2026-05-29T16:05",
  "rows": [
   {
    "id": "REQ-001",
    "requirement": "A game is ten frames, played start to finish in the browser",
    "gddRef": "docs/gdd/02-core-loop.html#loop",
-   "status": "partial",
+   "status": "done",
    "implementationRefs": [
     "src/scoring.ts",
-    "src/game.ts"
+    "src/game.ts",
+    "src/main.ts"
    ],
    "testRefs": [
     "tests/scoring.test.ts",
@@ -24,10 +25,11 @@
    "id": "REQ-002",
    "requirement": "Each frame gives the player three balls to clear ten pins",
    "gddRef": "docs/gdd/02-core-loop.html#ball-and-frame",
-   "status": "partial",
+   "status": "done",
    "implementationRefs": [
     "src/scoring.ts",
-    "src/game.ts"
+    "src/game.ts",
+    "src/main.ts"
    ],
    "testRefs": [
     "tests/scoring.test.ts",
@@ -119,12 +121,15 @@
    "id": "REQ-009",
    "requirement": "Between balls in a frame, count fallen pins and leave standing pins in place for the next ball",
    "gddRef": "docs/gdd/02-core-loop.html#pin-accounting",
-   "status": "partial",
+   "status": "done",
    "implementationRefs": [
-    "src/game.ts"
+    "src/game.ts",
+    "src/main.ts",
+    "src/shot.ts"
    ],
    "testRefs": [
-    "tests/game.test.ts"
+    "tests/game.test.ts",
+    "tests/shot.test.ts"
    ],
    "followupRefs": [
     "F-008"
@@ -134,12 +139,15 @@
    "id": "REQ-010",
    "requirement": "At frame end, perform a full re-rack of all ten pins",
    "gddRef": "docs/gdd/02-core-loop.html#loop",
-   "status": "partial",
+   "status": "done",
    "implementationRefs": [
-    "src/game.ts"
+    "src/game.ts",
+    "src/main.ts",
+    "src/reset.ts"
    ],
    "testRefs": [
-    "tests/game.test.ts"
+    "tests/game.test.ts",
+    "tests/reset.test.ts"
    ],
    "followupRefs": [
     "F-008"
@@ -149,9 +157,10 @@
    "id": "REQ-011",
    "requirement": "After the tenth frame the game ends and shows a final score and summary",
    "gddRef": "docs/gdd/02-core-loop.html#loop",
-   "status": "partial",
+   "status": "done",
    "implementationRefs": [
-    "src/game.ts"
+    "src/game.ts",
+    "src/main.ts"
    ],
    "testRefs": [
     "tests/game.test.ts"
@@ -164,9 +173,15 @@
    "id": "REQ-012",
    "requirement": "Scoreboard shows all ten frames, per-ball counts, and frame marks (strike, spare, flat ten, open)",
    "gddRef": "docs/gdd/02-core-loop.html#scoreboard",
-   "status": "not_started",
-   "implementationRefs": [],
-   "testRefs": [],
+   "status": "done",
+   "implementationRefs": [
+    "src/scoreboard.ts",
+    "src/main.ts",
+    "index.html"
+   ],
+   "testRefs": [
+    "tests/scoreboard.test.ts"
+   ],
    "followupRefs": []
   },
   {

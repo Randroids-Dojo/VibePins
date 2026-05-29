@@ -135,6 +135,26 @@ export class Ball {
     this.body.setBodyType(RAPIER.RigidBodyType.Dynamic, true);
   }
 
+  // Down-lane position and linear speed of the ball, read off the physics body.
+  // The shot watcher (src/shot.ts) uses these to decide when a thrown ball has
+  // resolved: slowed to rest, or cleared the deck into the pit.
+  kinematics(): { z: number; speed: number } {
+    const t = this.body.translation();
+    const v = this.body.linvel();
+    return { z: t.z, speed: Math.hypot(v.x, v.y, v.z) };
+  }
+
+  // Reset the ball back to the spawn point at rest as a kinematic carried body,
+  // ready for the next shot's pickup/walk-up. Mirrors the constructor spawn.
+  respawn(): void {
+    const spawn = ballSpawnPosition();
+    this.body.setBodyType(RAPIER.RigidBodyType.KinematicPositionBased, true);
+    this.body.setNextKinematicTranslation(spawn);
+    this.body.setNextKinematicRotation({ x: 0, y: 0, z: 0, w: 1 });
+    this.body.setLinvel({ x: 0, y: 0, z: 0 }, true);
+    this.body.setAngvel({ x: 0, y: 0, z: 0 }, true);
+  }
+
   sync(): void {
     const t = this.body.translation();
     const r = this.body.rotation();

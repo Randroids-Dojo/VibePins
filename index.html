@@ -8,10 +8,45 @@
     :root { color-scheme: dark; }
     html, body { margin: 0; height: 100%; background: #05060a; overflow: hidden; }
     #lane { display: block; width: 100vw; height: 100vh; }
+
+    /* Scoreboard overlay (REQ-012). A plain readable board for now; the
+       electromechanical split-flap skin (REQ-042) is a later slice. */
+    #scoreboard {
+      position: fixed; top: 0; left: 0; right: 0;
+      display: flex; justify-content: center; gap: 2px;
+      padding: 6px 8px;
+      font: 600 13px/1.2 ui-monospace, "SFMono-Regular", Menlo, monospace;
+      color: #f4ecd6; background: rgba(8, 10, 16, 0.55);
+      pointer-events: none; user-select: none;
+    }
+    .vp-frame {
+      display: flex; flex-direction: column; align-items: stretch;
+      border: 1px solid rgba(244, 236, 214, 0.35); min-width: 38px;
+    }
+    .vp-frame-num {
+      text-align: center; font-size: 10px; color: #b9a87a;
+      border-bottom: 1px solid rgba(244, 236, 214, 0.2);
+    }
+    .vp-balls { display: flex; }
+    .vp-ball {
+      flex: 1; text-align: center; min-width: 12px; min-height: 14px;
+      border-left: 1px solid rgba(244, 236, 214, 0.15);
+    }
+    .vp-ball:first-child { border-left: none; }
+    .vp-cumulative { text-align: center; min-height: 16px; font-size: 15px; }
+
+    #status {
+      position: fixed; bottom: 14px; left: 0; right: 0; text-align: center;
+      font: 600 15px/1.3 ui-monospace, "SFMono-Regular", Menlo, monospace;
+      color: #f4ecd6; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+      pointer-events: none; user-select: none; padding: 0 12px;
+    }
   </style>
 </head>
 <body>
   <canvas id="lane"></canvas>
+  <div id="scoreboard" aria-label="Scoreboard"></div>
+  <div id="status" aria-live="polite"></div>
   <script type="module" src="/src/main.ts"></script>
 </body>
 </html>
