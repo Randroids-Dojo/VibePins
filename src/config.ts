@@ -178,6 +178,28 @@ export const AIM = {
   strength: 0.7,
 } as const;
 
+// Pin-to-pin contact material (GDD REQ-030, pillar 1: authentic duckpin, not
+// reskinned tenpin). Beyond the squat belly-heavy mass (REQ-026), the other
+// physical reason real strikes stay rare is how little energy a duckpin contact
+// transfers: the pins barely bounce off each other, so a hit topples its
+// immediate neighbours but the chain dies out fast instead of spraying the rack
+// the way tenpin does. We tune that here rather than leaving it to engine
+// defaults so the scatter is a deliberate, single-source-of-truth value:
+//   - restitution 0: contacts are fully damped, so struck pins do not rebound
+//     and rocket across the deck. Any non-zero bounce visibly increases scatter
+//     (a small playtest sweep showed restitution 0.05 roughly doubling the
+//     furthest pin's travel), which reads as tenpin spray, so duckpin pins keep
+//     it at zero.
+//   - friction tuned mid-high so a toppling pin sheds its energy into the deck
+//     and its neighbour rather than sliding the length of the lane.
+// Verified by tests/scatter.smoke.test.ts: across a sweep of straight shots a
+// dead-centre ball never strikes and most frames leave six to nine pins, which
+// is the duckpin feel the GDD demands (the record is 279, never a 300).
+export const PIN_PHYSICS = {
+  friction: 0.55,
+  restitution: 0.0,
+} as const;
+
 // Collision-group bitmask for the physics layers (GDD reuse, GROUP pattern).
 export const GROUP = {
   BALL: 1 << 0,

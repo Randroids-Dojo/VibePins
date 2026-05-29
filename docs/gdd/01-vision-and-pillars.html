@@ -53,6 +53,7 @@
   <section data-role="build-log">
     <h2>Build log</h2>
     <ul>
+      <li data-date="2026-05-29">Pillar 1 pin scatter tuned (REQ-030 done). A deliberate <code>PIN_PHYSICS</code> contact material (friction 0.55, restitution 0) now governs pin-to-pin energy transfer, on top of the existing belly-heavy mass. Zero restitution kills rebound so the collision chain dies out fast instead of spraying the rack like tenpin; a real-Rapier scatter smoke proves a dead-centre straight ball never strikes, no straight shot across an aim/speed sweep strikes, every shot leaves several pins, and no near-deck pin is flung sideways more than three pin-spacings. Strikes stay rare and have to be worked for with spin and angle. Files: <code>src/config.ts</code>, <code>src/pins.ts</code>, <code>tests/scatter.smoke.test.ts</code>, <code>tests/config.test.ts</code>. PR #TBD.</li>
       <li data-date="2026-05-28">Section drafted. No code yet. Vision and four pillars established from real-world duckpin and Pins Mechanical Co. research.</li>
     </ul>
   </section>
