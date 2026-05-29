@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { ShotCamera, canThrow, type BallPath, type CameraPose, type ShotCameraConfig } from '../src/camera.js';
+import {
+  ShotCamera,
+  canThrow,
+  lineupMarkerOffset,
+  lineupFractionFromOffset,
+  type BallPath,
+  type CameraPose,
+  type ShotCameraConfig,
+} from '../src/camera.js';
 
 const returnPose: CameraPose = { pos: { x: 0.45, y: 1.55, z: 2.75 }, lookAt: { x: 0.62, y: 0.7, z: 2.25 }, fov: 55 };
 const linePose: CameraPose = { pos: { x: 0, y: 1.5, z: 2.2 }, lookAt: { x: 0, y: 0.4, z: -18.3 }, fov: 30 };
@@ -84,6 +92,41 @@ describe('ShotCamera alignment', () => {
     expect(sc.alignment).toBeCloseTo(-0.3, 6);
   });
 
+  it('sets the stance from a normalized track fraction, clamped to [-1, +1]', () => {
+    const sc = aligned();
+    sc.setAlignFraction(0.5);
+    // Half a track toward +R is half the limit in metres.
+    expect(sc.alignment).toBeCloseTo(0.15, 6);
+    expect(sc.alignFraction).toBeCloseTo(0.5, 6);
+
+    sc.setAlignFraction(2); // beyond the track end
+    expect(sc.alignment).toBeCloseTo(0.3, 6);
+    expect(sc.alignFraction).toBeCloseTo(1, 6);
+
+    sc.setAlignFraction(-3);
+    expect(sc.alignment).toBeCloseTo(-0.3, 6);
+    expect(sc.alignFraction).toBeCloseTo(-1, 6);
+
+    // Centre is zero stance.
+    sc.setAlignFraction(0);
+    expect(sc.alignment).toBe(0);
+    expect(sc.alignFraction).toBe(0);
+  });
+
+  it('reports alignFraction consistently with nudgeAlign', () => {
+    const sc = aligned();
+    sc.nudgeAlign(0.15); // half the 0.3 limit
+    expect(sc.alignFraction).toBeCloseTo(0.5, 6);
+  });
+
+  it('ignores setAlignFraction outside the align phase', () => {
+    const sc = make();
+    sc.start(); // pickup
+    sc.setAlignFraction(1);
+    expect(sc.alignment).toBe(0);
+    expect(sc.alignFraction).toBe(0);
+  });
+
   it('only aligns during the align phase', () => {
     const sc = make();
     sc.start(); // pickup
@@ -108,6 +151,45 @@ describe('ShotCamera alignment', () => {
     expect(ready.alignment).toBeCloseTo(0.1, 6);
     ready.lock(); // locking again is a no-op
     expect(ready.currentPhase).toBe('locked');
+  });
+});
+
+describe('line-up indicator geometry (REQ-033 step 1)', () => {
+  // A 420px track with a 20px rail inset on each end: the marker travels the
+  // 380px span between 20 and 400.
+  const W = 420;
+  const INSET = 20;
+
+  it('places the marker across the rail span as the fraction moves', () => {
+    expect(lineupMarkerOffset(-1, W, INSET)).toBeCloseTo(20, 6); // far-left end
+    expect(lineupMarkerOffset(0, W, INSET)).toBeCloseTo(210, 6); // centre
+    expect(lineupMarkerOffset(1, W, INSET)).toBeCloseTo(400, 6); // far-right end
+  });
+
+  it('moves the marker monotonically with the stance (observable motion)', () => {
+    const left = lineupMarkerOffset(-0.5, W, INSET);
+    const mid = lineupMarkerOffset(0, W, INSET);
+    const right = lineupMarkerOffset(0.5, W, INSET);
+    expect(left).toBeLessThan(mid);
+    expect(mid).toBeLessThan(right);
+  });
+
+  it('clamps an out-of-range fraction to the track ends', () => {
+    expect(lineupMarkerOffset(-5, W, INSET)).toBeCloseTo(20, 6);
+    expect(lineupMarkerOffset(5, W, INSET)).toBeCloseTo(400, 6);
+  });
+
+  it('maps a pointer offset back to a stance fraction', () => {
+    expect(lineupFractionFromOffset(20, W, INSET)).toBeCloseTo(-1, 6);
+    expect(lineupFractionFromOffset(210, W, INSET)).toBeCloseTo(0, 6);
+    expect(lineupFractionFromOffset(400, W, INSET)).toBeCloseTo(1, 6);
+  });
+
+  it('round-trips fraction -> offset -> fraction', () => {
+    for (const f of [-1, -0.4, 0, 0.27, 1]) {
+      const offset = lineupMarkerOffset(f, W, INSET);
+      expect(lineupFractionFromOffset(offset, W, INSET)).toBeCloseTo(f, 6);
+    }
   });
 });
 

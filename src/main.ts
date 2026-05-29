@@ -16,7 +16,7 @@ import { PinSet, pinRackPositions } from './pins.js';
 import { Ball, ballSpawnPosition } from './ball.js';
 import { detectPins, SettleWindow } from './detection.js';
 import { ResetCycle, type ResetMode } from './reset.js';
-import { ShotCamera, canThrow } from './camera.js';
+import { ShotCamera, canThrow, lineupMarkerOffset, lineupFractionFromOffset } from './camera.js';
 import { SweepMeter } from './meter.js';
 import { Game } from './game.js';
 import { Scoreboard } from './scoreboard.js';
@@ -48,6 +48,17 @@ const summaryMenuBtn = document.getElementById('summary-menu');
 const tutorialEl = document.getElementById('tutorial');
 const tutorialStepEl = document.getElementById('tutorial-step');
 const tutorialInstructionEl = document.getElementById('tutorial-instruction');
+
+// Line-up indicator (REQ-033 step 1): the L/R track and the sliding stance
+// marker. The track doubles as the touch/mouse drag surface for lateral aim.
+const lineupEl = document.getElementById('lineup');
+const lineupTrackEl = document.getElementById('lineup-track');
+const lineupMarkerEl = document.getElementById('lineup-marker');
+
+// The rail inset (px) on each end of the track, matching .vp-lineup-rail's
+// left/right in index.html. The marker travels across the rail span only, so
+// fraction -1 sits at the left end of the rail and +1 at the right end.
+const LINEUP_RAIL_INSET = 20;
 
 const world = await createWorld3D(canvas);
 const pins = new PinSet(world);
@@ -141,6 +152,31 @@ function renderTutorial(): void {
   if (tutorialStepEl) tutorialStepEl.textContent = `Step ${hint.index} of ${hint.total} - ${hint.label}`;
   if (tutorialInstructionEl) tutorialInstructionEl.textContent = hint.instruction;
   tutorialEl.hidden = false;
+}
+
+// Show or hide the line-up indicator and slide its marker to the chosen stance
+// (REQ-033 step 1). Visible only while the camera is in the align phase; the
+// marker tracks shotCamera.alignFraction across the rail span. Called every
+// aiming frame so keyboard nudges and pointer drags both reflect immediately.
+function renderLineup(): void {
+  if (!lineupEl || !lineupMarkerEl || !lineupTrackEl) return;
+  const aligning = shotCamera.isAligning;
+  lineupEl.hidden = !aligning;
+  if (!aligning) return;
+  const px = lineupMarkerOffset(shotCamera.alignFraction, lineupTrackEl.clientWidth, LINEUP_RAIL_INSET);
+  lineupMarkerEl.style.left = `${px}px`;
+}
+
+// Map a pointer x (clientX) on the line-up track to a normalized [-1, +1] stance
+// and apply it. Used by the drag handlers so touch and mouse set the lateral aim
+// directly (REQ-033, REQ-037). No-op outside the align phase (setAlignFraction
+// guards that), so a stray drag never disturbs a locked or in-flight shot.
+function dragLineupTo(clientX: number): void {
+  if (!lineupTrackEl) return;
+  const rect = lineupTrackEl.getBoundingClientRect();
+  const fraction = lineupFractionFromOffset(clientX - rect.left, rect.width, LINEUP_RAIL_INSET);
+  shotCamera.setAlignFraction(fraction);
+  renderLineup();
 }
 
 // Begin a fresh shot: carry the ball to the return and start the walk-up. Set
@@ -267,6 +303,8 @@ function showScreen(screen: Screen): void {
   if (summaryEl) summaryEl.hidden = !isSummary;
   // The coach only belongs over the live game; hide it on the menu and summary.
   if (tutorialEl && screen !== 'playing') tutorialEl.hidden = true;
+  // The line-up track likewise belongs only over the live align phase.
+  if (lineupEl && screen !== 'playing') lineupEl.hidden = true;
   if (isMenu) {
     syncAudioToggle();
     setStatus('');
@@ -311,6 +349,37 @@ menuAudioBtn?.addEventListener('click', () => {
   syncAudioToggle();
   if (on) audio.playClick();
 });
+
+// Line-up track drag (REQ-033 step 1, REQ-037 touch/mouse). A pointerdown on the
+// track captures the pointer and steers the lateral aim with each move until
+// release. stopPropagation keeps the drag from bubbling to the window confirm
+// below, so dragging the track sets the line rather than locking it; the player
+// taps anywhere else (the caption reads "tap to lock") to confirm. Pointer
+// capture means a drag that wanders off the narrow track keeps steering.
+if (lineupTrackEl) {
+  let dragging = false;
+  lineupTrackEl.addEventListener('pointerdown', (event) => {
+    event.stopPropagation();
+    event.preventDefault();
+    wakeAudio();
+    dragging = true;
+    lineupTrackEl.setPointerCapture(event.pointerId);
+    dragLineupTo(event.clientX);
+  });
+  lineupTrackEl.addEventListener('pointermove', (event) => {
+    if (!dragging) return;
+    dragLineupTo(event.clientX);
+  });
+  const endDrag = (event: PointerEvent): void => {
+    if (!dragging) return;
+    dragging = false;
+    if (lineupTrackEl.hasPointerCapture(event.pointerId)) {
+      lineupTrackEl.releasePointerCapture(event.pointerId);
+    }
+  };
+  lineupTrackEl.addEventListener('pointerup', endDrag);
+  lineupTrackEl.addEventListener('pointercancel', endDrag);
+}
 
 window.addEventListener('pointerdown', () => {
   wakeAudio();
@@ -373,6 +442,8 @@ function stepShotLoop(dt: number): void {
     const { pose, ballPos } = shotCamera.update(dt);
     applyCameraPose(pose);
     ball.holdAt(ballPos);
+    // Reflect the lateral stance on the line-up track (shown only while aligning).
+    renderLineup();
   } else if (phase === 'watching') {
     const k = ball.kinematics();
     if (shotWatcher.step(k.speed, k.z)) {

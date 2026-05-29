@@ -1,7 +1,7 @@
 {
  "_comment_1": "ATOMIC GRANULARITY ONLY. One row per requirement, not per chapter. A 14-day project should produce on the order of 100 rows. If your row count is implausibly low for project age, the loop will self-terminate before the product is good. This is the Flatline failure mode.",
  "_comment_2": "Allowed status values: not_started | partial | done | out_of_scope. Every row should carry implementationRefs and testRefs once status >= partial. followupRefs link to F-NNN entries in FOLLOWUPS.html.",
- "updatedAt": "2026-05-29T16:50",
+ "updatedAt": "2026-05-29T17:00",
  "rows": [
   {
    "id": "REQ-001",
@@ -466,10 +466,12 @@
    "requirement": "Step 1: player lines up the shot, setting lateral start position and base aim",
    "gddRef": "docs/gdd/08-controls.html#step1-lineup",
    "status": "partial",
+   "note": "Lateral start position is settable via keyboard nudge and touch/mouse drag on an on-screen L/R indicator track (PR #18). Base-aim direction (pointing, not just lateral offset) is still unimplemented; tracked in F-005.",
    "implementationRefs": [
     "src/camera.ts",
     "src/main.ts",
-    "src/config.ts"
+    "src/config.ts",
+    "index.html"
    ],
    "testRefs": [
     "tests/camera.test.ts"
@@ -534,11 +536,16 @@
    "id": "REQ-037",
    "requirement": "Controls work via mouse, touch, and keyboard with a single confirm action per step",
    "gddRef": "docs/gdd/08-controls.html#inputs",
-   "status": "partial",
+   "status": "done",
+   "note": "All three steps confirm via one input on every device: pointer/touch tap and Space/Enter stop the meters and lock the line; keyboard arrows and now touch/mouse drag on the line-up track both set step-1 lateral aim (PR #18). Geometry maps are unit tested in tests/camera.test.ts.",
    "implementationRefs": [
-    "src/main.ts"
+    "src/main.ts",
+    "src/camera.ts",
+    "index.html"
    ],
-   "testRefs": [],
+   "testRefs": [
+    "tests/camera.test.ts"
+   ],
    "followupRefs": [
     "F-007"
    ]
