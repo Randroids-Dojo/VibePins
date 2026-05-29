@@ -95,3 +95,35 @@ export const TETHER = {
   // Thin neutral-grey cord line, in keeping with the industrial palette.
   cordColor: 0x8a8a8a,
 } as const;
+
+// Pin standing/fallen detection tunables (GDD 03-string-pinsetter, REQ-016/017).
+// A pin counts as standing only if upright within tolerance AND at rest AND
+// still on the deck footprint. A settle window waits for sustained rest before
+// counting so wobbling pins are not miscounted. Frame counts assume the fixed
+// 1/60 physics step. These are first-pass values for the playtest gate.
+export const DETECTION = {
+  // Upright tolerance: a pin tilted more than 15 degrees off vertical is fallen.
+  // Stored as the minimum body up-axis Y (cos of the tolerance angle).
+  standingUpAxisThreshold: Math.cos((15 * Math.PI) / 180),
+
+  // At-rest thresholds: a pin is at rest when both speeds are at or below these.
+  atRestLinSpeed: 0.05,
+  atRestAngSpeed: 0.1,
+
+  // Settle window: classify once the whole rack holds rest for settleAtRestFrames
+  // (~0.15s), or at settleMaxFrames (~0.6s) as a hard timeout for a pin that
+  // never fully stills (for example one gently rocking on its cord).
+  settleAtRestFrames: 9,
+  settleMaxFrames: 36,
+
+  // The deck footprint rectangle, derived from LANE (matches world3d's deck
+  // span). A standing pin's centre must lie within x,z and at or below maxCenterY;
+  // a pin that slid off the deck or hangs by its cord fails this and reads fallen.
+  deckFootprint: {
+    minX: -LANE.width / 2,
+    maxX: LANE.width / 2,
+    minZ: LANE.headSpot.z - LANE.pinDeckDepth,
+    maxZ: LANE.headSpot.z + 0.15,
+    maxCenterY: LANE.floorY + LANE.pinHeight / 2 + LANE.pinBellyRadius,
+  },
+} as const;

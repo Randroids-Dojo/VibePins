@@ -1,0 +1,20 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>implement: Pin standing/fallen detection with a settle window</title>
+<meta name="dot-title" content="implement: Pin standing/fallen detection with a settle window">
+<meta name="dot-status" content="active">
+<meta name="dot-priority" content="1">
+<meta name="dot-issue-type" content="task">
+<meta name="dot-created-at" content="2026-05-29T01:24:47.382075-05:00">
+</head>
+<body>
+<article>
+<h1>implement: Pin standing/fallen detection with a settle window</h1>
+<section id="description">
+After the ball and pins settle, classify each pin as standing (up-axis upright within tolerance AND at rest in linear+angular velocity AND still on the deck footprint) or fallen (REQ-016). A settle window waits for motion to die down before counting so wobbling pins are not miscounted (REQ-017). Pure classifier + a detector over the PinSet; feeds scoring/pin-accounting later. Reset cycle (REQ-018/019) and scoring wiring are separate slices.
+</section>
+</article>
+</body>
+</html>

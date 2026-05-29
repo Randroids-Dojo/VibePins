@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="pin-detection" data-date="2026-05-29">
+    <h3>Pin Standing/Fallen Detection With a Settle Window</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/pin-detection</code></dd>
+      <dt>PR</dt><dd>#TBD</dd>
+      <dt>Changed</dt><dd>Added pin standing/fallen detection as a pure module <code>src/detection.ts</code> (consumed later by pin accounting and the reset cycle). <code>classifyPinStanding</code> counts a pin standing only if upright within 15 degrees of vertical AND at rest (linear and angular speed at or below thresholds) AND still on the deck footprint; a pin slid off the deck or left hanging by its cord fails the on-deck test and reads fallen (REQ-022) with no special case. A <code>SettleWindow</code> state machine classifies all ten pins at once after the whole rack holds rest for a sustained window or at a hard timeout, so wobbling pins are not miscounted (REQ-017). Thresholds and the deck footprint live in a new <code>DETECTION</code> config block derived from <code>LANE</code>; <code>PinSet</code> gained a pure <code>pinStates()</code> snapshot so the detector imports no Three.js or Rapier.</dd>
+      <dt>Verification</dt><dd>em-dash grep clean; <code>git diff --check</code> clean; <code>npm run typecheck</code> clean; <code>npm run test</code> 110/110 passing; <code>npm run build</code> succeeds (known single-chunk size warning, F-003). Tests cover every classifier branch, the threshold/footprint boundary semantics, the settle-window timing (no settle while moving, settle after sustained rest, run reset on interruption, timeout, sustained-beats-timeout precedence, latch/reset), and a headless Rapier smoke: a fresh rack reads ten standing, a ball strike produces fallen pins, and the settle window resolves on the real settling physics. A four-lens adversarial review found no logic bugs; its confirmed findings (inclusive at-rest comparison for symmetry with the upright check, boundary-value tests, a settle-window precedence test, and a real-physics settle smoke) were applied.</dd>
+      <dt>Assumptions</dt><dd>Upright tolerance 15 degrees, at-rest speeds 0.05 m/s and 0.1 rad/s, and the settle frames (9 sustained, 36 timeout at the 1/60 step) are GDD-derived first-pass values to tighten against the playtest gate (Q-010). Detection is exercised by tests only this slice; main-loop wiring lands with the consuming reset/scoring slice (slice discipline, no half-finished loop edit).</dd>
+      <dt>GDD coverage</dt><dd>REQ-016 and REQ-017 flipped to <code>done</code>; REQ-022 to <code>partial</code> (the detection rule for hanging pins is in and tested; real hangs arise once the reset cycle exists). Build log appended to <code>docs/gdd/03-string-pinsetter.html</code>.</dd>
+      <dt>Followups</dt><dd>None new. The reset cycle (REQ-018/019), respot (REQ-021), and wiring detection into pin accounting + scoring (REQ-009) are the next string-pinsetter and core-loop slices.</dd>
+    </dl>
+  </article>
+
   <article data-slice="ball-roll" data-date="2026-05-29">
     <h3>Ball: Spawns and Rolls Down the Lane</h3>
     <dl>
