@@ -4,7 +4,7 @@
 <body>
 
   <h1>Core loop and duckpin rules</h1>
-  <p data-status="not_started">Status: not_started</p>
+  <p data-status="partial">Status: partial</p>
 
   <section data-role="spec" id="loop">
     <h2>The core loop</h2>
@@ -68,6 +68,7 @@
   <section data-role="build-log">
     <h2>Build log</h2>
     <ul>
+      <li data-date="2026-05-29">Scoring engine landed (REQ-003 to REQ-008 done; REQ-001, REQ-002 partial). Pure framework-free module <code>src/scoring.ts</code> exposing <code>scoreGame()</code> plus <code>classifyFrameMark</code>, <code>flattenAllBalls</code>, and <code>validateGameInput</code>. Classifies each frame as strike / spare / flat_ten / open; the candlepin flat ten (cleared only on ball 3) scores a flat 10 with no bonus and is never a spare. Strike (next two balls) and spare (next one ball) bonuses resolve from a flat throw tape so they span later frames and the tenth; the tenth grants 2/1/0 bonus balls. Running cumulative totals go null from the first pending frame for in-progress games (REQ-008). Validation rejects out-of-range/non-integer pins, more than ten pins within a rack, malformed frames, and wrong frame counts; never throws. The tenth-frame bonus-ball rack rule (bonus1+bonus2 &lt;= 10 unless bonus1 is a strike) is decided in open question Q-011 (default A). 77 unit tests cover every mark, consecutive strikes, cross-boundary bonuses, all four tenth-frame outcomes, a perfect 300, an all-zero 0, all-spares 150, incomplete games, validation rejects, and JSON round-trip. Verified by an adversarial rules red-team that found no mis-scores. Not yet wired into a scoreboard UI or game loop (later slices). Files: <code>src/scoring.ts</code>, <code>tests/scoring.test.ts</code>. PR #TBD.</li>
       <li data-date="2026-05-28">Section drafted. No code yet. Rules sourced from National Duckpin Bowling Congress conventions and Pins Mechanical Co. house play (three balls, candlepin-style flat ten, 300 ceiling never officially reached).</li>
     </ul>
   </section>

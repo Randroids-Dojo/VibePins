@@ -1,0 +1,20 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>implement: Duckpin scoring engine (frames, strike/spare/flat-ten/open, tenth frame, running totals)</title>
+<meta name="dot-title" content="implement: Duckpin scoring engine (frames, strike/spare/flat-ten/open, tenth frame, running totals)">
+<meta name="dot-status" content="active">
+<meta name="dot-priority" content="1">
+<meta name="dot-issue-type" content="task">
+<meta name="dot-created-at" content="2026-05-29T00:38:38.741860-05:00">
+</head>
+<body>
+<article>
+<h1>implement: Duckpin scoring engine (frames, strike/spare/flat-ten/open, tenth frame, running totals)</h1>
+<section id="description">
+Pure scoring module: ten frames, three balls each, strike=10+next two balls, spare=10+next one ball, candlepin-style flat-ten on the third ball scores flat 10 (NOT a spare), open=pins knocked, tenth-frame bonus balls, running cumulative with retroactive bonus recompute. REQ-001 to REQ-008. Pure logic + exhaustive unit tests; scoreboard UI and game-loop orchestration are later slices.
+</section>
+</article>
+</body>
+</html>

@@ -37,7 +37,22 @@
 
 <main id="open">
   <h2>Open</h2>
-  <p>(none. All questions to date are resolved below.)</p>
+
+  <section data-q="Q-011" data-status="open">
+    <h3>Q-011: Tenth-frame bonus-ball rack semantics</h3>
+    <dl>
+      <dt>Context</dt><dd>A tenth-frame strike grants two bonus balls and a spare grants one (REQ-007). The GDD says "bonus balls are thrown on a fresh re-rack as needed so the bonus pin counts are well defined." The word "as needed" is ambiguous: are the two bonus balls after a strike thrown at one shared rack (so the second hits only what the first left standing), or does the rack reset before every bonus ball (so each is an independent 0-10)? This decides whether an input like a tenth frame of <code>[10, 7, 6]</code> is legal (independent balls, score 23) or impossible (7 + 6 = 13 on a shared rack). It directly affects server-side rejection of impossible scores (REQ-059).</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li>Standard bowling semantics: re-rack only "as needed", i.e. after a ball clears the rack. The first bonus ball is on a fresh rack; if it is a strike (10) the rack resets and the second bonus ball is again 0-10, otherwise the second bonus ball hits only the remaining pins (bonus1 + bonus2 &lt;= 10). A tenth-frame spare's single bonus ball is on a fresh rack (0-10).</li>
+          <li>Every bonus ball on its own fresh rack: each bonus ball is an independent 0-10 regardless of the previous bonus ball, so <code>[10, 7, 6]</code> would be legal.</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>A. This matches universal tenpin/duckpin tenth-frame convention and the most natural reading of "re-rack as needed" (the re-rack happens when a strike clears the deck, not unconditionally). The scoring engine validates under A: a tenth-frame strike's two bonus balls obey bonus1 + bonus2 &lt;= 10 unless bonus1 is itself a strike. Shipped under A; flip to B here if a target duckpin house actually re-racks between every bonus ball.</dd>
+      <dt>Status</dt><dd>open</dd>
+      <dt>Resolution</dt><dd>(shipped under Recommended default A in the scoring engine slice; left open for dev override)</dd>
+    </dl>
+  </section>
 </main>
 
 <aside id="resolved">
