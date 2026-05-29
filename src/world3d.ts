@@ -41,12 +41,14 @@ export class World3D {
 
     this.buildLighting();
     this.buildLane();
+    this.buildPinDeck();
 
     // Physics world. Gravity straight down; a fixed bed collider gives the
     // ball and pins something to rest on in later slices.
     this.physics = new RAPIER.World({ x: 0, y: LANE.gravity, z: 0 });
     this.physics.timestep = FIXED_STEP;
     this.buildLaneCollider();
+    this.buildPinDeckCollider();
 
     window.addEventListener('resize', this.resizeHandler);
     this.handleResize();
@@ -72,6 +74,35 @@ export class World3D {
     bed.position.set(0, LANE.floorY - 0.05, -LANE.length / 2);
     bed.receiveShadow = true;
     this.scene.add(bed);
+  }
+
+  // The pin deck sits behind the lane bed, since the lane length runs only to
+  // the head spot while the triangle's back rows recede further down-lane. A
+  // small forward overlap keeps the head pin off the bed/deck seam. Its top is
+  // coplanar with the lane bed at floorY.
+  private buildPinDeck(): void {
+    const geo = new THREE.BoxGeometry(LANE.width, 0.1, this.deckSpan.length);
+    const mat = new THREE.MeshStandardMaterial({ color: 0x3a3d42, roughness: 0.6, metalness: 0.4 });
+    const deck = new THREE.Mesh(geo, mat);
+    deck.position.set(0, LANE.floorY - 0.05, this.deckSpan.centerZ);
+    deck.receiveShadow = true;
+    this.scene.add(deck);
+  }
+
+  private get deckSpan(): { centerZ: number; length: number } {
+    const frontZ = LANE.headSpot.z + 0.15;
+    const backZ = LANE.headSpot.z - LANE.pinDeckDepth;
+    return { centerZ: (frontZ + backZ) / 2, length: frontZ - backZ };
+  }
+
+  private buildPinDeckCollider(): void {
+    const body = this.physics.createRigidBody(
+      RAPIER.RigidBodyDesc.fixed().setTranslation(0, LANE.floorY - 0.05, this.deckSpan.centerZ),
+    );
+    this.physics.createCollider(
+      RAPIER.ColliderDesc.cuboid(LANE.width / 2, 0.05, this.deckSpan.length / 2),
+      body,
+    );
   }
 
   private buildLaneCollider(): void {

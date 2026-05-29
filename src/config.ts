@@ -33,8 +33,12 @@ export const LANE = {
   // Standard 10-pin triangle spacing, centre-to-centre (GDD REQ-027).
   pinSpacing: 0.3048,
 
-  // Pin deck head spot sits at the far end of the bed.
+  // Pin deck head spot sits at the far end of the bed (the lane length is the
+  // foul-line-to-head-pin distance). The triangle's three back rows recede past
+  // the head spot onto the pin deck, so the deck is its own surface behind the
+  // lane bed (GDD REQ-027). One row of slack covers the deepest back row.
   headSpot: { x: 0, y: 0, z: -18.29 } as Vec3,
+  pinDeckDepth: 1.2,
 
   // Camera frames the lane from just behind the foul line.
   cameraPos: { x: 0, y: 1.6, z: 2.4 } as Vec3,
