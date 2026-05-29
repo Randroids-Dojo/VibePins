@@ -23,6 +23,7 @@ import { Scoreboard } from './scoreboard.js';
 import { ShotWatcher } from './shot.js';
 import { Screens, type Screen } from './screens.js';
 import { Settings } from './settings.js';
+import { AudioEngine } from './audio.js';
 import { DETECTION, LANE, PIN_REST_Y, POWER, RESET, SHOT, SHOT_CAMERA, SPIN } from './config.js';
 
 const canvas = document.getElementById('lane') as HTMLCanvasElement | null;
@@ -85,6 +86,21 @@ let phase: Phase = 'aiming';
 const screens = new Screens('menu');
 const settings = new Settings();
 
+// Procedural Web Audio engine (REQ-043). It synthesizes pin clatter, ball roll,
+// the string-reset whir, and the strike/spare stings. It starts at the persisted
+// audio-enable setting and is lazily initialized + resumed on the first user
+// gesture (browsers block audio until then). Sound is the machine's voice; see
+// GDD 04-look-and-feel.
+const audio = new AudioEngine(settings.audioEnabled);
+
+// Wake the audio context on the first gesture and keep it resumed thereafter.
+// Both pointer and key paths route through here so any confirm/menu interaction
+// unblocks sound.
+function wakeAudio(): void {
+  audio.init();
+  audio.resume();
+}
+
 // Pins standing before the current ball was thrown, so pinfall = before - after.
 let standingBeforeBall = 10;
 // The pin indices the active reset is carrying (handed back when it completes).
@@ -135,6 +151,9 @@ function startReset(mode: ResetMode): void {
   }
   pins.beginReset(fallen);
   reset.start(mode, fallen, pinRackPositions(), settled);
+  // The pinsetter's signature voice: servo whir, taut cords, relay clicks, the
+  // rack thunking home (REQ-043).
+  audio.playStringReset();
   resetTargets = fallen;
   phase = 'resetting';
 }
@@ -144,6 +163,10 @@ function startReset(mode: ResetMode): void {
 function throwBall(): void {
   ball.release();
   ball.launch(spinMeter.position, powerMeter.position);
+  // The ball leaves the hand and meets the lane: a release thunk plus a rumble
+  // down the wood (REQ-043).
+  audio.playBallThunk();
+  audio.playBallRoll();
   shotWatcher.begin();
   phase = 'watching';
   setStatus('Rolling...');
@@ -157,16 +180,19 @@ function confirm(): void {
 
   if (shotCamera.isAligning) {
     shotCamera.lock();
+    audio.playClick();
     spinMeter.start();
     return;
   }
   if (spinMeter.isSweeping) {
     spinMeter.stop();
+    audio.playClick();
     powerMeter.start();
     return;
   }
   if (powerMeter.isSweeping) {
     powerMeter.stop();
+    audio.playClick();
     if (canThrow(shotCamera.currentPhase, true)) throwBall();
   }
 }
@@ -209,16 +235,35 @@ screens.onChange((screen) => {
 
 // Menu and summary controls (mouse / touch / keyboard via native button
 // activation, REQ-037 and RULE 10). Each maps to one screen transition.
-menuPlayBtn?.addEventListener('click', () => screens.start());
-summaryAgainBtn?.addEventListener('click', () => screens.playAgain());
-summaryMenuBtn?.addEventListener('click', () => screens.toMenu());
+menuPlayBtn?.addEventListener('click', () => {
+  wakeAudio();
+  audio.playClick();
+  screens.start();
+});
+summaryAgainBtn?.addEventListener('click', () => {
+  audio.playClick();
+  screens.playAgain();
+});
+summaryMenuBtn?.addEventListener('click', () => {
+  audio.playClick();
+  screens.toMenu();
+});
 menuAudioBtn?.addEventListener('click', () => {
-  settings.toggleAudio();
+  // Toggling is a gesture: wake the context so the engine can sound when turned
+  // on, then mirror the persisted setting into the live engine.
+  wakeAudio();
+  const on = settings.toggleAudio();
+  audio.setEnabled(on);
   syncAudioToggle();
+  if (on) audio.playClick();
 });
 
-window.addEventListener('pointerdown', () => confirm());
+window.addEventListener('pointerdown', () => {
+  wakeAudio();
+  confirm();
+});
 window.addEventListener('keydown', (event) => {
+  wakeAudio();
   switch (event.code) {
     case 'ArrowLeft':
     case 'KeyA':
@@ -310,6 +355,15 @@ function recordSettledBall(standingNow: number): void {
   const pinsDowned = Math.max(0, standingBeforeBall - standingNow);
   const result = game.recordBall(pinsDowned);
   renderScore();
+
+  // Mechanical feedback for the count (REQ-043). Pins falling clatter (louder for
+  // a bigger count); clearing the rack rings a flourish: the bigger strike sting
+  // when the first ball takes all ten, the smaller spare cue otherwise.
+  if (result.pinsDowned > 0) audio.playPinClatter(result.pinsDowned);
+  if (result.pinsStanding === 0) {
+    if (result.ballInFrame === 1 && result.pinsDowned === 10) audio.playStrike();
+    else audio.playSpare();
+  }
 
   if (result.outcome === 'game-over') {
     phase = 'over';
