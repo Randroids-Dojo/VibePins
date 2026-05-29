@@ -43,7 +43,8 @@
       <dt>Context</dt><dd>The shot-setup camera (<code>src/camera.ts</code> <code>ShotCamera</code>) already does the walk-up and a lateral stance shift (A/D, clamped) that moves the held ball, so the ball launches from where the player lines up. To finish REQ-033 this needs: touch/pointer drag and a clear on-screen lateral indicator (the L/R arrow-bar from the SNES reference), base-aim direction (not just lateral position), and a confirm affordance that reads without instructions (pillar 4). Tune the align step and limit against the playtest gate (Q-010).</dd>
       <dt>Blocker</dt><dd>none; builds directly on the shipped camera director.</dd>
       <dt>Unblock condition</dt><dd>ready now.</dd>
-      <dt>PR / Dot reference</dt><dd>(not started)</dd>
+      <dt>Progress</dt><dd>The on-screen lateral indicator and touch/pointer drag landed (PR #18). A new <code>#lineup</code> L/R track in <code>index.html</code> shows a brass marker sliding to the chosen stance during the align phase; the track is a pointer-capture drag surface so touch and mouse set the lateral aim directly, alongside the existing A/D keyboard nudge (REQ-037 done). <code>src/camera.ts</code> gained <code>setAlignFraction</code> / <code>alignFraction</code> on a normalized <code>[-1, +1]</code> track plus the pure <code>lineupMarkerOffset</code> / <code>lineupFractionFromOffset</code> geometry maps (unit tested for monotonic motion and round-tripping). A "Drag to aim, tap to lock" caption is the confirm affordance (pillar 4). What remains for REQ-033: base-aim direction (the ball pointing, not just a lateral start offset), and tuning the align limit against the playtest gate (Q-010). Covered by <code>tests/camera.test.ts</code>.</dd>
+      <dt>PR / Dot reference</dt><dd>indicator + drag: PR #18. Base-aim direction still open.</dd>
     </dl>
   </section>
 
@@ -65,7 +66,7 @@
       <dt>Blocker</dt><dd>cleanest to build alongside or just after F-006 so the three-step release is wired together.</dd>
       <dt>Unblock condition</dt><dd>F-006 (spin/angle + release wiring) in progress or done.</dd>
       <dt>Progress</dt><dd>Shipped (REQ-035 done). The reusable <code>SweepMeter</code> drives a third timed stop on the same <code>[-1, +1]</code> track; a new <code>POWER</code> config block plus <code>powerSpeed(stop)</code> in <code>src/ball.ts</code> map the stop to a down-lane speed with a centred sweet spot (full power) tapering to a weak push at the extremes, and <code>ballLaunchVelocity</code>/<code>launch</code> take an optional power stop. <code>src/main.ts</code> now runs the full three-step single-confirm flow (lock line, stop spin, stop power and throw) across keyboard and pointer, advancing REQ-037 to partial. Remaining: the mechanical gauge skin and per-stop click (REQ-038) and touch side-zone lineup drag (REQ-037) are their own slices, not part of this followup.</dd>
-      <dt>Resolved</dt><dd>PR #13</dd>
+      <dt>Resolved</dt><dd>PR #13. Follow-on: the touch/mouse lineup drag that completes REQ-037 (all three steps confirm on every input) landed in PR #18 (see F-005).</dd>
     </dl>
   </section>
 

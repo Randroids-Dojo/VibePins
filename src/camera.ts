@@ -16,6 +16,29 @@ export function canThrow(phase: ShotPhase, holding: boolean): boolean {
   return phase === 'locked' && holding;
 }
 
+// Line-up indicator geometry (REQ-033 step 1). The marker slides across the
+// rail span of the track (the track minus a rail inset on each end). These two
+// pure maps convert between the normalized [-1, +1] stance fraction and a pixel
+// offset along the track, so the indicator render and the drag-to-aim handler
+// share one source of truth and stay unit-testable without a DOM.
+
+// Pixel offset of the marker centre from the track's left edge, for a stance
+// fraction in [-1, +1]. -1 sits at the left end of the rail span, +1 at the
+// right end. The fraction is clamped so an out-of-range value stays on track.
+export function lineupMarkerOffset(fraction: number, trackWidth: number, railInset: number): number {
+  const clamped = Math.max(-1, Math.min(1, fraction));
+  const span = Math.max(0, trackWidth - railInset * 2);
+  return railInset + ((clamped + 1) / 2) * span;
+}
+
+// Inverse of lineupMarkerOffset: a pointer x within the track maps back to a
+// stance fraction in [-1, +1]. Caller clamps via setAlignFraction; this returns
+// the raw mapped value so the edges of the track reach the limits cleanly.
+export function lineupFractionFromOffset(offsetX: number, trackWidth: number, railInset: number): number {
+  const span = Math.max(1, trackWidth - railInset * 2);
+  return ((offsetX - railInset) / span) * 2 - 1;
+}
+
 export interface CameraPose {
   readonly pos: Vec3;
   readonly lookAt: Vec3;
@@ -98,6 +121,15 @@ export class ShotCamera {
     this.align = Math.max(-this.cfg.alignLimit, Math.min(this.cfg.alignLimit, this.align + dx));
   }
 
+  // Set the stance directly from a normalized [-1, +1] track position (pointer /
+  // touch drag along the line-up indicator). -1 is the far-left stance, +1 the
+  // far-right; the value is clamped to the track before mapping to metres.
+  setAlignFraction(fraction: number): void {
+    if (this.phase !== 'align') return;
+    const clamped = Math.max(-1, Math.min(1, fraction));
+    this.align = clamped * this.cfg.alignLimit;
+  }
+
   // Confirm the line and settle into the shooting pose.
   lock(): void {
     if (this.phase === 'align') this.phase = 'locked';
@@ -110,6 +142,12 @@ export class ShotCamera {
   // The lateral stance offset chosen during alignment (metres).
   get alignment(): number {
     return this.align;
+  }
+
+  // The chosen stance as a normalized [-1, +1] track position, for rendering the
+  // line-up indicator. 0 is centre, -1 the far-left limit, +1 the far-right.
+  get alignFraction(): number {
+    return this.align / this.cfg.alignLimit;
   }
 
   get isAligning(): boolean {
