@@ -53,12 +53,48 @@ export const LANE = {
   headSpot: { x: 0, y: 0, z: -18.29 } as Vec3,
   pinDeckDepth: 1.2,
 
-  // Camera frames the lane from just behind the foul line.
-  cameraPos: { x: 0, y: 1.6, z: 2.4 } as Vec3,
-  cameraLookAt: { x: 0, y: 0.2, z: -9.0 } as Vec3,
+  // Camera frames the lane from behind the foul line, raised and tilted down so
+  // the pin deck at the far end reads clearly rather than vanishing to a point.
+  cameraPos: { x: 0, y: 1.5, z: 2.2 } as Vec3,
+  cameraLookAt: { x: 0, y: 0.4, z: -18.3 } as Vec3,
+  cameraFov: 30,
+
+  // Atmospheric fog for venue depth. Far is pushed well past the pin deck
+  // (~20.7m from the camera) so the pins are not faded to black.
+  fogNear: 9,
+  fogFar: 42,
+
+  // The approach floor extends behind the foul line (toward the camera) so the
+  // walk-up and the ball return have ground.
+  approachDepth: 3.0,
 
   floorY: 0,
   gravity: -9.82,
+} as const;
+
+// Shot-setup camera sequence (GDD 08-controls, REQ-033 lineup). The camera
+// animates: pick the ball up at the return, walk up to the foul line, then the
+// player shifts their line before locking in. The "line" (locked) pose reuses
+// the LANE camera, so there is one source of truth for the shooting view.
+export const SHOT_CAMERA = {
+  // First-person pickup pose: eye height, looking down toward the throwing hand.
+  returnPos: { x: 0.45, y: 1.55, z: 2.75 } as Vec3,
+  returnLookAt: { x: 0.62, y: 0.7, z: 2.25 } as Vec3,
+  returnFov: 55,
+
+  // Where the ball return rail sits (the ball rests here before pickup).
+  ballReturnPos: { x: 0.45, y: 0.18, z: 2.5 } as Vec3,
+  // Where the ball is lifted to once grabbed: up and toward the throwing-hand
+  // side (the return side, +x) and back toward the body, so the lift reads as an
+  // arm bringing the ball up to a front-right carry, not a centred float.
+  ballHeldPos: { x: 0.78, y: 0.92, z: 2.35 } as Vec3,
+
+  // Sequence timing in seconds.
+  pickupSeconds: 1.3,
+  walkupSeconds: 2.0,
+
+  // Max lateral stance shift (metres) while aligning at the line.
+  alignLimit: 0.34,
 } as const;
 
 // Collision-group bitmask for the physics layers (GDD reuse, GROUP pattern).

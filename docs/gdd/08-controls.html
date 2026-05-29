@@ -4,7 +4,7 @@
 <body>
 
   <h1>Controls</h1>
-  <p data-status="not_started">Status: not_started</p>
+  <p data-status="partial">Status: partial</p>
 
   <section data-role="spec" id="overview">
     <h2>Overview</h2>
@@ -50,6 +50,7 @@
   <section data-role="build-log">
     <h2>Build log</h2>
     <ul>
+      <li data-date="2026-05-29">Step 1 lineup started (REQ-033 partial). A <code>ShotCamera</code> director (<code>src/camera.ts</code>) runs the shot setup as a cinematic: pick the ball up at the return, walk up to the foul line, then shift the line laterally and lock in. The lateral stance shift (A/D or pointer, clamped to a limit) also moves the held ball, so the ball launches from where the player lined up. The aiming arrows on the lane are the visual reference. This is the deliberate, untimed lineup step; the timed spin/angle (REQ-034) and power (REQ-035) meters and the actual release-to-launch wiring (REQ-036) are follow-up slices (F-006, F-007). Driven from <code>src/main.ts</code>; covered by <code>tests/camera.test.ts</code>. PR #TBD.</li>
       <li data-date="2026-05-28">Section created per dev direction: SNES Super Bowling three-step control scheme (line up, stop spin/angle meter, stop power meter). Supersedes the earlier swipe/flick proposal (resolves Q-004). No code yet.</li>
     </ul>
   </section>

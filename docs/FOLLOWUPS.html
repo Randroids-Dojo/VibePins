@@ -36,7 +36,46 @@
 <main>
 <section id="blocks-release">
   <h2>Blocks Release</h2>
-  <p>(none yet)</p>
+
+  <section data-f="F-005" data-priority="blocks-release">
+    <h3>F-005: Player positioning / lineup controls (finish REQ-033)</h3>
+    <dl>
+      <dt>Context</dt><dd>The shot-setup camera (<code>src/camera.ts</code> <code>ShotCamera</code>) already does the walk-up and a lateral stance shift (A/D, clamped) that moves the held ball, so the ball launches from where the player lines up. To finish REQ-033 this needs: touch/pointer drag and a clear on-screen lateral indicator (the L/R arrow-bar from the SNES reference), base-aim direction (not just lateral position), and a confirm affordance that reads without instructions (pillar 4). Tune the align step and limit against the playtest gate (Q-010).</dd>
+      <dt>Blocker</dt><dd>none; builds directly on the shipped camera director.</dd>
+      <dt>Unblock condition</dt><dd>ready now.</dd>
+      <dt>PR / Dot reference</dt><dd>(not started)</dd>
+    </dl>
+  </section>
+
+  <section data-f="F-006" data-priority="blocks-release">
+    <h3>F-006: Throw spin/angle meter (REQ-034) and release-to-launch (REQ-036)</h3>
+    <dl>
+      <dt>Context</dt><dd>Step 2 of the control scheme: after locking the line, a sweeping meter sets spin/angle (centre is straight, sides curve). On release this must feed the launch: the lineup lateral position plus the chosen angle/spin combine into the ball's launch velocity and angular velocity (REQ-036), so the ball curves. Today the ball launches straight down-lane from the aligned x; this slice makes aim and spin actually steer the shot. Meter sweep speed and sweet-spot width start forgiving and tighten via the playtest gate (Q-010), and render as mechanical gauges (REQ-038).</dd>
+      <dt>Blocker</dt><dd>none; the lineup (F-005 / REQ-033) and the rolling ball (REQ-029) exist.</dd>
+      <dt>Unblock condition</dt><dd>ready now.</dd>
+      <dt>PR / Dot reference</dt><dd>(not started)</dd>
+    </dl>
+  </section>
+
+  <section data-f="F-007" data-priority="blocks-release">
+    <h3>F-007: Throw power meter (REQ-035)</h3>
+    <dl>
+      <dt>Context</dt><dd>Step 3: a second sweeping power meter sets ball speed and triggers the release. Combines with the lineup and spin/angle into the final launch (REQ-036). Mechanical-gauge feedback with a click on each stop (REQ-038); sweep speed/sweet-spot tunable in config for the playtest gate (Q-010). All three inputs must work via mouse, touch, and keyboard with one confirm per step (REQ-037).</dd>
+      <dt>Blocker</dt><dd>cleanest to build alongside or just after F-006 so the three-step release is wired together.</dd>
+      <dt>Unblock condition</dt><dd>F-006 (spin/angle + release wiring) in progress or done.</dd>
+      <dt>PR / Dot reference</dt><dd>(not started)</dd>
+    </dl>
+  </section>
+
+  <section data-f="F-008" data-priority="blocks-release">
+    <h3>F-008: The playable game loop (throw, detect, score, reset, frames, end)</h3>
+    <dl>
+      <dt>Context</dt><dd>Wire the existing systems into an actual game: after the throw, wait for the rack to settle, run detection (<code>src/detection.ts</code>) to count this ball's pinfall, feed it into the scoring engine (<code>src/scoring.ts</code> <code>scoreGame</code>), run the reset cycle (<code>src/reset.ts</code>) to reel fallen pins and re-rack between frames, advance through three balls per frame and ten frames, and show the end-of-game summary (REQ-001, REQ-002, REQ-008, REQ-009, REQ-010, REQ-011). The pieces all exist and are unit tested in isolation; this is the orchestration slice that makes VibePins a game. A visible scoreboard (REQ-012, REQ-042) can land here or as a paired UI slice.</dd>
+      <dt>Blocker</dt><dd>best after the throw is player-driven (F-006/F-007) so real pinfall flows in, though it can be prototyped with the current fixed launch.</dd>
+      <dt>Unblock condition</dt><dd>scoring, detection, and reset are merged (they are); wire them together.</dd>
+      <dt>PR / Dot reference</dt><dd>(not started)</dd>
+    </dl>
+  </section>
 </section>
 
 <section id="nice-to-have">
