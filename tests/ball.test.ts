@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { LANE, SPIN } from '../src/config.js';
-import { ballSpawnPosition, ballLaunchVelocity, spinFraction } from '../src/ball.js';
+import { LANE, SPIN, POWER } from '../src/config.js';
+import { ballSpawnPosition, ballLaunchVelocity, spinFraction, powerSpeed } from '../src/ball.js';
 
 describe('ballSpawnPosition', () => {
   const spawn = ballSpawnPosition();
@@ -99,6 +99,68 @@ describe('spin config tunables', () => {
     // The lateral nudge must not overwhelm the down-lane throw.
     expect(SPIN.maxLateralSpeed).toBeLessThan(LANE.ballLaunchSpeed);
     expect(SPIN.maxSpinYaw).toBeGreaterThan(0);
+  });
+});
+
+describe('powerSpeed (REQ-035)', () => {
+  it('gives full power across the centred sweet-spot band', () => {
+    expect(powerSpeed(0)).toBe(POWER.maxSpeed);
+    expect(powerSpeed(POWER.sweetSpotBand)).toBe(POWER.maxSpeed);
+    expect(powerSpeed(-POWER.sweetSpotBand)).toBe(POWER.maxSpeed);
+  });
+
+  it('ramps down to the minimum at the track extremes', () => {
+    expect(powerSpeed(1)).toBeCloseTo(POWER.minSpeed, 6);
+    expect(powerSpeed(-1)).toBeCloseTo(POWER.minSpeed, 6);
+  });
+
+  it('is symmetric in the stop sign (only distance from centre matters)', () => {
+    expect(powerSpeed(0.6)).toBeCloseTo(powerSpeed(-0.6), 6);
+  });
+
+  it('falls off monotonically from the band edge to the extreme', () => {
+    expect(powerSpeed(0.3)).toBeGreaterThan(powerSpeed(0.6));
+    expect(powerSpeed(0.6)).toBeGreaterThan(powerSpeed(0.9));
+  });
+
+  it('stays between the min and max for any stop, never stalling', () => {
+    for (const stop of [-2, -1, -0.5, 0, 0.5, 1, 2]) {
+      const v = powerSpeed(stop);
+      expect(v).toBeGreaterThanOrEqual(POWER.minSpeed);
+      expect(v).toBeLessThanOrEqual(POWER.maxSpeed);
+    }
+  });
+});
+
+describe('ballLaunchVelocity with power (REQ-035, REQ-036)', () => {
+  it('drives the down-lane speed from the power stop', () => {
+    expect(ballLaunchVelocity(0, 0).z).toBeCloseTo(-POWER.maxSpeed, 6);
+    expect(ballLaunchVelocity(0, 1).z).toBeCloseTo(-POWER.minSpeed, 6);
+  });
+
+  it('falls back to the legacy fixed speed when no power stop is given', () => {
+    expect(ballLaunchVelocity(0).z).toBe(-LANE.ballLaunchSpeed);
+    expect(ballLaunchVelocity(1).z).toBe(-LANE.ballLaunchSpeed);
+  });
+
+  it('scales the spin nudge with speed so the launch angle tracks the spin', () => {
+    // A weak (slow) full-side shot leans less sideways in absolute terms than a
+    // full-power one, but the lateral-to-downlane ratio (the angle) holds.
+    const fast = ballLaunchVelocity(1, 0);
+    const slow = ballLaunchVelocity(1, 1);
+    expect(Math.abs(slow.x)).toBeLessThan(Math.abs(fast.x));
+    expect(Math.abs(fast.x / fast.z)).toBeCloseTo(Math.abs(slow.x / slow.z), 6);
+  });
+});
+
+describe('power config tunables', () => {
+  it('are present, finite, and sane for the playtest gate', () => {
+    expect(POWER.sweepsPerSecond).toBeGreaterThan(0);
+    expect(POWER.sweetSpotBand).toBeGreaterThan(0);
+    expect(POWER.sweetSpotBand).toBeLessThan(1);
+    // A mistimed stop is weaker than the sweet spot but still moves the ball.
+    expect(POWER.minSpeed).toBeGreaterThan(0);
+    expect(POWER.minSpeed).toBeLessThan(POWER.maxSpeed);
   });
 });
 

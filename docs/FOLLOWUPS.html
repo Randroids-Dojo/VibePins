@@ -64,7 +64,8 @@
       <dt>Context</dt><dd>Step 3: a second sweeping power meter sets ball speed and triggers the release. Combines with the lineup and spin/angle into the final launch (REQ-036). Mechanical-gauge feedback with a click on each stop (REQ-038); sweep speed/sweet-spot tunable in config for the playtest gate (Q-010). All three inputs must work via mouse, touch, and keyboard with one confirm per step (REQ-037).</dd>
       <dt>Blocker</dt><dd>cleanest to build alongside or just after F-006 so the three-step release is wired together.</dd>
       <dt>Unblock condition</dt><dd>F-006 (spin/angle + release wiring) in progress or done.</dd>
-      <dt>PR / Dot reference</dt><dd>(not started)</dd>
+      <dt>Progress</dt><dd>Shipped (REQ-035 done). The reusable <code>SweepMeter</code> drives a third timed stop on the same <code>[-1, +1]</code> track; a new <code>POWER</code> config block plus <code>powerSpeed(stop)</code> in <code>src/ball.ts</code> map the stop to a down-lane speed with a centred sweet spot (full power) tapering to a weak push at the extremes, and <code>ballLaunchVelocity</code>/<code>launch</code> take an optional power stop. <code>src/main.ts</code> now runs the full three-step single-confirm flow (lock line, stop spin, stop power and throw) across keyboard and pointer, advancing REQ-037 to partial. Remaining: the mechanical gauge skin and per-stop click (REQ-038) and touch side-zone lineup drag (REQ-037) are their own slices, not part of this followup.</dd>
+      <dt>Resolved</dt><dd>PR #13</dd>
     </dl>
   </section>
 
