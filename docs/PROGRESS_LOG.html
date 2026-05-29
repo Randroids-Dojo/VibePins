@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="string-tether" data-date="2026-05-29">
+    <h3>String Pinsetter Tether: Slack Overhead Cord Per Pin</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/string-tether</code></dd>
+      <dt>PR</dt><dd>#TBD</dd>
+      <dt>Changed</dt><dd>Tethered each of the ten pins to the overhead drive point, the signature string-pinsetter mechanic. In <code>src/pins.ts</code>, every pin now also gets a per-pin fixed, collider-less anchor body directly above its home spot and a Rapier rope joint (a max-distance constraint, slack until taut) attaching the pin neck (a local point above the dropped belly/COM) to that anchor; a thin grey <code>THREE.Line</code> cord per pin tracks the neck each frame in <code>PinSet.sync()</code>. New <code>TETHER</code> config object in <code>src/config.ts</code> holds the tunables: anchor height 2.5m, neck offset 0.30*pinHeight, slack length 2.96m, cord colour. Slack length is derived from the worst-case anchor-to-neck distance (an outer back-row pin lying flat slid to the far deck corner, ~2.81m) plus a 0.15m margin, so the cord never restrains a natural fall (REQ-014) yet stays finite for a future reset lift (REQ-015). Exported pure helpers <code>neckLocalAnchor()</code> and <code>tetherAnchorPositions()</code>.</dd>
+      <dt>Verification</dt><dd>em-dash grep clean; <code>git diff --check</code> clean; <code>npm run typecheck</code> clean; <code>npm run test</code> 23/23 passing; <code>npm run build</code> succeeds (known single-chunk size warning, F-003). Tests include a pure slack-length guard that recomputes the worst-case deck-fall distance, and a headless Rapier smoke proving (a) a struck pin's tethered fall matches its untethered fall to within 1cm with the cord never going taut, and (b) a freely dropped pin is caught at the slack length. A four-lens adversarial review workflow (correctness, GDD faithfulness, test rigor, style) confirmed the implementation; its two confirmed test-rigor findings (a missing motion lower-bound and a too-loose comparison tolerance) were fixed before this entry.</dd>
+      <dt>Assumptions</dt><dd>Anchor height 2.5m is the midpoint of the GDD 2.2-2.8m range; the neck offset 0.30*pinHeight and slack length 2.96m are first-pass tunables to tighten against the playtest gate (Q-010). REQ-014 free-fall is proven via a velocity-proxy strike; real-ball-impact validation awaits the ball slice, so REQ-014 stays partial.</dd>
+      <dt>GDD coverage</dt><dd>REQ-013 and REQ-015 flipped to <code>done</code>; REQ-014 to <code>partial</code>. <code>docs/gdd/03-string-pinsetter.html</code> status to <code>partial</code> with a build log entry.</dd>
+      <dt>Followups</dt><dd>None new. Detection (REQ-016/017) and the reset cycle (REQ-018/019) remain the next string-pinsetter slices; the anchor bodies are stored so the reset slice can reel them in.</dd>
+    </dl>
+  </article>
+
   <article data-slice="pin-rack" data-date="2026-05-29">
     <h3>Pin Rack: Ten Duckpins on the Deck</h3>
     <dl>

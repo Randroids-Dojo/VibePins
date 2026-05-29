@@ -4,7 +4,7 @@
 <body>
 
   <h1>String pinsetter</h1>
-  <p data-status="not_started">Status: not_started</p>
+  <p data-status="partial">Status: partial</p>
 
   <section data-role="spec" id="overview">
     <h2>Overview</h2>
@@ -72,6 +72,7 @@
   <section data-role="build-log">
     <h2>Build log</h2>
     <ul>
+      <li data-date="2026-05-29">Tether landed (REQ-013, REQ-015 done; REQ-014 partial). Each pin hangs from a per-pin fixed, collider-less overhead anchor directly above its home spot via a Rapier rope joint (a max-distance constraint, slack until taut) attached at the neck (a local +y point above the dropped belly/COM). Slack length 2.96m is derived from the worst-case anchor-to-neck distance (an outer back-row pin's neck lying flat slid to the far deck corner, ~2.81m) plus margin, so the cord never restrains a natural fall yet stays finite for a future reset lift. A thin grey THREE.Line cord per pin tracks the neck each frame in PinSet.sync(). New TETHER config object holds the tunables. Verified by a headless Rapier smoke: a struck pin's tethered fall is identical to its untethered fall (cord never taut), and a freely dropped pin is caught at the slack length. REQ-014 stays partial pending a real ball plus playtest. Files: <code>src/config.ts</code>, <code>src/pins.ts</code>, <code>tests/tether.test.ts</code>, <code>tests/tether.smoke.test.ts</code>. PR #TBD.</li>
       <li data-date="2026-05-28">Section drafted. No code yet. Mechanics sourced from real string-pinsetter machines (neck-attached cords, overhead drive unit 2.2 to 2.8m up, tension-based detection, 3 to 5 second sweepless reset) and the Pins Mechanical "no untangling of strings" house rule.</li>
     </ul>
   </section>

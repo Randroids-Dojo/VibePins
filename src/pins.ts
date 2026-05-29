@@ -14,7 +14,7 @@
 
 import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier3d-compat';
-import { LANE, GROUP, type Vec3 } from './config.js';
+import { LANE, GROUP, TETHER, type Vec3 } from './config.js';
 import type { World3D } from './world3d.js';
 
 // Down-lane distance between triangle rows. The pins are on a triangular grid
@@ -65,19 +65,40 @@ export function pinMassProperties(): PinMassProperties {
   };
 }
 
+// The cord attaches at the pin's neck: a local-frame point above the body centre
+// (GDD REQ-013). It rotates with the pin, so it tracks the neck as the pin tumbles.
+export function neckLocalAnchor(): Vec3 {
+  return { x: 0, y: TETHER.neckLocalY, z: 0 };
+}
+
+// Each pin's overhead anchor sits at a fixed point directly above its home spot
+// (GDD REQ-013, REQ-015). Pure, so the rest/worst-case slack geometry is testable.
+export function tetherAnchorPositions(): Vec3[] {
+  return pinRackPositions().map((spot) => ({ x: spot.x, y: TETHER.topY, z: spot.z }));
+}
+
 // Pin membership tag plus a filter that collides with everything, so future
 // ball/string/gutter slices can select pins without re-tagging them here.
 const PIN_COLLISION_GROUPS = (GROUP.PIN << 16) | 0xffff;
 
+// Scratch objects reused every frame in sync() to avoid per-pin allocation.
+const _neck = new THREE.Vector3();
+
 interface Pin {
   readonly mesh: THREE.Mesh;
   readonly body: RAPIER.RigidBody;
+  // Fixed, collider-less overhead anchor the cord hangs from. Stored so a later
+  // reset slice can reel it in; not added to the scene (it is invisible).
+  readonly anchorBody: RAPIER.RigidBody;
+  // Visual cord: vertex 0 is the static anchor, vertex 1 tracks the pin neck.
+  readonly cord: THREE.Line;
 }
 
 export class PinSet {
   private readonly pins: Pin[] = [];
   private readonly geometry: THREE.CylinderGeometry;
   private readonly material: THREE.MeshStandardMaterial;
+  private readonly cordMaterial: THREE.LineBasicMaterial;
 
   constructor(private readonly world: World3D) {
     // Squat ivory duckpin: a single shared geometry/material across the rack.
@@ -92,9 +113,16 @@ export class PinSet {
       roughness: 0.4,
       metalness: 0.05,
     });
+    // Shared thin cord material; each cord has its own 2-vertex geometry.
+    this.cordMaterial = new THREE.LineBasicMaterial({
+      color: TETHER.cordColor,
+      transparent: true,
+      opacity: 0.7,
+    });
 
     const mass = pinMassProperties();
     const identity = { x: 0, y: 0, z: 0, w: 1 };
+    const neckLocal = neckLocalAnchor();
     for (const spot of pinRackPositions()) {
       const mesh = new THREE.Mesh(this.geometry, this.material);
       mesh.castShadow = true;
@@ -118,18 +146,56 @@ export class PinSet {
         .setCollisionGroups(PIN_COLLISION_GROUPS);
       this.world.physics.createCollider(collider, body);
 
-      this.pins.push({ mesh, body });
+      // Fixed, collider-less overhead anchor directly above the home spot. With
+      // no collider it has zero collision presence (cannot hit pins/ball/cords).
+      const anchorBody = this.world.physics.createRigidBody(
+        RAPIER.RigidBodyDesc.fixed().setTranslation(spot.x, TETHER.topY, spot.z),
+      );
+      // Slack rope joint: neck (on the pin) to the anchor origin. Slack until the
+      // distance hits slackLength, so pins fall and collide freely (REQ-014).
+      this.world.physics.createImpulseJoint(
+        RAPIER.JointData.rope(TETHER.slackLength, neckLocal, { x: 0, y: 0, z: 0 }),
+        body,
+        anchorBody,
+        true,
+      );
+
+      // Cord: vertex 0 is the static anchor, vertex 1 the neck (rest position).
+      const cordGeo = new THREE.BufferGeometry();
+      cordGeo.setAttribute(
+        'position',
+        new THREE.BufferAttribute(
+          new Float32Array([
+            spot.x, TETHER.topY, spot.z,
+            spot.x, spot.y + TETHER.neckLocalY, spot.z,
+          ]),
+          3,
+        ),
+      );
+      const cord = new THREE.Line(cordGeo, this.cordMaterial);
+      // Endpoints span far down-lane; skip frustum culling so cords never vanish.
+      cord.frustumCulled = false;
+      this.world.scene.add(cord);
+
+      this.pins.push({ mesh, body, anchorBody, cord });
     }
   }
 
-  // Copy each body's transform onto its mesh. Call once per rendered frame
-  // after stepping physics.
+  // Copy each body's transform onto its mesh, then drag the cord's lower end to
+  // the pin neck. Call once per rendered frame after stepping physics.
   sync(): void {
     for (const pin of this.pins) {
       const t = pin.body.translation();
       const r = pin.body.rotation();
       pin.mesh.position.set(t.x, t.y, t.z);
       pin.mesh.quaternion.set(r.x, r.y, r.z, r.w);
+
+      // Neck world position: the local neck point rotated by the pin and offset
+      // to its centre. Vertex 0 (the anchor) is static, so only vertex 1 moves.
+      _neck.set(0, TETHER.neckLocalY, 0).applyQuaternion(pin.mesh.quaternion);
+      const pos = pin.cord.geometry.getAttribute('position') as THREE.BufferAttribute;
+      pos.setXYZ(1, t.x + _neck.x, t.y + _neck.y, t.z + _neck.z);
+      pos.needsUpdate = true;
     }
   }
 }
