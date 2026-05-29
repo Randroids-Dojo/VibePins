@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="req029-ball-roll-done" data-date="2026-05-29">
+    <h3>Ball Roll Under Physics Confirmed End To End (REQ-029 complete)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/20260529-185439-req029-ball-roll-done</code></dd>
+      <dt>PR</dt><dd>#TBD</dd>
+      <dt>Changed</dt><dd>Finished REQ-029 (the ball rolls down the lane under physics from the launch impulse, GDD 06-reuse-and-tech#scene). No runtime change: <code>src/ball.ts</code> already launches the ball down-lane at the power-resolved speed with a roll-without-slip forward spin (CCD on so it never tunnels the bed), and <code>src/main.ts</code> drives the full shot through it (walk-up carry, release, launch with the captured spin/power/aim, then the shot watcher resolves on rest or pit). The requirement sat <code>partial</code> because it was gated on followup F-004 (a back pit so a thrown ball comes to rest instead of falling into the void), and the original ball smoke noted it could not assert the ball's end state "with no pit/backstop yet." F-004 has since landed (the gutter-ball slice shipped <code>gutterBoxes()</code> / <code>pitBoxes()</code> containment). This slice closes that last observable gap: the REQ-029 integration smoke in <code>tests/ball.smoke.test.ts</code> now adds the real pit and gutter colliders and asserts the launched ball both topples a pin AND comes to rest contained in the recessed pit (bottoms out in the pit, low end speed) rather than careening off the back. The stale pitless comment was refreshed.</dd>
+      <dt>Verification</dt><dd>em-dash grep (U+2014/U+2013) clean on changed files; <code>git diff --check</code> clean; <code>tsc --noEmit</code> clean; <code>vitest run</code> full suite green (the REQ-029 integration smoke now also proves the contained-rest end state against the real Rapier WASM). Dependency upgrade gate run before the PR: rapier 0.19.3 and three 0.184.0 match the pinned values; vite/vitest/typescript at latest; vibekit not installed. No bump due.</dd>
+      <dt>Assumptions</dt><dd>REQ-029 was already met by shipped code; the remaining gap was proof, not behaviour, so this is a test-only slice (slice discipline: no source touched). The smoke runs the production launch velocity, ball collider, and the real <code>gutterBoxes()</code> / <code>pitBoxes()</code> geometry, so the contained end state holds for the actual scene. Launch tuning (speeds, friction) stays first-pass under the playtest gate (Q-010).</dd>
+      <dt>GDD coverage</dt><dd>REQ-029 flipped <code>partial</code> to <code>done</code> in <code>docs/GDD_COVERAGE.json</code> (42 of 64 done). Test ref <code>tests/containment.smoke.test.ts</code> added to the row. Build log appended to <code>docs/gdd/06-reuse-and-tech.html</code> (the section stays <code>partial</code> overall: REQ-025/026/027 remain partial pending the playtest gate).</dd>
+      <dt>Followups</dt><dd>None opened. F-004 was already resolved in the gutter-ball slice; this slice consumes that resolution to close REQ-029.</dd>
+    </dl>
+  </article>
+
   <article data-slice="hanging-pin-detection-smoke" data-date="2026-05-29">
     <h3>Hanging-Pin Detection Verified Against The Real Cord (REQ-022 complete)</h3>
     <dl>

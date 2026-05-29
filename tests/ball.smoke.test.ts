@@ -5,7 +5,7 @@
 
 import { describe, it, expect, beforeAll } from 'vitest';
 import RAPIER from '@dimforge/rapier3d-compat';
-import { LANE, GROUP, TETHER } from '../src/config.js';
+import { LANE, GROUP, TETHER, gutterBoxes, pitBoxes, type Box } from '../src/config.js';
 import { ballSpawnPosition, ballLaunchVelocity } from '../src/ball.js';
 import { pinRackPositions, pinMassProperties, neckLocalAnchor } from '../src/pins.js';
 
@@ -35,6 +35,18 @@ function addDeck(world: RAPIER.World): void {
     RAPIER.RigidBodyDesc.fixed().setTranslation(0, LANE.floorY - 0.05, (frontZ + backZ) / 2),
   );
   world.createCollider(RAPIER.ColliderDesc.cuboid(LANE.width / 2, 0.05, (frontZ - backZ) / 2), deck);
+}
+
+function addStaticBox(world: RAPIER.World, box: Box): void {
+  const body = world.createRigidBody(
+    RAPIER.RigidBodyDesc.fixed().setTranslation(box.center.x, box.center.y, box.center.z),
+  );
+  world.createCollider(RAPIER.ColliderDesc.cuboid(box.half.x, box.half.y, box.half.z), body);
+}
+
+function addContainment(world: RAPIER.World): void {
+  for (const box of gutterBoxes()) addStaticBox(world, box);
+  for (const box of pitBoxes()) addStaticBox(world, box);
 }
 
 function addBall(world: RAPIER.World): RAPIER.RigidBody {
@@ -144,34 +156,45 @@ describe('ball rests on the bed under gravity', () => {
 });
 
 describe('launched ball knocks down a tethered pin (REQ-029 integration)', () => {
-  it('topples at least one pin after reaching the rack', () => {
+  it('topples at least one pin then comes to rest contained in the pit', () => {
     const world = makeWorld();
     addBed(world);
     addDeck(world);
+    addContainment(world); // gutters + back pit, so the ball is caught, not lost
     const pins = addTetheredRack(world);
     const ball = addBall(world);
     launch(ball);
 
     // Track the lowest tilt each pin ever reached, so a pin that topples and
     // then swings back on its slack cord still counts (final-state-only would
-    // miss it).
+    // miss it). Also track the ball's lowest point to prove it never fell into
+    // the void: with the pit in place it should bottom out in the recessed pit.
     const minUpAxisY = pins.map(() => 1);
-    for (let i = 0; i < 240; i += 1) {
+    let ballMinY = Infinity;
+    for (let i = 0; i < 360; i += 1) {
       world.step();
+      ballMinY = Math.min(ballMinY, ball.translation().y);
       pins.forEach((pin, j) => {
         minUpAxisY[j] = Math.min(minUpAxisY[j], upAxisY(pin));
       });
     }
 
     // The ball reached the pin deck.
-    expect(ball.translation().z).toBeLessThan(LANE.headSpot.z + 1);
+    const end = ball.translation();
+    expect(end.z).toBeLessThan(LANE.headSpot.z + 1);
     // At least one pin clearly toppled (tilted past ~53 degrees off vertical).
     // A ball that passed through untouched would topple nothing, so this also
-    // proves real momentum transfer into the rack. (Ball speed is not asserted:
-    // with no pit/backstop yet the ball rolls off the deck and falls, so its
-    // end-of-sim speed is gravity-driven, not informative.)
+    // proves real momentum transfer into the rack.
     const toppled = minUpAxisY.filter((m) => m < 0.6).length;
     expect(toppled).toBeGreaterThanOrEqual(1);
+    // Now that the back pit exists (F-004), the launch resolves into a contained
+    // end state: the ball clears the rack, drops into the recessed pit, and is
+    // caught by the pit floor rather than falling forever. This closes REQ-029's
+    // full launch-to-rest arc that the earlier pitless smoke could not assert.
+    expect(ballMinY).toBeGreaterThan(LANE.floorY - LANE.pitDepth - LANE.ballRadius - 0.1);
+    expect(end.y).toBeGreaterThan(LANE.floorY - LANE.pitDepth - LANE.ballRadius - 0.1);
+    const v = ball.linvel();
+    expect(Math.hypot(v.x, v.y, v.z)).toBeLessThan(0.6); // settled in the pit, not careening
     world.free();
   });
 });
