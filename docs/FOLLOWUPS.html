@@ -67,7 +67,16 @@
 
 <section id="polish">
   <h2>Polish</h2>
-  <p>(none yet)</p>
+
+  <section data-f="F-003" data-priority="polish">
+    <h3>F-003: Code-split the production bundle</h3>
+    <dl>
+      <dt>Context</dt><dd>The bootstrap production build emits a single ~2.7MB chunk (Three.js plus the inlined Rapier WASM) and trips Vite's 500kB chunk-size warning. Functionally fine for now, but worth splitting (dynamic import of the physics/render boot, manual chunks) once there is more app code to split against.</dd>
+      <dt>Blocker</dt><dd>none, but low value until more modules exist to chunk.</dd>
+      <dt>Unblock condition</dt><dd>enough app surface (gameplay systems, app shell) that splitting yields a real first-paint win.</dd>
+      <dt>PR / Dot reference</dt><dd>(not started)</dd>
+    </dl>
+  </section>
 </section>
 </main>
 
