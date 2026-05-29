@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Vision and pillars</title></head>
+<body>
+
+  <h1>Vision and pillars</h1>
+  <p data-status="not_started">Status: not_started</p>
+
+  <section data-role="spec" id="vision">
+    <h2>Vision</h2>
+    <p>VibePins is a browser-playable 3D duckpin bowling game that captures the feel of a night at a Pins Mechanical Co. bar: stubby pins on strings, a palm-sized ball with no finger holes, three throws a frame, and a venue built around visible machinery. The hook is honesty. Real duckpin is hard, low-scoring, and physical, and the string pinsetter is its signature quirk: a clattering, cord-and-pulley contraption. VibePins leans into that machinery instead of smoothing it out.</p>
+    <p>There is exactly one game mode: a real, full round of duckpin. Ten frames, three balls a frame, scored honestly. No timed mode, no endless mode, no arcade gimmicks layered on top. That one round can be played solo against a global leaderboard, or as an asynchronous match with friends: you bowl a frame, hand off, and your friend picks it up on their phone whenever they have a minute. A match can play out over the course of a day.</p>
+  </section>
+
+  <section data-role="spec" id="pillars">
+    <h2>Design pillars</h2>
+    <dl>
+      <dt>Pillar 1: Authentic duckpin, not reskinned tenpin</dt>
+      <dd>The squat, belly-heavy pins and the small, holeless ball transfer little energy. Pins do not scatter and spray the way tenpin pins do. Strikes are rare and feel earned, which is why the player gets three balls a frame. If a build makes strikes feel easy, the tuning is wrong. Real duckpin has never seen an officially recorded 300 game; the record is 279. VibePins respects that ceiling.</dd>
+
+      <dt>Pillar 2: The string is the star</dt>
+      <dd>Every pin is tethered to an overhead drive unit by a thin cord. The string is slack during the throw so pins fall freely, then it does the resetting: fallen pins are lifted out, standing pins are respotted, and there is no sweep. Strings tangle, hang, and occasionally yank a neighbor. Pins Mechanical even has a house rule, "no untangling of strings." VibePins models string-reset physics as a first-class system and treats the resulting quirks as emergent comedy and light strategy, not bugs to hide. See <a href="03-string-pinsetter.html">String pinsetter</a>.</dd>
+
+      <dt>Pillar 3: Mechanical theatre</dt>
+      <dd>The look and feel leans into the "Mechanical" in Pins Mechanical: exposed machinery, brass and steel and oiled wood, visible cords and pulleys and motors. The string pinsetter is a Rube Goldberg contraption you get to watch work, and watching the machine is half the fun. The tone is industrial, tactile, and a little retro-futurist, not neon-arcade and not slick-corporate. Sound is analog clatter, whirring servos, and clicking relays. See <a href="04-look-and-feel.html">Look and feel</a>.</dd>
+
+      <dt>Pillar 4: Pick up and play</dt>
+      <dd>No tutorial wall. Aim, set power, roll. A frame should take seconds. Feedback is immediate and juicy: pin clatter, the satisfying lift-and-reset of the strings, a celebration on the rare strike. A new player should land their first ball within five seconds of the lane loading.</dd>
+
+      <dt>Pillar 5: Bowl on your own time</dt>
+      <dd>The signature social feature is asynchronous, turn-based multiplayer. You bowl your frame, then hand the match off; your friend opens a link on their phone and bowls theirs whenever they get a moment. A match is not a sitting; it is a thread you return to across a day. No one waits on a live connection, no one needs an account, and the game state lives on the server so either player can drop in and out. See <a href="05-async-multiplayer.html">Async multiplayer</a>.</dd>
+    </dl>
+  </section>
+
+  <section data-role="spec" id="audience-and-platform">
+    <h2>Audience and platform</h2>
+    <p>Target: casual players on desktop and mobile browsers who want a quick, satisfying frame and a reason to come back. Primary platform is web (Three.js + Rapier WASM physics + Vite + TypeScript), deployed to Vercel with serverless functions backing multiplayer and the leaderboard. Controls must work with mouse, touch, and keyboard, and the handoff experience must feel native on a phone. v1 includes a global leaderboard and async, turn-based multiplayer; both are in scope, not deferred.</p>
+  </section>
+
+  <section data-role="spec" id="success">
+    <h2>What success looks like</h2>
+    <ul>
+      <li>A full ten-frame game can be played start to finish in the browser with correct duckpin scoring.</li>
+      <li>The string pinsetter reset reads as a string pinsetter: you can see the cords lift the fallen pins, and standing pins stay put for the next ball.</li>
+      <li>Strikes feel rare and special; most frames are open or spared.</li>
+      <li>A first-time player understands what to do without instructions and wants a second game.</li>
+      <li>The venue reads as a machine you want to watch: exposed mechanisms, warm metal and wood, the pinsetter performing its Rube Goldberg reset.</li>
+      <li>Two friends can play a full match over the course of a day, passing it back and forth on their phones, without ever being online at the same time.</li>
+      <li>A completed solo game posts to a global leaderboard worth chasing.</li>
+    </ul>
+  </section>
+
+  <section data-role="build-log">
+    <h2>Build log</h2>
+    <ul>
+      <li data-date="2026-05-28">Section drafted. No code yet. Vision and four pillars established from real-world duckpin and Pins Mechanical Co. research.</li>
+    </ul>
+  </section>
+
+</body>
+</html>

@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Global leaderboard</title></head>
+<body>
+
+  <h1>Global leaderboard</h1>
+  <p data-status="not_started">Status: not_started</p>
+
+  <section data-role="spec" id="intent">
+    <h2>Intent</h2>
+    <p>A global leaderboard gives the single-player round a reason to come back: post your best honest ten-frame score and see where it lands. It reuses the proven serverless + Upstash Redis pattern from the sibling project Hoops (see <a href="06-reuse-and-tech.html#async-backend">reuse and tech</a>), so leaderboard and async multiplayer share one backend approach.</p>
+  </section>
+
+  <section data-role="spec" id="what-counts">
+    <h2>What posts a score</h2>
+    <ul>
+      <li>A completed solo ten-frame game posts its authentic final score.</li>
+      <li>Each player's completed line in an async match is eligible to post the same way, so multiplayer also feeds the global board.</li>
+      <li>Only completed games count. An abandoned game posts nothing.</li>
+      <li>Scores are submitted with a display name (short, length-capped) and validated server-side against the duckpin scoring rules so an impossible score is rejected.</li>
+    </ul>
+  </section>
+
+  <section data-role="spec" id="boards">
+    <h2>Boards</h2>
+    <ul>
+      <li>An all-time global top list (capped, for example top 100).</li>
+      <li>A daily board that resets each day, mirroring the Hoops pattern, so newcomers can chart without beating the all-time greats.</li>
+      <li>The player's own best is highlighted in context (their rank and nearby entries) even when off the visible top slice.</li>
+    </ul>
+  </section>
+
+  <section data-role="spec" id="display">
+    <h2>Display</h2>
+    <p>The leaderboard is reachable from the main menu and shown on the end-of-game summary so a fresh score lands in context. Visual treatment follows the electromechanical scoreboard language from <a href="04-look-and-feel.html#ui">look and feel</a> rather than a generic table: think a rolling-counter standings board.</p>
+  </section>
+
+  <section data-role="spec" id="non-goals">
+    <h2>What this does not do (v1)</h2>
+    <ul>
+      <li>No accounts or cross-device identity beyond the local player token; your "best" is per-device unless you reuse the same device.</li>
+      <li>No friend-only or private boards in v1 (global and daily only).</li>
+      <li>No seasons, prizes, or anti-cheat beyond server-side score validation.</li>
+    </ul>
+  </section>
+
+  <section data-role="build-log">
+    <h2>Build log</h2>
+    <ul>
+      <li data-date="2026-05-28">Section created. Leaderboard moved into v1 scope per dev direction. Reuses the Hoops Upstash/serverless pattern shared with async multiplayer. No code yet.</li>
+    </ul>
+  </section>
+
+</body>
+</html>

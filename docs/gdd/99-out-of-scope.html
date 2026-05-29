@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Out of scope</title></head>
+<body>
+
+  <h1>Out of scope (v1 fence)</h1>
+  <p data-status="not_started">Status: not_started</p>
+
+  <section data-role="spec" id="fence">
+    <h2>The fence</h2>
+    <p>These items have been considered and deliberately rejected for v1. The loop must not scope-creep into them without explicit approval. Each line carries a one-line rationale.</p>
+    <ul>
+      <li><strong>Real-time / synchronous multiplayer.</strong> v1 multiplayer is asynchronous and turn-based only (see <a href="05-async-multiplayer.html">async multiplayer</a>). No live shared sessions, presence, spectating, or matchmaking.</li>
+      <li><strong>Accounts, friend graphs, sign-in.</strong> Identity is a local per-device token plus a display name. The global leaderboard (<a href="07-leaderboard.html">section 07</a>) and matches work without accounts.</li>
+      <li><strong>Alternative / arcade game modes.</strong> Exactly one mode ships: a real ten-frame, three-ball duckpin round. No timed, endless, distance, streak, heat, or bonus-scoring modes.</li>
+      <li><strong>In-match chat.</strong> Players talk in whatever app they shared the handoff link through.</li>
+      <li><strong>Tenpin, candlepin, or other bowling variants.</strong> VibePins is duckpin only. Variants dilute the focus.</li>
+      <li><strong>Full explorable venue / walking around the bar.</strong> The scene is one lane in a suggested room, not a 3D environment to roam.</li>
+      <li><strong>Other Pins Mechanical games (pinball, ping pong, cage soccer).</strong> Flavor references only; not playable.</li>
+      <li><strong>Manual string-untangle minigame.</strong> Tangles resolve at the next re-rack. A manual untangle interaction is a later idea, not v1. See <a href="03-string-pinsetter.html#tangle">string pinsetter, tangles</a>.</li>
+      <li><strong>Pinsetter maintenance simulation (cord wear, motor faults).</strong> Real but not fun-bearing for v1.</li>
+      <li><strong>Character / avatar customization, cosmetics, progression economy.</strong> No meta-progression in v1.</li>
+      <li><strong>Native desktop / mobile app builds.</strong> Web (Vercel static) is the only v1 target.</li>
+    </ul>
+  </section>
+
+  <section data-role="build-log">
+    <h2>Build log</h2>
+    <ul>
+      <li data-date="2026-05-28">Section drafted. Initial v1 fence established alongside the vision and core systems.</li>
+    </ul>
+  </section>
+
+</body>
+</html>

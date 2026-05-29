@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Open Questions</title>
+</head>
+<body>
+
+<header>
+  <h1>Open Questions</h1>
+  <p>Questions here block or influence implementation.</p>
+  <aside data-role="convention">
+    <strong>Critical convention.</strong> Every question must include a <code>&lt;dt&gt;Recommended default&lt;/dt&gt;</code> entry. The loop ships under that default and leaves the question open for override. Do not block the loop on dev sign-off. Stress-tested values that survive multiple iterations get frozen.
+  </aside>
+</header>
+
+<section id="how-to-add" data-role="entry-template">
+  <h2>How to add a new question</h2>
+  <pre><code>&lt;section data-q="Q-NNN" data-status="open"&gt;
+  &lt;h3&gt;Q-NNN: Short title&lt;/h3&gt;
+  &lt;dl&gt;
+    &lt;dt&gt;Context&lt;/dt&gt;&lt;dd&gt;one or two sentences on why this is a decision point.&lt;/dd&gt;
+    &lt;dt&gt;Options&lt;/dt&gt;&lt;dd&gt;
+      &lt;ol type="A"&gt;
+        &lt;li&gt;Option A description.&lt;/li&gt;
+        &lt;li&gt;Option B description.&lt;/li&gt;
+        &lt;li&gt;Option C description.&lt;/li&gt;
+      &lt;/ol&gt;
+    &lt;/dd&gt;
+    &lt;dt&gt;Recommended default&lt;/dt&gt;&lt;dd&gt;B. One sentence on the rationale.&lt;/dd&gt;
+    &lt;dt&gt;Status&lt;/dt&gt;&lt;dd&gt;open&lt;/dd&gt;
+    &lt;dt&gt;Resolution&lt;/dt&gt;&lt;dd&gt;(filled in once dev confirms or overrides)&lt;/dd&gt;
+  &lt;/dl&gt;
+&lt;/section&gt;</code></pre>
+  <p>Keep <code>Q-NNN</code> IDs monotonically increasing. When a question resolves, leave the entry in place and update <code>data-status</code> to <code>resolved</code> plus the <code>Resolution</code> entry. Never delete.</p>
+</section>
+
+<main id="open">
+  <h2>Open</h2>
+  <p>(none. All questions to date are resolved below.)</p>
+</main>
+
+<aside id="resolved">
+  <h2>Resolved</h2>
+
+  <section data-q="Q-002" data-status="resolved">
+    <h3>Q-002: Physics engine, Rapier vs cannon-es</h3>
+    <dl>
+      <dt>Context</dt><dd>The chosen stack is Three.js + Rapier (WASM). cannon-es would maximize reuse from the sibling project Hoops, but the string pinsetter needs rope/distance joints and stable stacking of ten tethered pins.</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li>Rapier (WASM): modern, deterministic, strong joint/rope constraints.</li>
+          <li>cannon-es: consistency with Hoops, more helper reuse, weaker constraints.</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>A.</dd>
+      <dt>Status</dt><dd>resolved</dd>
+      <dt>Resolution</dt><dd>A. Rapier (WASM), confirmed by dev on 2026-05-28 after reviewing the WASM tradeoff. The async init is a single await at boot (no per-frame cost) and Vite handles the binary; Rapier's rope joints serve the string pinsetter and its determinism supports server-side score validation. Only Hoops physics helpers are forgone; scene/render/audio/input reuse is unaffected.</dd>
+    </dl>
+  </section>
+
+  <section data-q="Q-003" data-status="resolved">
+    <h3>Q-003: VibeKit, depend or copy</h3>
+    <dl>
+      <dt>Context</dt><dd>VibeKit (<code>@randroids-dojo/vibekit</code>) is the workspace's pre-1.0 shared module library used by Hoops. VibePins needs a few modules.</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li>Depend via github tag pin, tracked on the dependency ledger, like Hoops.</li>
+          <li>Copy-paste the needed modules into the repo.</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>A.</dd>
+      <dt>Status</dt><dd>resolved</dd>
+      <dt>Resolution</dt><dd>A. Tag-pinned github dependency, confirmed by dev on 2026-05-28. Tracked on <a href="../docs/DEPENDENCY_LEDGER.html">the dependency ledger</a>; the upgrade gate manages the pre-1.0 risk.</dd>
+    </dl>
+  </section>
+
+  <section data-q="Q-006" data-status="resolved">
+    <h3>Q-006: Async turn granularity</h3>
+    <dl>
+      <dt>Context</dt><dd>The unit of a turn before the match hands off to the next player.</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li>Frame: bowl your whole frame, then hand off.</li>
+          <li>Ball: hand off after every ball.</li>
+          <li>Whole line: bowl all ten frames, then hand off once.</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>A.</dd>
+      <dt>Status</dt><dd>resolved</dd>
+      <dt>Resolution</dt><dd>A. Frame-by-frame, confirmed by dev on 2026-05-28. Matches real bowling rhythm and the "stop and bowl a frame" pitch. See <a href="../docs/gdd/05-async-multiplayer.html#turn-handoff">async multiplayer, turn and handoff</a>.</dd>
+    </dl>
+  </section>
+
+  <section data-q="Q-007" data-status="resolved">
+    <h3>Q-007: Seat authorization for handoff links</h3>
+    <dl>
+      <dt>Context</dt><dd>The handoff link must let the right friend bowl the right seat without accounts, while stopping a stranger from bowling someone else's frame.</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li>Per-seat secret token bound to a device on first open.</li>
+          <li>Match-id only (anyone with the link can submit).</li>
+          <li>Full accounts/auth (rejected by the no-accounts constraint).</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>A.</dd>
+      <dt>Status</dt><dd>resolved</dd>
+      <dt>Resolution</dt><dd>A. Per-seat secret token, confirmed by dev on 2026-05-28. See <a href="../docs/gdd/05-async-multiplayer.html#identity">async multiplayer, lightweight identity</a>.</dd>
+    </dl>
+  </section>
+
+  <section data-q="Q-008" data-status="resolved">
+    <h3>Q-008: "Your turn" notification</h3>
+    <dl>
+      <dt>Context</dt><dd>How the next player learns it is their turn when a match spans hours.</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li>Link share only, plus a local "your matches" list checked by reopening the game.</li>
+          <li>Web push in v1.</li>
+          <li>Email or SMS in v1.</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>A.</dd>
+      <dt>Status</dt><dd>resolved</dd>
+      <dt>Resolution</dt><dd>Hybrid (A as the baseline, B as optional progressive enhancement), per dev on 2026-05-28. The always-works baseline is link sharing plus a local "your matches" list that shows whose turn it is when the player reopens the game; no permissions or providers, so v1 is never blocked on notifications. Web push is layered on as an OPTIONAL, opt-in nudge that degrades gracefully to the manual-check baseline when permission is denied or unsupported (for example iOS without an installed PWA). The web push layer itself is tracked as followup <a href="../docs/FOLLOWUPS.html">F-002</a> and is not a v1 blocker. Email/SMS stay out of scope.</dd>
+    </dl>
+  </section>
+
+  <section data-q="Q-009" data-status="resolved">
+    <h3>Q-009: Players per match in v1</h3>
+    <dl>
+      <dt>Context</dt><dd>How many seats a match supports.</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li>Two in v1; model and server generalized to N seats.</li>
+          <li>Up to four in v1.</li>
+          <li>Exactly two, hard-coded.</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>A.</dd>
+      <dt>Status</dt><dd>resolved</dd>
+      <dt>Resolution</dt><dd>A. Two seats in v1 with the data model and server generalized to N, confirmed by dev on 2026-05-28. See <a href="../docs/gdd/05-async-multiplayer.html#match-model">async multiplayer, match model</a>.</dd>
+    </dl>
+  </section>
+
+  <section data-q="Q-010" data-status="resolved">
+    <h3>Q-010: Meter sweep speed and sweet-spot width</h3>
+    <dl>
+      <dt>Context</dt><dd>Tuning the spin and power meters in the SNES-style control scheme to feel fair but skillful.</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li>Start forgiving and tighten via playtest.</li>
+          <li>Start punishing and loosen later.</li>
+          <li>Difficulty-scaled (meter speeds up over the game).</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>A.</dd>
+      <dt>Status</dt><dd>resolved</dd>
+      <dt>Resolution</dt><dd>A. Start forgiving (slower sweep, wider sweet spot) and tighten against the playtest gate, confirmed by dev on 2026-05-28. Values live in the central config. See <a href="../docs/gdd/08-controls.html#feedback">controls, feedback and skin</a>.</dd>
+    </dl>
+  </section>
+
+  <section data-q="Q-004" data-status="resolved">
+    <h3>Q-004: Throw input scheme</h3>
+    <dl>
+      <dt>Context</dt><dd>How the player rolls the ball. An earlier draft proposed a Hoops-style swipe/flick.</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li>Swipe/flick (drag speed sets power, direction sets aim).</li>
+          <li>Two-step: moving reticle aim, then a power meter.</li>
+          <li>Hold-and-release power bar with directional aim.</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>A (at the time).</dd>
+      <dt>Status</dt><dd>resolved</dd>
+      <dt>Resolution</dt><dd>Superseded. Per dev direction on 2026-05-28, VibePins uses the SNES Super Bowling three-step stop-the-meter scheme: line up the shot, stop a sweeping meter for spin/angle, stop a meter for power. Specified in <a href="../docs/gdd/08-controls.html">controls (section 08)</a>. Closer to option C in spirit but distinct. Swipe is dropped; it suits async phone play better.</dd>
+    </dl>
+  </section>
+
+  <section data-q="Q-005" data-status="resolved">
+    <h3>Q-005: Arcade pressure/streak flair in v1</h3>
+    <dl>
+      <dt>Context</dt><dd>An earlier draft adapted the Hoops streak ladder as a mechanical "machine revs up" arcade layer.</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li>Include a light version in v1.</li>
+          <li>Defer all of it.</li>
+          <li>Include the full version with a bonus-points mode.</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>A (at the time).</dd>
+      <dt>Status</dt><dd>resolved</dd>
+      <dt>Resolution</dt><dd>Dropped (option B taken to the extreme). Per dev direction on 2026-05-28, VibePins ships exactly one authentic ten-frame mode with no arcade layer. The arcade-flair GDD section was removed and replaced by async multiplayer (section 05). The strike celebration survives as mechanical juice in <a href="../docs/gdd/04-look-and-feel.html#juice">look and feel</a>.</dd>
+    </dl>
+  </section>
+
+  <section data-q="Q-001" data-status="resolved">
+    <h3>Q-001: First requirement file</h3>
+    <dl>
+      <dt>Context</dt><dd>which GDD section to draft first as the seed for the coverage ledger.</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li><code>01-vision-and-pillars.html</code> (the abstract framing).</li>
+          <li>The first concrete user-visible feature.</li>
+          <li>The data model / persistence layer.</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>A. The pillars file is short, drives every subsequent decision, and unblocks the rest.</dd>
+      <dt>Status</dt><dd>resolved</dd>
+      <dt>Resolution</dt><dd>A. Drafted <code>01-vision-and-pillars.html</code> first, followed by core loop, string pinsetter, look and feel, arcade flair, reuse, and the out-of-scope fence (2026-05-28).</dd>
+    </dl>
+  </section>
+
+</aside>
+
+</body>
+</html>

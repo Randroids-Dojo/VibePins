@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Controls</title></head>
+<body>
+
+  <h1>Controls</h1>
+  <p data-status="not_started">Status: not_started</p>
+
+  <section data-role="spec" id="overview">
+    <h2>Overview</h2>
+    <p>The throw is a three-step, stop-the-meter sequence modeled on SNES Super Bowling: line up the shot, then stop a sweeping meter to set spin/angle, then stop a second sweeping meter to set power. Each step is a single confirm input (tap, click, or button press), so the scheme is precise, learnable, and identical across phone and desktop. It is also a perfect fit for async multiplayer (<a href="05-async-multiplayer.html">section 05</a>): no swipe finesse, no drag, just three taps anyone can make on a phone in ten seconds.</p>
+    <p>This borrows only the control flow from SNES Super Bowling. Everything else, the string pinsetter, the mechanical aesthetic, the duckpin rules, is VibePins. The meter visuals are re-skinned as mechanical gauges (see <a href="#feedback">feedback</a>), not pixel-art arrows.</p>
+  </section>
+
+  <section data-role="spec" id="step1-lineup">
+    <h2>Step 1: Line up the shot</h2>
+    <p>The player sets the starting position and aim of the ball across the lane. A lateral indicator (the arrow-bar at the top of the SNES reference, with the ball sliding left and right between an <code>L</code> and an <code>R</code> marker) lets the player choose where on the foul line the ball starts and the base direction it points. Move left/right, then confirm to lock the line. This is the deliberate, untimed step; the next two are timed.</p>
+  </section>
+
+  <section data-role="spec" id="step2-spin">
+    <h2>Step 2: Stop the spin/angle meter</h2>
+    <p>A meter sweeps back and forth (the oscillating colored bar in the reference). Where the player stops it sets the ball's spin and hook: stopping near center yields a straight, low-spin ball; stopping toward a side imparts left or right spin that curves the ball as it travels. The sweeping cursor moves at a steady, readable speed. One confirm input stops it. The chosen value is the lateral/spin component of the launch.</p>
+  </section>
+
+  <section data-role="spec" id="step3-power">
+    <h2>Step 3: Stop the power meter</h2>
+    <p>A second meter sweeps (the <code>POWER</code> meter in the reference). Where the player stops it sets ball speed. The meter reads as a gradient where a sweet spot is best and the extremes are weak or wild, so the timing carries real risk and reward. One confirm input stops it and triggers the release.</p>
+  </section>
+
+  <section data-role="spec" id="release">
+    <h2>Release: combining the three inputs</h2>
+    <p>On the power stop, the three inputs resolve into the physics launch: line-up sets the starting position and base aim direction, the spin value sets angular velocity (and the resulting curve), and the power value sets initial speed. These feed the ball body in Rapier (see <a href="06-reuse-and-tech.html#scene">reuse and tech</a>). Spin curves the ball during the roll via a lateral force proportional to spin while the ball is in contact with the lane, decaying as it slows. After release the shot is locked; there is no mid-roll steering in v1.</p>
+  </section>
+
+  <section data-role="spec" id="inputs">
+    <h2>Input mapping</h2>
+    <ul>
+      <li><strong>Touch:</strong> drag or tap the side zones to move the line-up; tap anywhere to confirm and to stop each meter.</li>
+      <li><strong>Mouse:</strong> move to set the line-up; click to confirm and to stop each meter.</li>
+      <li><strong>Keyboard:</strong> left/right arrows to set the line-up; space/enter to confirm and to stop each meter.</li>
+      <li>Every step uses the same single confirm action, so the whole throw is "set line, tap, tap".</li>
+    </ul>
+  </section>
+
+  <section data-role="spec" id="feedback">
+    <h2>Feedback and skin</h2>
+    <p>The two sweeping meters are styled as mechanical gauges consistent with <a href="04-look-and-feel.html">look and feel</a>: needle gauges or sliding indicators on riveted metal plates rather than the SNES pixel bars, with a satisfying mechanical click on each stop. The line-up indicator reads as a track the ball slides along. Sweep speed and sweet-spot width are tunable constants (Q-010 resolved: start forgiving, tighten via playtest) and live in the central config (see <a href="06-reuse-and-tech.html#scene">LANE config</a>).</p>
+  </section>
+
+  <section data-role="build-log">
+    <h2>Build log</h2>
+    <ul>
+      <li data-date="2026-05-28">Section created per dev direction: SNES Super Bowling three-step control scheme (line up, stop spin/angle meter, stop power meter). Supersedes the earlier swipe/flick proposal (resolves Q-004). No code yet.</li>
+    </ul>
+  </section>
+
+</body>
+</html>

@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Core loop and duckpin rules</title></head>
+<body>
+
+  <h1>Core loop and duckpin rules</h1>
+  <p data-status="not_started">Status: not_started</p>
+
+  <section data-role="spec" id="loop">
+    <h2>The core loop</h2>
+    <p>One game is ten frames. In each frame the player aims, sets power, and rolls a ball down the lane at a triangle of ten pins. After the ball settles, fallen pins are counted and lifted out by the strings, standing pins stay on the deck, and the player rolls again. A frame ends when all ten pins are down or after three balls, whichever comes first. The cumulative score updates after each frame. After the tenth frame the game ends and a final score and summary are shown.</p>
+    <ol>
+      <li>Lane loads with ten pins in the triangle, score at zero.</li>
+      <li>Player aims (direction), sets power, and releases the ball.</li>
+      <li>Ball rolls; pins fall via physics.</li>
+      <li>Pins are counted; fallen pins are lifted out by the string reset, standing pins remain.</li>
+      <li>If pins remain and balls remain, go to step 2 in the same frame.</li>
+      <li>Frame ends (all down, or three balls thrown). Score the frame, full re-rack.</li>
+      <li>Repeat for ten frames, then show the final summary.</li>
+    </ol>
+  </section>
+
+  <section data-role="spec" id="ball-and-frame">
+    <h2>Three balls per frame</h2>
+    <p>Unlike tenpin (two balls), duckpin gives the player three balls per frame to clear all ten pins. This is the defining rule difference and exists because the small ball and squat pins make clearing all ten very hard. The three-ball allowance must be honored in scoring and in the strike/spare logic below.</p>
+  </section>
+
+  <section data-role="spec" id="scoring">
+    <h2>Scoring</h2>
+    <p>Duckpin scoring matches tenpin for strikes and spares, with a candlepin-style rule for clearing on the third ball:</p>
+    <dl>
+      <dt id="scoring-strike">Strike: all ten down on the first ball</dt>
+      <dd>Score 10 plus the pin count of the next two balls rolled. Maximum 30 for the frame. Marked as a strike. Because strikes are rare in duckpin, this is the highlight moment.</dd>
+
+      <dt id="scoring-spare">Spare: all ten down using the first two balls</dt>
+      <dd>Score 10 plus the pin count of the next one ball rolled. Maximum 20 for the frame.</dd>
+
+      <dt id="scoring-ten">Ten: all ten down using all three balls</dt>
+      <dd>Scored as a flat 10 with no bonus, exactly as in candlepin bowling. This is NOT a spare. There is no carry-over bonus. A common implementation mistake is treating a third-ball clear as a spare; do not.</dd>
+
+      <dt id="scoring-open">Open frame: pins still standing after three balls</dt>
+      <dd>Score one point per pin knocked down across the three balls. No bonus.</dd>
+    </dl>
+    <p id="scoring-max">Maximum possible game score is 300 (twelve consecutive strikes). No officially sanctioned 300 has ever been bowled in duckpin; the record is 279. VibePins does not cap below 300, but tuning (see <a href="03-string-pinsetter.html">String pinsetter</a> and pin physics) should keep real strikes genuinely uncommon.</p>
+  </section>
+
+  <section data-role="spec" id="tenth-frame">
+    <h2>Tenth frame</h2>
+    <p>The tenth frame grants bonus balls so the strike and spare bonuses can be realized:</p>
+    <ul>
+      <li>A strike in the tenth frame earns two bonus balls.</li>
+      <li>A spare in the tenth frame earns one bonus ball.</li>
+      <li>A flat ten (cleared on the third ball) or an open tenth frame earns no bonus balls; the game simply ends.</li>
+    </ul>
+    <p>Bonus balls are thrown on a fresh re-rack as needed so the bonus pin counts are well defined.</p>
+  </section>
+
+  <section data-role="spec" id="pin-accounting">
+    <h2>Pin accounting between balls</h2>
+    <p>After each ball within a frame: count the pins that fell on that ball, lift those fallen pins out via the string reset, and leave standing pins exactly where they are (respot in place). The next ball in the same frame is thrown at the remaining standing pins only. At frame end, perform a full re-rack of all ten pins. The fallen-vs-standing decision is made by the pinsetter detection described in <a href="03-string-pinsetter.html#detection">String pinsetter, detection</a>.</p>
+  </section>
+
+  <section data-role="spec" id="scoreboard">
+    <h2>Scoreboard</h2>
+    <p>A running scoreboard shows all ten frames, per-ball pin counts, frame marks (strike, spare, flat ten, open), and the cumulative running total. The scoreboard updates after each ball where the count is final and recomputes bonuses retroactively as later balls resolve strikes and spares. Visual treatment is the retro CRT scoreboard described in <a href="04-look-and-feel.html">Look and feel</a>.</p>
+  </section>
+
+  <section data-role="build-log">
+    <h2>Build log</h2>
+    <ul>
+      <li data-date="2026-05-28">Section drafted. No code yet. Rules sourced from National Duckpin Bowling Congress conventions and Pins Mechanical Co. house play (three balls, candlepin-style flat ten, 300 ceiling never officially reached).</li>
+    </ul>
+  </section>
+
+</body>
+</html>
