@@ -88,6 +88,61 @@ export const LANE = {
   pitWallHeight: 0.5, //  back-wall and side-wall height above the bed
 } as const;
 
+// Mechanical material palette (GDD 04-look-and-feel#palette-lighting, REQ-041).
+// The single source of truth for every scene-surface look, the visual sibling of
+// LANE's single-source geometry (REQ-025). The GDD calls for a material-led,
+// warm-metal palette: oiled hardwood, brushed and blackened steel, aged brass,
+// copper, cast iron, leather and canvas, warm metals over cool plastics. Accent
+// colour comes from the machine, not signage: amber indicator lamps, the deep
+// red of a painted frame, the glint of polished brass, hazard-stripe yellow on
+// moving parts. Each entry is a Three.js MeshStandardMaterial parameter bundle
+// (color is a hex int; emissive lamps carry an emissive colour and intensity).
+//
+// Discipline: every colour here is a warm tone (its red channel is at least its
+// blue channel), so the venue never drifts cool. The palette is unit tested
+// (tests/palette.test.ts) for that warmth invariant plus the presence of the
+// machine accents, since jsdom cannot drive WebGL to verify the look directly.
+export interface SurfaceMaterial {
+  readonly color: number;
+  readonly roughness: number;
+  readonly metalness: number;
+  // Emissive lamps glow against the dark venue. Omitted for non-emissive surfaces.
+  readonly emissive?: number;
+  readonly emissiveIntensity?: number;
+}
+
+export const MATERIALS = {
+  // Oiled hardwood lane bed: glossy enough to catch the warm work-light as a
+  // highlight (GDD "glossy lane reflecting warm highlights"), low metalness.
+  oiledWoodLane: { color: 0x6b4a2b, roughness: 0.32, metalness: 0.1 },
+  // The approach floor behind the foul line: darker, worn, matte wood.
+  approachWood: { color: 0x2a2420, roughness: 0.8, metalness: 0.05 },
+  // Dark wood lane inlays (aiming arrows, guide dots).
+  inlayWood: { color: 0x241607, roughness: 0.7, metalness: 0.05 },
+  // The painted-on foul line, nearly black.
+  foulLine: { color: 0x140d06, roughness: 0.85, metalness: 0.0 },
+  // Brushed steel: the ball-return rail and pin deck. Mid roughness, high metal.
+  // Tuned warm-neutral (red >= blue) so the metal sits in the warm palette
+  // rather than the cool blue-grey it read as before.
+  brushedSteel: { color: 0x42403c, roughness: 0.5, metalness: 0.55 },
+  // Blackened steel: the recessed gutters. Darker, a touch glossier.
+  blackenedSteel: { color: 0x282624, roughness: 0.55, metalness: 0.6 },
+  // Cast iron: the dim back pit and the overhead drive-unit housing.
+  castIron: { color: 0x1d1c1a, roughness: 0.7, metalness: 0.45 },
+  // Aged brass: the machine accent glint (drive-unit trim). Polished, metallic,
+  // a warm gold so the brass reads as the GDD's "polished brass" highlight.
+  agedBrass: { color: 0xb5832e, roughness: 0.3, metalness: 0.85 },
+  // Amber indicator lamp: the machine's accent light, emissive so it glows in
+  // the dark machine room (GDD "amber indicator lamps").
+  amberLamp: {
+    color: 0xffae3b,
+    roughness: 0.4,
+    metalness: 0.2,
+    emissive: 0xff8c1a,
+    emissiveIntensity: 1.4,
+  },
+} as const satisfies Record<string, SurfaceMaterial>;
+
 // Shot-setup camera sequence (GDD 08-controls, REQ-033 lineup). The camera
 // animates: pick the ball up at the return, walk up to the foul line, then the
 // player shifts their line before locking in. The "line" (locked) pose reuses
@@ -274,10 +329,11 @@ export const PINSETTER = {
   driveUnitSize: { x: 0.5, y: 0.32, z: 0.7 } as Vec3,
 
   // Industrial palette (REQ-041): painted-red frame, blackened-steel drums and
-  // tubes, dark cast-iron drive unit.
+  // tubes, dark cast-iron drive unit. The steels are warm-neutral (red >= blue)
+  // so the rig sits in the warm machine-room palette rather than reading cool.
   frameColor: 0x7a1f17,
-  steelColor: 0x4a4d52,
-  driveColor: 0x26282b,
+  steelColor: 0x52504a,
+  driveColor: 0x2b2826,
 } as const;
 
 // A beam (centre + half-extents), reusing the Box shape so the rig renders with

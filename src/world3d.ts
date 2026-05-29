@@ -13,12 +13,14 @@ import {
   SHOT_CAMERA,
   PINSETTER,
   VICTORY,
+  MATERIALS,
   gutterBoxes,
   pitBoxes,
   pinsetterRigParts,
   type Box,
   type RigBeam,
   type RigCylinder,
+  type SurfaceMaterial,
 } from './config.js';
 import { pinRackPositions } from './pins.js';
 import type { Debris } from './victory.js';
@@ -109,7 +111,7 @@ export class World3D {
 
   private buildLane(): void {
     const geo = new THREE.BoxGeometry(LANE.width, 0.1, LANE.length);
-    const mat = new THREE.MeshStandardMaterial({ color: 0x6b4a2b, roughness: 0.5, metalness: 0.1 });
+    const mat = this.surfaceMaterial(MATERIALS.oiledWoodLane);
     const bed = new THREE.Mesh(geo, mat);
     bed.position.set(0, LANE.floorY - 0.05, -LANE.length / 2);
     bed.receiveShadow = true;
@@ -120,7 +122,7 @@ export class World3D {
   // bowler stands and the ball return sits. Slightly wider than the lane.
   private buildApproach(): void {
     const geo = new THREE.BoxGeometry(LANE.width + 0.6, 0.1, LANE.approachDepth);
-    const mat = new THREE.MeshStandardMaterial({ color: 0x2a2420, roughness: 0.8, metalness: 0.05 });
+    const mat = this.surfaceMaterial(MATERIALS.approachWood);
     const approach = new THREE.Mesh(geo, mat);
     approach.position.set(0, LANE.floorY - 0.05, LANE.approachDepth / 2);
     approach.receiveShadow = true;
@@ -133,7 +135,7 @@ export class World3D {
     const p = SHOT_CAMERA.ballReturnPos;
     const rail = new THREE.Mesh(
       new THREE.BoxGeometry(0.5, 0.12, 0.7),
-      new THREE.MeshStandardMaterial({ color: 0x3a3d42, roughness: 0.5, metalness: 0.5 }),
+      this.surfaceMaterial(MATERIALS.brushedSteel),
     );
     rail.position.set(p.x, LANE.floorY + 0.06, p.z);
     rail.castShadow = true;
@@ -148,12 +150,12 @@ export class World3D {
   // Positions derive from the lane width so they stay centred.
   private buildLaneMarkers(): void {
     const y = LANE.floorY + 0.006; // sit just above the bed to avoid z-fighting
-    const inlay = new THREE.MeshStandardMaterial({ color: 0x241607, roughness: 0.7, metalness: 0.05 });
+    const inlay = this.surfaceMaterial(MATERIALS.inlayWood);
 
     // Foul line across the lane at z = 0.
     const foul = new THREE.Mesh(
       new THREE.BoxGeometry(LANE.width, 0.012, 0.04),
-      new THREE.MeshStandardMaterial({ color: 0x140d06, roughness: 0.85 }),
+      this.surfaceMaterial(MATERIALS.foulLine),
     );
     foul.position.set(0, y, 0);
     this.scene.add(foul);
@@ -191,7 +193,7 @@ export class World3D {
   // steel troughs, in keeping with the industrial palette. The shared geometry
   // (gutterBoxes) is the same set of boxes the colliders use.
   private buildGutters(): void {
-    const mat = new THREE.MeshStandardMaterial({ color: 0x23262b, roughness: 0.55, metalness: 0.55 });
+    const mat = this.surfaceMaterial(MATERIALS.blackenedSteel);
     for (const box of gutterBoxes()) {
       this.scene.add(this.boxMesh(box, mat));
     }
@@ -200,7 +202,7 @@ export class World3D {
   // The back pit behind the pin deck (followup F-004): a recessed catch with a
   // back wall and side walls so a ball clearing the rack comes to rest.
   private buildPit(): void {
-    const mat = new THREE.MeshStandardMaterial({ color: 0x1a1c1f, roughness: 0.7, metalness: 0.45 });
+    const mat = this.surfaceMaterial(MATERIALS.castIron);
     for (const box of pitBoxes()) {
       this.scene.add(this.boxMesh(box, mat));
     }
@@ -245,6 +247,40 @@ export class World3D {
     for (const drum of rig.drums) this.scene.add(this.rigCylinderMesh(drum, steelMat));
     for (const tube of rig.guideTubes) this.scene.add(this.rigCylinderMesh(tube, steelMat));
     this.scene.add(this.rigBeamMesh(rig.driveUnit, driveMat));
+    this.buildMachineAccents(rig.driveUnit);
+  }
+
+  // The machine's accent details on the drive unit (GDD 04-look-and-feel,
+  // REQ-041: "accent colour comes from the machine, not signage"). An aged-brass
+  // trim band runs across the front face of the cast-iron drive housing, and an
+  // amber indicator lamp glows on it: the polished-brass glint and the amber
+  // indicator the palette calls for, sourced from the machine rather than any
+  // sign. The lamp is emissive so it reads as lit against the dim machine room.
+  private buildMachineAccents(driveUnit: RigBeam): void {
+    const frontZ = driveUnit.center.z + driveUnit.half.z; // toward the camera (+z)
+
+    // Brass trim band: a thin wide bar across the front of the housing.
+    const brass = new THREE.Mesh(
+      new THREE.BoxGeometry(driveUnit.half.x * 1.6, 0.04, 0.03),
+      this.surfaceMaterial(MATERIALS.agedBrass),
+    );
+    brass.position.set(
+      driveUnit.center.x,
+      driveUnit.center.y + driveUnit.half.y * 0.4,
+      frontZ + 0.015,
+    );
+    brass.castShadow = true;
+    this.scene.add(brass);
+
+    // Amber indicator lamp: a small glowing dome above the brass band.
+    const lampMat = this.surfaceMaterial(MATERIALS.amberLamp);
+    const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.035, 12, 8), lampMat);
+    lamp.position.set(
+      driveUnit.center.x,
+      driveUnit.center.y + driveUnit.half.y * 0.7,
+      frontZ + 0.02,
+    );
+    this.scene.add(lamp);
   }
 
   // The strike victory-routine debris pool (REQ-044). One small cube per bit,
@@ -323,6 +359,21 @@ export class World3D {
     return mesh;
   }
 
+  // Build a Three.js standard material from a palette entry (REQ-041). Emissive
+  // lamps carry their glow; plain surfaces leave emissive at the default black.
+  private surfaceMaterial(spec: SurfaceMaterial): THREE.MeshStandardMaterial {
+    const mat = new THREE.MeshStandardMaterial({
+      color: spec.color,
+      roughness: spec.roughness,
+      metalness: spec.metalness,
+    });
+    if (spec.emissive !== undefined) {
+      mat.emissive = new THREE.Color(spec.emissive);
+      mat.emissiveIntensity = spec.emissiveIntensity ?? 1;
+    }
+    return mat;
+  }
+
   // A shadow-receiving box mesh from a shared Box (centre + half-extents).
   private boxMesh(box: Box, mat: THREE.Material): THREE.Mesh {
     const mesh = new THREE.Mesh(
@@ -351,7 +402,7 @@ export class World3D {
   // coplanar with the lane bed at floorY.
   private buildPinDeck(): void {
     const geo = new THREE.BoxGeometry(LANE.width, 0.1, this.deckSpan.length);
-    const mat = new THREE.MeshStandardMaterial({ color: 0x3a3d42, roughness: 0.6, metalness: 0.4 });
+    const mat = this.surfaceMaterial(MATERIALS.brushedSteel);
     const deck = new THREE.Mesh(geo, mat);
     deck.position.set(0, LANE.floorY - 0.05, this.deckSpan.centerZ);
     deck.receiveShadow = true;

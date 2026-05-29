@@ -1,7 +1,7 @@
 {
  "_comment_1": "ATOMIC GRANULARITY ONLY. One row per requirement, not per chapter. A 14-day project should produce on the order of 100 rows. If your row count is implausibly low for project age, the loop will self-terminate before the product is good. This is the Flatline failure mode.",
  "_comment_2": "Allowed status values: not_started | partial | done | out_of_scope. Every row should carry implementationRefs and testRefs once status >= partial. followupRefs link to F-NNN entries in FOLLOWUPS.html.",
- "updatedAt": "2026-05-29T18:15",
+ "updatedAt": "2026-05-29T18:30",
  "rows": [
   {
    "id": "REQ-001",
@@ -619,12 +619,14 @@
    "id": "REQ-041",
    "requirement": "Mechanical material palette (oiled wood, steel, brass) with warm industrial work-light lighting and fog",
    "gddRef": "docs/gdd/04-look-and-feel.html#palette-lighting",
-   "status": "partial",
+   "status": "done",
    "implementationRefs": [
     "src/world3d.ts",
     "src/config.ts"
    ],
-   "testRefs": [],
+   "testRefs": [
+    "tests/palette.test.ts"
+   ],
    "followupRefs": []
   },
   {
