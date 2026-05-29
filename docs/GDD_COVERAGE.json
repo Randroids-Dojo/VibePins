@@ -338,18 +338,18 @@
    "id": "REQ-023",
    "requirement": "A taut cord can yank a neighboring pin, emergent from the constraint sim, not scripted",
    "gddRef": "docs/gdd/03-string-pinsetter.html#tangle-yank",
-   "status": "not_started",
-   "implementationRefs": [],
-   "testRefs": [],
+   "status": "done",
+   "implementationRefs": ["src/pins.ts", "src/reset.ts", "src/config.ts"],
+   "testRefs": ["tests/yank.smoke.test.ts"],
    "followupRefs": []
   },
   {
    "id": "REQ-024",
    "requirement": "Crossed/tangled cords are tolerated visually without the simulation deadlocking; next re-rack clears geometry",
    "gddRef": "docs/gdd/03-string-pinsetter.html#tangle-cross",
-   "status": "not_started",
-   "implementationRefs": [],
-   "testRefs": [],
+   "status": "done",
+   "implementationRefs": ["src/pins.ts", "src/reset.ts", "src/config.ts"],
+   "testRefs": ["tests/yank.smoke.test.ts"],
    "followupRefs": []
   },
   {
