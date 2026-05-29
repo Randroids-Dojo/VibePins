@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="reset-cycle" data-date="2026-05-29">
+    <h3>String Pinsetter Reset Cycle</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/reset-cycle</code></dd>
+      <dt>PR</dt><dd>#TBD</dd>
+      <dt>Changed</dt><dd>Added the reset cycle that reels fallen pins up and respots them (REQ-018 to REQ-021). New pure state machine <code>src/reset.ts</code> (<code>ResetCycle</code> + <code>pinTargetFor</code>) runs four phases (settle-hold, lift, reposition, lower) over ~222 frames (~3.7s). Each fallen pin is carried kinematically: <code>PinSet.beginReset</code> makes it kinematic, <code>resetStep</code> rights it and carries it straight up off the deck, across to over its home spot, then down onto it, and <code>endReset</code> returns it to the dynamics at rest. The fixed overhead anchor does not move; the rendered cord follows the carried pin neck, so the lift reads as strings, not a sweep. Standing pins are never targeted (respot in place); between-balls carries only fallen pins, re-rack carries all ten. New <code>RESET</code> config block plus a shared <code>PIN_REST_Y</code>. <code>src/main.ts</code> wires a manual R-key trigger that reels the currently fallen pins.</dd>
+      <dt>Verification</dt><dd>em-dash grep clean; <code>git diff --check</code> clean; <code>npm run typecheck</code> clean; <code>npm run test</code> 124/124 passing; <code>npm run build</code> succeeds (known single-chunk size warning, F-003). Pure tests cover the phase timing/ordering, the per-phase choreography at the frame boundaries, target selection (between-balls vs re-rack), and exact home landing. A headless Rapier smoke knocks the front pins, runs the reset, and asserts the fallen pins are lifted clear of the deck, set upright within 0.1m of home, and that standing pins are never lifted or moved. A four-lens adversarial review confirmed all four requirements are met; its confirmed findings (a single <code>PIN_REST_Y</code> source, exact-landing assertions, frame-boundary choreography assertions, and stronger smoke standing-pin checks) were applied.</dd>
+      <dt>Assumptions</dt><dd>Reset uses a kinematic carry rather than a physically-taut rope reel: an earlier anchor-reeling attempt pendulumed and would not settle pins on their spots, so the pins are carried directly while the cords visually follow. The four phase durations and lift height are first-pass values for the playtest gate (Q-010). REQ-018 stays partial for the visual-vs-physical cord distinction and tuning.</dd>
+      <dt>GDD coverage</dt><dd>REQ-019, REQ-020, REQ-021 flipped to <code>done</code>; REQ-018 to <code>partial</code>. Build log appended to <code>docs/gdd/03-string-pinsetter.html</code> documenting the kinematic-carry trade-off.</dd>
+      <dt>Followups</dt><dd>None new. The automated settle, reset, and scoring frame loop (REQ-009/010), neighbor-yank/tangle behavior (REQ-023/024), and the string-reset audio (REQ-043) are later slices.</dd>
+    </dl>
+  </article>
+
   <article data-slice="pin-detection" data-date="2026-05-29">
     <h3>Pin Standing/Fallen Detection With a Settle Window</h3>
     <dl>

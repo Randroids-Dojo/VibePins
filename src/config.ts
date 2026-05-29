@@ -127,3 +127,25 @@ export const DETECTION = {
     maxCenterY: LANE.floorY + LANE.pinHeight / 2 + LANE.pinBellyRadius,
   },
 } as const;
+
+// String pinsetter reset-cycle tunables (GDD 03-string-pinsetter, REQ-018 to
+// REQ-021). A reset reels fallen pins up by their cords (no sweep) and sets them
+// back on their home spots. Each fallen pin is carried kinematically: righted at
+// its settled spot, raised straight up to liftPinY (clear of the deck and the
+// standing pins), carried over its home spot, then lowered onto it. The rendered
+// cords follow the carried pins so the lift reads as strings, not a sweep. Frame
+// counts assume the fixed 1/60 physics step; ~3.7s total sits in the GDD 3-5s
+// window. These are first-pass values for the playtest gate.
+export const RESET = {
+  settleHoldFrames: 18, // ~0.30s legibility beat before the strings move
+  liftFrames: 72, //       ~1.20s raise the fallen pins straight up off the deck
+  repositionFrames: 60, // ~1.00s carry the raised pins over their home spots
+  lowerFrames: 72, //      ~1.20s lower the pins back onto their home spots
+  // Carried pin centre height. Above the standing pins (pinHeight) so a lifted
+  // pin clears them as it travels: liftPinY - pinHeight/2 > pinHeight.
+  liftPinY: 0.6,
+} as const;
+
+// A pin's centre height at rest on the deck (base on the deck surface). Single
+// source for the reset lower target and the detection/rack geometry.
+export const PIN_REST_Y = LANE.floorY + LANE.pinHeight / 2;
