@@ -16,6 +16,7 @@ import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier3d-compat';
 import { LANE, GROUP, TETHER, type Vec3 } from './config.js';
 import type { World3D } from './world3d.js';
+import type { PinKinematics } from './detection.js';
 
 // Down-lane distance between triangle rows. The pins are on a triangular grid
 // with `pinSpacing` between neighbours, so the row-to-row gap is the triangle
@@ -179,6 +180,24 @@ export class PinSet {
 
       this.pins.push({ mesh, body, anchorBody, cord });
     }
+  }
+
+  // Per-pin kinematic snapshot for the standing/fallen detector (REQ-016/017).
+  // Reads each body's transform and velocities into plain values so the detector
+  // stays pure and Rapier-free.
+  pinStates(): PinKinematics[] {
+    return this.pins.map((pin) => {
+      const t = pin.body.translation();
+      const r = pin.body.rotation();
+      const lv = pin.body.linvel();
+      const av = pin.body.angvel();
+      return {
+        position: { x: t.x, y: t.y, z: t.z },
+        rotation: { x: r.x, y: r.y, z: r.z, w: r.w },
+        linSpeed: Math.hypot(lv.x, lv.y, lv.z),
+        angSpeed: Math.hypot(av.x, av.y, av.z),
+      };
+    });
   }
 
   // Copy each body's transform onto its mesh, then drag the cord's lower end to
