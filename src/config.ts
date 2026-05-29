@@ -235,6 +235,146 @@ export const TETHER = {
   cordColor: 0x8a8a8a,
 } as const;
 
+// Visible pinsetter rig staging (GDD 04-look-and-feel, REQ-040). The string
+// machine is part of the show: above the pin deck sits a frame of beams carrying
+// ten guide tubes (one over each pin, the cord runs through it), ten winding
+// drums on cross-shafts (what reels each cord), and an overhead drive unit (the
+// motor housing the whole rig hangs from). This is set dressing only: pure
+// geometry, no colliders, so it never touches the physics or the cords' own
+// behaviour. The frame top sits at TETHER.topY (where the cord anchors already
+// live), so the rig reads as the structure the cords actually hang from. All
+// sizes are tunable here so the rig can be re-staged from one place (REQ-025).
+export const PINSETTER = {
+  // The drive-unit / frame top plane: coplanar with the cord anchors so the
+  // beams visibly carry the strings.
+  frameTopY: TETHER.topY,
+
+  // Two longitudinal steel rails run down-lane along the rack's left and right
+  // edges; cross beams span between them over each pin row. railHalfX is how far
+  // off the lane centre each rail sits (just outside the outer pins).
+  railHalfX: LANE.width / 2 - 0.06,
+  beamThickness: 0.05, // square cross-section half-extent for rails and beams
+  // How far the frame overhangs the rack front/back so the beams clear the pins.
+  frameOverhang: 0.25,
+
+  // Guide tubes: a short open tube hung from the frame above each pin, the cord
+  // dropping through it toward the pin neck. They stop above the standing pins.
+  guideTubeRadius: 0.03,
+  guideTubeLength: 0.5,
+  guideTubeTopGap: 0.08, // gap from frame underside to the tube top
+
+  // Winding drums: one drum per pin, threaded on a cross-shaft that spans the
+  // two rails over each pin row. The cord winds onto its drum to reel the pin up.
+  drumRadius: 0.05,
+  drumLength: 0.12,
+  shaftRadius: 0.018,
+
+  // The overhead drive unit: a motor box mounted on the frame at the back of the
+  // rig (down-lane end), the single housing the rig is driven from.
+  driveUnitSize: { x: 0.5, y: 0.32, z: 0.7 } as Vec3,
+
+  // Industrial palette (REQ-041): painted-red frame, blackened-steel drums and
+  // tubes, dark cast-iron drive unit.
+  frameColor: 0x7a1f17,
+  steelColor: 0x4a4d52,
+  driveColor: 0x26282b,
+} as const;
+
+// A beam (centre + half-extents), reusing the Box shape so the rig renders with
+// the same boxMesh helper world3d already uses for gutters and the pit.
+export interface RigBeam {
+  readonly center: Vec3;
+  readonly half: Vec3;
+}
+
+// A cylindrical rig part (guide tube, drum, or shaft) with an axis. axis 'y' is
+// upright (tubes), 'x' is across the lane (drums and shafts).
+export interface RigCylinder {
+  readonly center: Vec3;
+  readonly radius: number;
+  readonly length: number;
+  readonly axis: 'x' | 'y';
+}
+
+// Pure layout of the visible pinsetter rig (REQ-040), derived from the rack
+// positions and PINSETTER tunables so the world3d meshes (and a smoke test) share
+// one source of truth. Returns the frame beams, the per-pin guide tubes, the
+// per-pin winding drums, the per-row cross-shafts the drums ride, and the single
+// overhead drive unit. No physics: this is set dressing above the deck.
+export function pinsetterRigParts(rackPositions: readonly Vec3[]): {
+  beams: RigBeam[];
+  guideTubes: RigCylinder[];
+  drums: RigCylinder[];
+  shafts: RigCylinder[];
+  driveUnit: RigBeam;
+} {
+  const t = PINSETTER.beamThickness;
+  const topY = PINSETTER.frameTopY;
+
+  // Front (toward camera, +z) and back (down-lane, -z) extents of the rack,
+  // padded by the overhang so the frame clears the pins.
+  const zs = rackPositions.map((p) => p.z);
+  const frontZ = Math.max(...zs) + PINSETTER.frameOverhang;
+  const backZ = Math.min(...zs) - PINSETTER.frameOverhang;
+  const centerZ = (frontZ + backZ) / 2;
+  const halfZ = (frontZ - backZ) / 2;
+  const centerX = rackPositions.length > 0 ? rackPositions[0].x : 0;
+
+  // Two longitudinal rails along the rack edges at the frame top.
+  const beams: RigBeam[] = ([-1, 1] as const).map((side) => ({
+    center: { x: centerX + side * PINSETTER.railHalfX, y: topY, z: centerZ },
+    half: { x: t, y: t, z: halfZ },
+  }));
+
+  // Cross beams spanning the rails over each distinct pin row (one per unique z).
+  const rowZs = [...new Set(zs)].sort((a, b) => b - a);
+  for (const z of rowZs) {
+    beams.push({
+      center: { x: centerX, y: topY, z },
+      half: { x: PINSETTER.railHalfX + t, y: t, z: t },
+    });
+  }
+
+  // Cross-shafts: one per row, just below the frame, carrying that row's drums.
+  const shaftY = topY - t - PINSETTER.shaftRadius;
+  const shafts: RigCylinder[] = rowZs.map((z) => ({
+    center: { x: centerX, y: shaftY, z },
+    radius: PINSETTER.shaftRadius,
+    length: 2 * (PINSETTER.railHalfX + t),
+    axis: 'x',
+  }));
+
+  // Per-pin drums on the shaft and guide tubes hung below the frame.
+  const drumY = shaftY;
+  const tubeTopY = topY - PINSETTER.guideTubeTopGap;
+  const tubeCenterY = tubeTopY - PINSETTER.guideTubeLength / 2;
+  const drums: RigCylinder[] = [];
+  const guideTubes: RigCylinder[] = [];
+  for (const p of rackPositions) {
+    drums.push({
+      center: { x: p.x, y: drumY, z: p.z },
+      radius: PINSETTER.drumRadius,
+      length: PINSETTER.drumLength,
+      axis: 'x',
+    });
+    guideTubes.push({
+      center: { x: p.x, y: tubeCenterY, z: p.z },
+      radius: PINSETTER.guideTubeRadius,
+      length: PINSETTER.guideTubeLength,
+      axis: 'y',
+    });
+  }
+
+  // The overhead drive unit: mounted on the frame at the down-lane back end.
+  const d = PINSETTER.driveUnitSize;
+  const driveUnit: RigBeam = {
+    center: { x: centerX, y: topY + d.y / 2 + t, z: backZ - d.z / 2 },
+    half: { x: d.x / 2, y: d.y / 2, z: d.z / 2 },
+  };
+
+  return { beams, guideTubes, drums, shafts, driveUnit };
+}
+
 // Pin standing/fallen detection tunables (GDD 03-string-pinsetter, REQ-016/017).
 // A pin counts as standing only if upright within tolerance AND at rest AND
 // still on the deck footprint. A settle window waits for sustained rest before
