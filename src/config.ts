@@ -294,6 +294,18 @@ export const FOUL = {
   foulLineZ: 0,
 } as const;
 
+// Gutter detection (GDD REQ-031). The lane bed runs from x = -LANE.width/2 to
+// +LANE.width/2; beyond each edge is a recessed gutter channel. A live ball
+// whose centre crosses a bed edge has left the lane and dropped into the gutter,
+// so it can no longer reach the pins. Like a foul (REQ-032), a gutter ball is a
+// dead ball: it scores zero pinfall and leaves the standing rack untouched. The
+// threshold is the bed half-width: once the ball centre is at or past the edge
+// it is over the channel and falling in. A normal centred or aimed ball stays
+// well inside this, so clean play never trips it.
+export const GUTTER = {
+  bedEdgeX: LANE.width / 2,
+} as const;
+
 // Ball-containment geometry (GDD REQ-031 gutters, followup F-004 back pit).
 // Pure layout derived from LANE so the world3d meshes and the physics colliders
 // (and the smoke tests) share one source of truth. All boxes are described by a

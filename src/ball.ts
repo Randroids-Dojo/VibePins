@@ -155,13 +155,15 @@ export class Ball {
     this.body.setBodyType(RAPIER.RigidBodyType.Dynamic, true);
   }
 
-  // Down-lane position and linear speed of the ball, read off the physics body.
-  // The shot watcher (src/shot.ts) uses these to decide when a thrown ball has
-  // resolved: slowed to rest, or cleared the deck into the pit.
-  kinematics(): { z: number; speed: number } {
+  // Lateral, down-lane position and linear speed of the ball, read off the
+  // physics body. The shot watcher (src/shot.ts) uses z and speed to decide when
+  // a thrown ball has resolved (slowed to rest, or cleared the deck into the
+  // pit); the gutter detector (src/gutter.ts) uses x to decide whether the ball
+  // left the lane bed into a gutter.
+  kinematics(): { x: number; z: number; speed: number } {
     const t = this.body.translation();
     const v = this.body.linvel();
-    return { z: t.z, speed: Math.hypot(v.x, v.y, v.z) };
+    return { x: t.x, z: t.z, speed: Math.hypot(v.x, v.y, v.z) };
   }
 
   // Reset the ball back to the spawn point at rest as a kinematic carried body,
