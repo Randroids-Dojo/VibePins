@@ -1,7 +1,7 @@
 {
  "_comment_1": "ATOMIC GRANULARITY ONLY. One row per requirement, not per chapter. A 14-day project should produce on the order of 100 rows. If your row count is implausibly low for project age, the loop will self-terminate before the product is good. This is the Flatline failure mode.",
  "_comment_2": "Allowed status values: not_started | partial | done | out_of_scope. Every row should carry implementationRefs and testRefs once status >= partial. followupRefs link to F-NNN entries in FOLLOWUPS.html.",
- "updatedAt": "2026-05-29T17:00",
+ "updatedAt": "2026-05-29T17:10",
  "rows": [
   {
    "id": "REQ-001",
@@ -465,16 +465,18 @@
    "id": "REQ-033",
    "requirement": "Step 1: player lines up the shot, setting lateral start position and base aim",
    "gddRef": "docs/gdd/08-controls.html#step1-lineup",
-   "status": "partial",
-   "note": "Lateral start position is settable via keyboard nudge and touch/mouse drag on an on-screen L/R indicator track (PR #18). Base-aim direction (pointing, not just lateral offset) is still unimplemented; tracked in F-005.",
+   "status": "done",
+   "note": "Lateral start position is settable via keyboard nudge and touch/mouse drag on an on-screen L/R indicator track (PR #18). Base-aim direction now ships: an off-centre stance points the ball back toward the pin deck via baseAimLateralSpeed (AIM config), threaded through ball.launch from the line-up alignment, so step 1 sets both where the ball starts and the direction it points. F-005 resolved.",
    "implementationRefs": [
     "src/camera.ts",
     "src/main.ts",
     "src/config.ts",
+    "src/ball.ts",
     "index.html"
    ],
    "testRefs": [
-    "tests/camera.test.ts"
+    "tests/camera.test.ts",
+    "tests/ball.test.ts"
    ],
    "followupRefs": [
     "F-005"
@@ -518,7 +520,8 @@
    "id": "REQ-036",
    "requirement": "Release combines line-up, spin, and power into launch velocity plus angular velocity; spin curves the roll",
    "gddRef": "docs/gdd/08-controls.html#release",
-   "status": "partial",
+   "status": "done",
+   "note": "ball.launch(spin, power, lateralOffset) now resolves all three inputs: the power stop sets down-lane speed, the spin stop adds a lateral nudge plus a vertical-axis yaw that hooks the roll, and the line-up stance adds the base-aim lateral velocity that points the ball back at the pins. ballLaunchVelocity composes spin and base aim additively over the power-resolved down-lane speed.",
    "implementationRefs": [
     "src/ball.ts",
     "src/config.ts",

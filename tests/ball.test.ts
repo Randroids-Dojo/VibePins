@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { LANE, SPIN, POWER } from '../src/config.js';
-import { ballSpawnPosition, ballLaunchVelocity, spinFraction, powerSpeed } from '../src/ball.js';
+import { LANE, SPIN, POWER, AIM, SHOT_CAMERA } from '../src/config.js';
+import { ballSpawnPosition, ballLaunchVelocity, spinFraction, powerSpeed, baseAimLateralSpeed } from '../src/ball.js';
 
 describe('ballSpawnPosition', () => {
   const spawn = ballSpawnPosition();
@@ -161,6 +161,80 @@ describe('power config tunables', () => {
     // A mistimed stop is weaker than the sweet spot but still moves the ball.
     expect(POWER.minSpeed).toBeGreaterThan(0);
     expect(POWER.minSpeed).toBeLessThan(POWER.maxSpeed);
+  });
+});
+
+describe('baseAimLateralSpeed (REQ-033 base aim)', () => {
+  const speed = LANE.ballLaunchSpeed;
+
+  it('is zero for a centred stance (a straight shot stays straight)', () => {
+    expect(baseAimLateralSpeed(0, speed)).toBe(0);
+  });
+
+  it('points a right (+x) stance back toward centre with a negative x velocity', () => {
+    expect(baseAimLateralSpeed(SHOT_CAMERA.alignLimit, speed)).toBeLessThan(0);
+  });
+
+  it('points a left (-x) stance back toward centre with a positive x velocity', () => {
+    expect(baseAimLateralSpeed(-SHOT_CAMERA.alignLimit, speed)).toBeGreaterThan(0);
+  });
+
+  it('is symmetric in the stance sign (mirror stances mirror the aim)', () => {
+    const right = baseAimLateralSpeed(SHOT_CAMERA.alignLimit, speed);
+    const left = baseAimLateralSpeed(-SHOT_CAMERA.alignLimit, speed);
+    expect(left).toBeCloseTo(-right, 6);
+  });
+
+  it('grows with the stance offset (further off centre aims back harder)', () => {
+    const near = Math.abs(baseAimLateralSpeed(SHOT_CAMERA.alignLimit * 0.5, speed));
+    const far = Math.abs(baseAimLateralSpeed(SHOT_CAMERA.alignLimit, speed));
+    expect(far).toBeGreaterThan(near);
+  });
+
+  it('scales with down-lane speed so the aim angle is preserved, not the absolute drift', () => {
+    const fast = baseAimLateralSpeed(SHOT_CAMERA.alignLimit, speed);
+    const slow = baseAimLateralSpeed(SHOT_CAMERA.alignLimit, speed * 0.5);
+    expect(Math.abs(slow)).toBeLessThan(Math.abs(fast));
+    // The aim angle (lateral / down-lane) is the same at both speeds: it points
+    // the ball at the same spot, it just covers it slower at a weaker throw.
+    expect(slow / (speed * 0.5)).toBeCloseTo(fast / speed, 6);
+  });
+
+  it('stays a gentle correction at full stance, never overwhelming the roll', () => {
+    // The base-aim drift over a full shot is small relative to the down-lane
+    // speed: it points the ball at the pins, it does not throw it sideways.
+    expect(Math.abs(baseAimLateralSpeed(SHOT_CAMERA.alignLimit, speed))).toBeLessThan(speed);
+  });
+});
+
+describe('ballLaunchVelocity with base aim (REQ-033, REQ-036)', () => {
+  it('adds the stance aim to a centred-spin launch so an off-centre line points back', () => {
+    const rightStance = ballLaunchVelocity(0, undefined, SHOT_CAMERA.alignLimit);
+    expect(rightStance.x).toBeCloseTo(baseAimLateralSpeed(SHOT_CAMERA.alignLimit, LANE.ballLaunchSpeed), 6);
+    expect(rightStance.x).toBeLessThan(0);
+    expect(rightStance.z).toBe(-LANE.ballLaunchSpeed);
+  });
+
+  it('combines spin and base aim additively', () => {
+    const stance = SHOT_CAMERA.alignLimit;
+    const combined = ballLaunchVelocity(1, undefined, stance);
+    const spinOnly = ballLaunchVelocity(1, undefined, 0).x;
+    const aimOnly = baseAimLateralSpeed(stance, LANE.ballLaunchSpeed);
+    expect(combined.x).toBeCloseTo(spinOnly + aimOnly, 6);
+  });
+
+  it('leaves a centred stance with the spin-only lateral component', () => {
+    expect(ballLaunchVelocity(0, undefined, 0).x).toBe(0);
+    expect(ballLaunchVelocity(1, undefined, 0).x).toBeCloseTo(SPIN.maxLateralSpeed, 6);
+  });
+});
+
+describe('aim config tunables', () => {
+  it('are present, finite, and sane for the playtest gate', () => {
+    expect(Number.isFinite(AIM.targetZ)).toBe(true);
+    expect(AIM.targetZ).toBeLessThan(LANE.ballSpawnZ);
+    expect(AIM.strength).toBeGreaterThan(0);
+    expect(AIM.strength).toBeLessThanOrEqual(1);
   });
 });
 
