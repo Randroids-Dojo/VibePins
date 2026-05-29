@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="camera-lighting-shot-setup" data-date="2026-05-29">
+    <h3>Camera, Lighting, Lane Markers, and the Shot-Setup Walk-Up</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/camera-lighting</code></dd>
+      <dt>PR</dt><dd>#TBD</dd>
+      <dt>Changed</dt><dd>Made the lane actually readable and added the shot-setup cinematic. Lighting/staging (REQ-041, REQ-039): warm machine-room palette (warm ambient + directional fill + a warm <code>SpotLight</code> work-light over the pin deck as the hero light), fog far pushed past the pin deck so the pins no longer fade to black, and an eye-level camera looking down-lane. Added an approach floor behind the foul line, a steel ball-return rail, and flat lane-marker inlays (foul line, guide dots, seven chevron aiming arrows) in <code>src/world3d.ts</code>. New <code>src/camera.ts</code> <code>ShotCamera</code> director (REQ-033): a pure state machine that runs pickup, walk-up, align, lock, tweening the camera pose with smoothstep and carrying the ball from the return up into the hands and down to the foul line. <code>src/ball.ts</code> gained kinematic carry (<code>grab</code>/<code>holdAt</code>/<code>release</code>; the dead <code>reroll</code>/<code>reset</code> were removed). <code>src/main.ts</code> drives the director each frame (with a dt cap so a backgrounded tab cannot fast-forward the sequence), and wires the placeholder controls: A/D align, Enter lock, Space/click to throw (release + launch from the aligned line), N for a new shot, R to reel fallen pins. All camera/fog/pose/timing values live in <code>LANE</code> and <code>SHOT_CAMERA</code> config.</dd>
+      <dt>Verification</dt><dd>em-dash grep clean; <code>git diff --check</code> clean; <code>npm run typecheck</code> clean; <code>npm run test</code> 131/131 passing (new <code>tests/camera.test.ts</code> covers the phase timing, exact pose/ball endpoints, the walk-up fov ease, alignment clamp and lateral shift, lock gating/idempotency, and the <code>canThrow</code> guard); <code>npm run build</code> succeeds (known single-chunk size warning, F-003). The look was iterated live in the browser against screenshots with the dev. A four-lens adversarial review confirmed the lighting, geometry, and director are correct; its actionable findings were applied (ledgers/build-logs updated, a misleading arrows comment corrected, the <code>main.ts</code> header restored, the throw guard extracted to a tested <code>canThrow</code>, and several camera-test assertions tightened).</dd>
+      <dt>Assumptions</dt><dd>The pickup carries the ball to the throwing-hand side at arm's length (tuned live with the dev). The ball is carried kinematically through setup and released to physics on the throw; while the launch is still a fixed straight roll, it now starts from the aligned lateral position. Camera poses, fov, fog distances, and sequence timing are first-pass values for the playtest gate (Q-010). The visible pinsetter rig (REQ-040) and full material palette remain follow-ups.</dd>
+      <dt>GDD coverage</dt><dd>REQ-041 and REQ-033 flipped to <code>partial</code>; REQ-039 staging advanced. Build logs appended to <code>docs/gdd/04-look-and-feel.html</code> and <code>docs/gdd/08-controls.html</code> (status to <code>partial</code>).</dd>
+      <dt>Followups</dt><dd>Added <a href="FOLLOWUPS.html">F-005</a> (finish player positioning / lineup), <a href="FOLLOWUPS.html">F-006</a> (spin/angle meter + release-to-launch), <a href="FOLLOWUPS.html">F-007</a> (power meter), and <a href="FOLLOWUPS.html">F-008</a> (the playable throw, detect, score, reset, frames, end loop), all blocks-release.</dd>
+    </dl>
+  </article>
+
   <article data-slice="reset-cycle" data-date="2026-05-29">
     <h3>String Pinsetter Reset Cycle</h3>
     <dl>

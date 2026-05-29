@@ -63,15 +63,6 @@ export class Ball {
     );
   }
 
-  // Snap the ball back to the spawn point, at rest.
-  reset(): void {
-    const spawn = ballSpawnPosition();
-    this.body.setTranslation(spawn, true);
-    this.body.setRotation({ x: 0, y: 0, z: 0, w: 1 }, true);
-    this.body.setLinvel({ x: 0, y: 0, z: 0 }, true);
-    this.body.setAngvel({ x: 0, y: 0, z: 0 }, true);
-  }
-
   // Send the ball down-lane with a matching forward roll so it rolls rather
   // than skids off the line. Rolling without slip for motion along -z means an
   // angular velocity about the x-axis of omega_x = -v / r; since velocity.z is
@@ -82,9 +73,20 @@ export class Ball {
     this.body.setAngvel({ x: velocity.z / LANE.ballRadius, y: 0, z: 0 }, true);
   }
 
-  reroll(): void {
-    this.reset();
-    this.launch();
+  // Carry the ball kinematically during the shot-setup sequence (pickup, walk-up).
+  // While kinematic it ignores gravity and is positioned each frame by holdAt.
+  grab(): void {
+    this.body.setBodyType(RAPIER.RigidBodyType.KinematicPositionBased, true);
+  }
+
+  holdAt(pos: Vec3): void {
+    this.body.setNextKinematicTranslation({ x: pos.x, y: pos.y, z: pos.z });
+    this.body.setNextKinematicRotation({ x: 0, y: 0, z: 0, w: 1 });
+  }
+
+  // Hand the ball back to the dynamics so it can be thrown (then call launch()).
+  release(): void {
+    this.body.setBodyType(RAPIER.RigidBodyType.Dynamic, true);
   }
 
   sync(): void {
