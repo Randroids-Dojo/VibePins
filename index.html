@@ -41,12 +41,71 @@
       color: #f4ecd6; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
       pointer-events: none; user-select: none; padding: 0 12px;
     }
+
+    /* App-shell overlays (REQ-045): the title menu and the end-of-game summary.
+       Industrial metal-plate look per the look-and-feel UI direction; the full
+       split-flap / engraved-gauge skin (REQ-042, REQ-038) is a later slice.
+       z-index sits above the canvas and the status line so the dialog cannot be
+       sat under by background controls (RULE 10). */
+    .vp-overlay {
+      position: fixed; inset: 0; z-index: 100;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 18px; padding: 24px;
+      background: radial-gradient(ellipse at center, rgba(12, 14, 20, 0.82), rgba(4, 5, 9, 0.94));
+      color: #f4ecd6; text-align: center;
+      font: 600 16px/1.4 ui-monospace, "SFMono-Regular", Menlo, monospace;
+    }
+    .vp-overlay[hidden] { display: none; }
+    .vp-title {
+      font-size: clamp(36px, 9vw, 72px); letter-spacing: 0.18em;
+      margin: 0; text-transform: uppercase;
+      color: #f4ecd6; text-shadow: 0 2px 0 #1b1d24, 0 0 18px rgba(255, 176, 64, 0.25);
+    }
+    .vp-tagline { margin: 0; color: #b9a87a; font-size: 14px; letter-spacing: 0.08em; }
+    .vp-final { margin: 0; font-size: clamp(20px, 5vw, 30px); }
+    .vp-final strong { color: #ffcf7a; font-size: 1.4em; }
+    .vp-btn {
+      appearance: none; cursor: pointer;
+      min-width: 200px; padding: 14px 26px;
+      font: 700 18px/1 ui-monospace, "SFMono-Regular", Menlo, monospace;
+      letter-spacing: 0.12em; text-transform: uppercase;
+      color: #f4ecd6; background: linear-gradient(#2a2d36, #181a21);
+      border: 2px solid #3c3f4a; border-radius: 4px;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 2px 6px rgba(0, 0, 0, 0.5);
+    }
+    .vp-btn:hover, .vp-btn:focus-visible { border-color: #c8923c; outline: none; }
+    .vp-btn:active { transform: translateY(1px); }
+    .vp-toggle {
+      appearance: none; cursor: pointer;
+      padding: 9px 18px; font: 600 13px/1 ui-monospace, "SFMono-Regular", Menlo, monospace;
+      letter-spacing: 0.1em; color: #d8cba4;
+      background: #14161d; border: 1px solid #3c3f4a; border-radius: 4px;
+    }
+    .vp-toggle[aria-pressed="true"] { color: #ffcf7a; border-color: #c8923c; }
+    .vp-toggle:focus-visible { outline: 2px solid #c8923c; outline-offset: 2px; }
   </style>
 </head>
 <body>
   <canvas id="lane"></canvas>
   <div id="scoreboard" aria-label="Scoreboard"></div>
   <div id="status" aria-live="polite"></div>
+
+  <!-- Title menu (REQ-045). Shown on boot and after returning from a summary. -->
+  <div id="menu" class="vp-overlay" role="dialog" aria-modal="true" aria-labelledby="menu-title">
+    <h1 id="menu-title" class="vp-title">VibePins</h1>
+    <p class="vp-tagline">Duckpin bowling. Three balls a frame.</p>
+    <button id="menu-play" class="vp-btn" type="button">Play</button>
+    <button id="menu-audio" class="vp-toggle" type="button" aria-pressed="true">Audio: On</button>
+  </div>
+
+  <!-- End-of-game summary (REQ-045, REQ-011). The final score plus play again. -->
+  <div id="summary" class="vp-overlay" role="dialog" aria-modal="true" aria-labelledby="summary-title" hidden>
+    <h2 id="summary-title" class="vp-title">Game Over</h2>
+    <p class="vp-final">Final score <strong id="summary-score">0</strong></p>
+    <button id="summary-again" class="vp-btn" type="button">Play Again</button>
+    <button id="summary-menu" class="vp-toggle" type="button">Main Menu</button>
+  </div>
+
   <script type="module" src="/src/main.ts"></script>
 </body>
 </html>

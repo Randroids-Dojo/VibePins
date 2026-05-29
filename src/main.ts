@@ -5,6 +5,11 @@
 // feed the pure Game spine, run the string-pinsetter reset between balls or a
 // full re-rack at frame end, advance through three balls per frame and ten
 // frames, and show the end-of-game summary (GDD 02-core-loop, F-008).
+//
+// The app shell wraps that loop in a screen state machine (src/screens.ts):
+// the game boots to a title menu, Play starts a fresh game, and game-over lands
+// on a summary screen with play-again / main-menu (GDD 06-reuse-and-tech,
+// REQ-045). Player settings (audio enable) persist via src/settings.ts (REQ-046).
 
 import { createWorld3D } from './world3d.js';
 import { PinSet, pinRackPositions } from './pins.js';
@@ -16,6 +21,8 @@ import { SweepMeter } from './meter.js';
 import { Game } from './game.js';
 import { Scoreboard } from './scoreboard.js';
 import { ShotWatcher } from './shot.js';
+import { Screens, type Screen } from './screens.js';
+import { Settings } from './settings.js';
 import { DETECTION, LANE, PIN_REST_Y, POWER, RESET, SHOT, SHOT_CAMERA, SPIN } from './config.js';
 
 const canvas = document.getElementById('lane') as HTMLCanvasElement | null;
@@ -24,6 +31,15 @@ if (!canvas) {
 }
 const scoreboardEl = document.getElementById('scoreboard');
 const statusEl = document.getElementById('status');
+
+// App-shell overlays (REQ-045). The menu and summary screens gate the live game.
+const menuEl = document.getElementById('menu');
+const summaryEl = document.getElementById('summary');
+const summaryScoreEl = document.getElementById('summary-score');
+const menuPlayBtn = document.getElementById('menu-play');
+const menuAudioBtn = document.getElementById('menu-audio');
+const summaryAgainBtn = document.getElementById('summary-again');
+const summaryMenuBtn = document.getElementById('summary-menu');
 
 const world = await createWorld3D(canvas);
 const pins = new PinSet(world);
@@ -61,6 +77,13 @@ const powerMeter = new SweepMeter({ sweepsPerSecond: POWER.sweepsPerSecond });
 //   over      the game is complete; the summary is shown.
 type Phase = 'aiming' | 'watching' | 'settling' | 'resetting' | 'over';
 let phase: Phase = 'aiming';
+
+// App shell: the top-level screen state machine (menu / playing / summary) and
+// the persisted settings (audio enable). The shell gates the live shot loop so
+// the game boots to a title menu and lands on a summary screen, rather than
+// dropping straight into play (REQ-045, REQ-046).
+const screens = new Screens('menu');
+const settings = new Settings();
 
 // Pins standing before the current ball was thrown, so pinfall = before - after.
 let standingBeforeBall = 10;
@@ -127,11 +150,9 @@ function throwBall(): void {
 }
 
 function confirm(): void {
-  if (phase === 'over') {
-    // After the summary, a confirm starts a brand-new game.
-    restartGame();
-    return;
-  }
+  // Only the live game consumes a confirm. On the menu or summary screen the
+  // overlay buttons drive the flow, so a stray tap/key on the canvas is ignored.
+  if (screens.screen !== 'playing') return;
   if (phase !== 'aiming') return;
 
   if (shotCamera.isAligning) {
@@ -150,24 +171,62 @@ function confirm(): void {
   }
 }
 
-function restartGame(): void {
-  // The Game spine has no reset; replace it with a fresh one. Re-rack the deck
-  // and start the first shot of the new game.
+// Start a brand-new game from the menu or the summary. The Game spine has no
+// reset; replace it with a fresh one, clear the scoreboard, re-rack the deck,
+// and start the first shot.
+function startNewGame(): void {
   game = new Game();
+  phase = 'aiming';
   renderScore();
   startReset('rerack');
 }
+
+// Reflect the audio-enable setting on the menu toggle (label + accessible state).
+function syncAudioToggle(): void {
+  if (!menuAudioBtn) return;
+  const on = settings.audioEnabled;
+  menuAudioBtn.setAttribute('aria-pressed', String(on));
+  menuAudioBtn.textContent = `Audio: ${on ? 'On' : 'Off'}`;
+}
+
+// The single shell view layer: show exactly one overlay per screen and (un)pause
+// the status line. The live game owns the canvas; menu/summary cover it.
+function showScreen(screen: Screen): void {
+  const isMenu = screen === 'menu';
+  const isSummary = screen === 'summary';
+  if (menuEl) menuEl.hidden = !isMenu;
+  if (summaryEl) summaryEl.hidden = !isSummary;
+  if (isMenu) {
+    syncAudioToggle();
+    setStatus('');
+  }
+}
+
+screens.onChange((screen) => {
+  showScreen(screen);
+  if (screen === 'playing') startNewGame();
+});
+
+// Menu and summary controls (mouse / touch / keyboard via native button
+// activation, REQ-037 and RULE 10). Each maps to one screen transition.
+menuPlayBtn?.addEventListener('click', () => screens.start());
+summaryAgainBtn?.addEventListener('click', () => screens.playAgain());
+summaryMenuBtn?.addEventListener('click', () => screens.toMenu());
+menuAudioBtn?.addEventListener('click', () => {
+  settings.toggleAudio();
+  syncAudioToggle();
+});
 
 window.addEventListener('pointerdown', () => confirm());
 window.addEventListener('keydown', (event) => {
   switch (event.code) {
     case 'ArrowLeft':
     case 'KeyA':
-      if (phase === 'aiming') shotCamera.nudgeAlign(-ALIGN_STEP);
+      if (screens.screen === 'playing' && phase === 'aiming') shotCamera.nudgeAlign(-ALIGN_STEP);
       break;
     case 'ArrowRight':
     case 'KeyD':
-      if (phase === 'aiming') shotCamera.nudgeAlign(ALIGN_STEP);
+      if (screens.screen === 'playing' && phase === 'aiming') shotCamera.nudgeAlign(ALIGN_STEP);
       break;
     case 'Enter':
     case 'Space':
@@ -179,8 +238,11 @@ window.addEventListener('keydown', (event) => {
   }
 });
 
+// Boot to the title menu (REQ-045). The scene renders behind the overlay; the
+// shot loop stays idle until the player presses Play, which fires the screens
+// listener and runs startNewGame().
 renderScore();
-beginShot();
+showScreen(screens.screen);
 
 let last = performance.now();
 function frame(now: number): void {
@@ -189,6 +251,22 @@ function frame(now: number): void {
   const dt = Math.min((now - last) / 1000, 0.05);
   last = now;
 
+  // The shot loop only advances while the game is on screen. On the menu and
+  // summary the scene keeps rendering behind the overlay, but no shot, camera
+  // sweep, or settle runs (REQ-045). startNewGame() begins the first shot when
+  // the player presses Play.
+  if (screens.screen === 'playing') stepShotLoop(dt);
+
+  world.step(dt);
+  pins.sync();
+  ball.sync();
+  world.render();
+  requestAnimationFrame(frame);
+}
+
+// One tick of the live shot phase machine. Split from frame() so the menu/
+// summary guard reads as a single condition rather than wrapping the whole body.
+function stepShotLoop(dt: number): void {
   if (phase === 'aiming') {
     // Only the running meter sweeps; the camera carries the held ball.
     spinMeter.update(dt);
@@ -215,12 +293,6 @@ function frame(now: number): void {
       beginShot();
     }
   }
-
-  world.step(dt);
-  pins.sync();
-  ball.sync();
-  world.render();
-  requestAnimationFrame(frame);
 }
 
 function applyCameraPose(pose: { pos: { x: number; y: number; z: number }; lookAt: { x: number; y: number; z: number }; fov: number }): void {
@@ -242,7 +314,11 @@ function recordSettledBall(standingNow: number): void {
   if (result.outcome === 'game-over') {
     phase = 'over';
     const summary = game.summary();
-    setStatus(`Game over. Final score ${summary?.finalScore ?? 0}. Space/click for a new game.`);
+    const finalScore = summary?.finalScore ?? 0;
+    setStatus(`Game over. Final score ${finalScore}.`);
+    if (summaryScoreEl) summaryScoreEl.textContent = String(finalScore);
+    // Hand off to the shell: show the summary screen with play-again / menu.
+    screens.finish();
     return;
   }
 
