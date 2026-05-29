@@ -3,9 +3,10 @@
 //
 // A duckpin is squat and belly-heavy (GDD REQ-026): the collider is a short
 // cylinder at the belly radius, and the mass is concentrated low so the pin
-// resists toppling and transfers little energy. That low centre of mass is the
-// physical reason real strikes stay rare (GDD REQ-030); it is computed here
-// rather than scripted.
+// resists toppling and transfers little energy. That low centre of mass, plus
+// the low-restitution PIN_PHYSICS contact material (GDD REQ-030: pins barely
+// bounce off each other, so the collision chain dies out fast), is the physical
+// reason real strikes stay rare; both are config-driven rather than scripted.
 //
 // The triangle (GDD REQ-027) is the standard 1-2-3-4 arrangement: the head pin
 // sits on the head spot and the three back rows recede down-lane onto the deck.
@@ -14,7 +15,7 @@
 
 import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier3d-compat';
-import { LANE, GROUP, TETHER, type Vec3 } from './config.js';
+import { LANE, GROUP, TETHER, PIN_PHYSICS, type Vec3 } from './config.js';
 import type { World3D } from './world3d.js';
 import type { PinKinematics } from './detection.js';
 import type { ResetTarget } from './reset.js';
@@ -147,6 +148,11 @@ export class PinSet {
           mass.principalAngularInertia,
           identity,
         )
+        // Low energy transfer keeps duckpin strikes rare (GDD REQ-030): the
+        // pins barely bounce off each other, so the collision chain dies out
+        // fast instead of spraying the rack like tenpin.
+        .setFriction(PIN_PHYSICS.friction)
+        .setRestitution(PIN_PHYSICS.restitution)
         .setCollisionGroups(PIN_COLLISION_GROUPS);
       this.world.physics.createCollider(collider, body);
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { LANE, GROUP } from '../src/config.js';
+import { LANE, GROUP, PIN_PHYSICS } from '../src/config.js';
 
 describe('LANE config', () => {
   it('places the head spot down-lane from the foul line', () => {
@@ -32,6 +32,21 @@ describe('LANE config', () => {
 
   it('pulls bodies downward', () => {
     expect(LANE.gravity).toBeLessThan(0);
+  });
+});
+
+describe('PIN_PHYSICS contact material (REQ-030)', () => {
+  it('barely bounces, so struck pins do not spray the rack like tenpin', () => {
+    // Any non-zero restitution visibly increases scatter; duckpin keeps it at
+    // zero so the collision chain dies out fast and strikes stay rare.
+    expect(PIN_PHYSICS.restitution).toBe(0);
+  });
+
+  it('uses a friction high enough to shed energy into the deck and neighbours', () => {
+    // Mid-high friction so a toppling pin sheds its energy rather than sliding
+    // the length of the lane, while staying inside the physical [0, 1] band.
+    expect(PIN_PHYSICS.friction).toBeGreaterThanOrEqual(0.4);
+    expect(PIN_PHYSICS.friction).toBeLessThanOrEqual(1);
   });
 });
 

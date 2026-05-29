@@ -430,9 +430,16 @@
    "id": "REQ-030",
    "requirement": "Pin-to-pin collisions chain with low scatter, tuned so real strikes stay genuinely rare",
    "gddRef": "docs/gdd/01-vision-and-pillars.html#pillars",
-   "status": "not_started",
-   "implementationRefs": [],
-   "testRefs": [],
+   "status": "done",
+   "note": "Beyond the squat belly-heavy mass (REQ-026), the pin contact material is now a deliberate, single-source PIN_PHYSICS config block (friction 0.55, restitution 0). Zero restitution means struck pins barely rebound, so the collision chain dies out fast instead of spraying the rack like tenpin; a small playtest sweep showed any non-zero restitution roughly doubling the furthest pin's travel. Applied to every pin collider in src/pins.ts. A real-Rapier scatter smoke (tests/scatter.smoke.test.ts) throws straight balls across a sweep of lateral aim points and speeds and proves the duckpin feel: a dead-centre straight ball never strikes, no straight shot in the sweep strikes, most frames leave several pins, and no pin is flung sideways more than a few pin-spacings. Spin/angle remain the way to work for the rare strike (REQ-034/036).",
+   "implementationRefs": [
+    "src/config.ts",
+    "src/pins.ts"
+   ],
+   "testRefs": [
+    "tests/scatter.smoke.test.ts",
+    "tests/config.test.ts"
+   ],
    "followupRefs": []
   },
   {
