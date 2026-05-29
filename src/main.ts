@@ -23,6 +23,7 @@ import { Scoreboard } from './scoreboard.js';
 import { ShotWatcher } from './shot.js';
 import { Screens, type Screen } from './screens.js';
 import { Settings } from './settings.js';
+import { Tutorial } from './tutorial.js';
 import { AudioEngine } from './audio.js';
 import { DETECTION, LANE, PIN_REST_Y, POWER, RESET, SHOT, SHOT_CAMERA, SPIN } from './config.js';
 
@@ -39,8 +40,14 @@ const summaryEl = document.getElementById('summary');
 const summaryScoreEl = document.getElementById('summary-score');
 const menuPlayBtn = document.getElementById('menu-play');
 const menuAudioBtn = document.getElementById('menu-audio');
+const menuTutorialBtn = document.getElementById('menu-tutorial');
 const summaryAgainBtn = document.getElementById('summary-again');
 const summaryMenuBtn = document.getElementById('summary-menu');
+
+// First-run tutorial coach panel (REQ-047).
+const tutorialEl = document.getElementById('tutorial');
+const tutorialStepEl = document.getElementById('tutorial-step');
+const tutorialInstructionEl = document.getElementById('tutorial-instruction');
 
 const world = await createWorld3D(canvas);
 const pins = new PinSet(world);
@@ -86,6 +93,11 @@ let phase: Phase = 'aiming';
 const screens = new Screens('menu');
 const settings = new Settings();
 
+// First-run control tutorial (REQ-047). Armed only when the player has not seen
+// it before; it advances through the three throw steps as the player confirms
+// each, then retires after the first throw. The coach copy lives in src/tutorial.
+const tutorial = new Tutorial(settings.tutorialSeen);
+
 // Procedural Web Audio engine (REQ-043). It synthesizes pin clatter, ball roll,
 // the string-reset whir, and the strike/spare stings. It starts at the persisted
 // audio-enable setting and is lazily initialized + resumed on the first user
@@ -114,6 +126,21 @@ function setStatus(text: string): void {
 
 function renderScore(): void {
   scoreboard?.render(game.score);
+}
+
+// Show or hide the first-run coach panel for the tutorial's current step. When
+// the tutorial is inactive (already seen, or retired after the first throw) the
+// panel is hidden. Called whenever the tutorial state changes (REQ-047).
+function renderTutorial(): void {
+  if (!tutorialEl) return;
+  const hint = tutorial.hint();
+  if (!hint) {
+    tutorialEl.hidden = true;
+    return;
+  }
+  if (tutorialStepEl) tutorialStepEl.textContent = `Step ${hint.index} of ${hint.total} - ${hint.label}`;
+  if (tutorialInstructionEl) tutorialInstructionEl.textContent = hint.instruction;
+  tutorialEl.hidden = false;
 }
 
 // Begin a fresh shot: carry the ball to the return and start the walk-up. Set
@@ -182,19 +209,32 @@ function confirm(): void {
     shotCamera.lock();
     audio.playClick();
     spinMeter.start();
+    advanceTutorial();
     return;
   }
   if (spinMeter.isSweeping) {
     spinMeter.stop();
     audio.playClick();
     powerMeter.start();
+    advanceTutorial();
     return;
   }
   if (powerMeter.isSweeping) {
     powerMeter.stop();
     audio.playClick();
+    advanceTutorial();
     if (canThrow(shotCamera.currentPhase, true)) throwBall();
   }
+}
+
+// Advance the first-run coach by one step on each confirm and re-render the
+// panel. The final step (power) retires the tutorial; persist that so it never
+// shows again in a future session (REQ-047).
+function advanceTutorial(): void {
+  if (!tutorial.active) return;
+  const finished = tutorial.advance();
+  if (finished) settings.setTutorialSeen(true);
+  renderTutorial();
 }
 
 // Start a brand-new game from the menu or the summary. The Game spine has no
@@ -204,6 +244,9 @@ function startNewGame(): void {
   game = new Game();
   phase = 'aiming';
   renderScore();
+  // Arm the first-run coach (no-op if already seen) and show its first step.
+  tutorial.begin();
+  renderTutorial();
   startReset('rerack');
 }
 
@@ -222,6 +265,8 @@ function showScreen(screen: Screen): void {
   const isSummary = screen === 'summary';
   if (menuEl) menuEl.hidden = !isMenu;
   if (summaryEl) summaryEl.hidden = !isSummary;
+  // The coach only belongs over the live game; hide it on the menu and summary.
+  if (tutorialEl && screen !== 'playing') tutorialEl.hidden = true;
   if (isMenu) {
     syncAudioToggle();
     setStatus('');
@@ -247,6 +292,15 @@ summaryAgainBtn?.addEventListener('click', () => {
 summaryMenuBtn?.addEventListener('click', () => {
   audio.playClick();
   screens.toMenu();
+});
+menuTutorialBtn?.addEventListener('click', () => {
+  // Replay the control tutorial: re-arm the coach, clear the persisted seen flag
+  // so it sticks across sessions until the next throw, and start a fresh game.
+  wakeAudio();
+  audio.playClick();
+  tutorial.replay();
+  settings.setTutorialSeen(false);
+  screens.start();
 });
 menuAudioBtn?.addEventListener('click', () => {
   // Toggling is a gesture: wake the context so the engine can sound when turned

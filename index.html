@@ -42,6 +42,34 @@
       pointer-events: none; user-select: none; padding: 0 12px;
     }
 
+    /* First-run tutorial coach (REQ-047). A minimal metal-plate hint panel that
+       names the current throw step and what one confirm does. Non-interactive
+       (pointer-events: none) so taps still confirm through it, and it sits below
+       the scoreboard so it never covers the live frame. Shown only on the first
+       game and gone after the first throw; replayable from the menu. */
+    #tutorial {
+      position: fixed; top: 64px; left: 0; right: 0;
+      display: flex; justify-content: center;
+      pointer-events: none; user-select: none; padding: 0 12px; z-index: 50;
+    }
+    #tutorial[hidden] { display: none; }
+    .vp-coach {
+      max-width: 420px; padding: 10px 16px; border-radius: 6px;
+      background: linear-gradient(rgba(20, 22, 29, 0.92), rgba(12, 14, 20, 0.92));
+      border: 1px solid #c8923c;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 3px 10px rgba(0, 0, 0, 0.55);
+      text-align: center;
+    }
+    .vp-coach-step {
+      font: 700 10px/1 ui-monospace, "SFMono-Regular", Menlo, monospace;
+      letter-spacing: 0.16em; text-transform: uppercase; color: #ffcf7a;
+      margin-bottom: 5px;
+    }
+    .vp-coach-instruction {
+      font: 600 14px/1.35 ui-monospace, "SFMono-Regular", Menlo, monospace;
+      color: #f4ecd6;
+    }
+
     /* App-shell overlays (REQ-045): the title menu and the end-of-game summary.
        Industrial metal-plate look per the look-and-feel UI direction; the full
        split-flap / engraved-gauge skin (REQ-042, REQ-038) is a later slice.
@@ -90,12 +118,22 @@
   <div id="scoreboard" aria-label="Scoreboard"></div>
   <div id="status" aria-live="polite"></div>
 
+  <!-- First-run control tutorial coach (REQ-047). Populated and toggled by
+       src/main.ts per throw step; aria-live so the step is announced. -->
+  <div id="tutorial" aria-live="polite" hidden>
+    <div class="vp-coach" role="note">
+      <div id="tutorial-step" class="vp-coach-step"></div>
+      <div id="tutorial-instruction" class="vp-coach-instruction"></div>
+    </div>
+  </div>
+
   <!-- Title menu (REQ-045). Shown on boot and after returning from a summary. -->
   <div id="menu" class="vp-overlay" role="dialog" aria-modal="true" aria-labelledby="menu-title">
     <h1 id="menu-title" class="vp-title">VibePins</h1>
     <p class="vp-tagline">Duckpin bowling. Three balls a frame.</p>
     <button id="menu-play" class="vp-btn" type="button">Play</button>
     <button id="menu-audio" class="vp-toggle" type="button" aria-pressed="true">Audio: On</button>
+    <button id="menu-tutorial" class="vp-toggle" type="button">How To Play</button>
   </div>
 
   <!-- End-of-game summary (REQ-045, REQ-011). The final score plus play again. -->
