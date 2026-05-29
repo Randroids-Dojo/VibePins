@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><title>String pinsetter</title></head>
+<body>
+
+  <h1>String pinsetter</h1>
+  <p data-status="not_started">Status: not_started</p>
+
+  <section data-role="spec" id="overview">
+    <h2>Overview</h2>
+    <p>The string pinsetter is VibePins' signature system and pillar 2. In a real string house, every pin is tied to a thin, high-tensile cord (polyester or Dyneema) attached at the pin's neck, the narrow point above the belly. Each cord runs up through a guide tube to an overhead drive unit roughly two to three meters above the lane. The cord does the resetting: there is no sweep bar and fallen pins never leave the deck. They are simply lifted up and out of the way, then lowered back into place. VibePins reproduces this honestly so the reset reads, unmistakably, as strings rather than a hidden tenpin machine.</p>
+  </section>
+
+  <section data-role="spec" id="tether">
+    <h2>The tether</h2>
+    <p>Each of the ten pins is attached at the neck to a cord anchored to a fixed overhead point above its home position. In physics terms this is a distance or rope constraint between the pin's neck and the anchor (Rapier rope/spherical joint or a length-limited distance constraint). Key property: the cord is slack at the throw. Its maximum length is set so that a pin at rest, and a pin knocked over anywhere it would naturally fall on the deck, never feels the cord. The cord only goes taut when a pin is lifted by the reset or dragged far by a tangle.</p>
+  </section>
+
+  <section data-role="spec" id="free-fall">
+    <h2>Free fall on impact</h2>
+    <p>During a throw the cords must not interfere with the pins. Pins fall, slide, and collide as if untethered. This is the slack-cord phase. The string's presence becomes observable only at reset time and in the tangle cases below. If the cords visibly restrain a falling pin during normal play, the slack length is wrong.</p>
+  </section>
+
+  <section data-role="spec" id="detection">
+    <h2>Standing vs fallen detection</h2>
+    <p>A real string machine reads pin state from cord tension: a standing pin holds a defined baseline tension, a fallen pin's cord goes slack toward zero. Detection runs in a short window (roughly a third to a half second) after the ball and pins settle, classifying all ten at once.</p>
+    <p>VibePins mirrors this with an upright test: a pin counts as standing if its up-axis is within a tolerance of vertical AND it is at rest (linear and angular velocity below thresholds) AND it is still on the deck footprint. Otherwise it counts as fallen. The settle window prevents counting a pin that is still wobbling. This standing/fallen result drives both scoring (<a href="02-core-loop.html#pin-accounting">core loop, pin accounting</a>) and the reset cycle below.</p>
+  </section>
+
+  <section data-role="spec" id="reset-cycle">
+    <h2>The reset cycle</h2>
+    <p>The reset is a timed sequence, roughly three to five seconds total, with no sweep:</p>
+    <ol>
+      <li><strong>Settle and detect</strong> (short window): wait for pins to stop, classify each as standing or fallen.</li>
+      <li><strong>Lift fallen</strong>: reel in the cords of fallen pins, raising them up and off the deck. Between balls within a frame, only fallen pins are lifted; standing pins are left untouched (respot in place). On a full re-rack (frame end), all ten are lifted.</li>
+      <li><strong>Reposition</strong>: with the deck clear of fallen pins, the drive unit moves lifted pins back over their home positions.</li>
+      <li><strong>Lower and ready</strong>: lower the held pins onto their home spots in the triangle, release to rest, and hand control back to the player.</li>
+    </ol>
+    <p>The motion is visible and legible: the player sees the cords go taut and the pins rise, not a curtain wipe. Timing should feel snappy but unmistakably mechanical.</p>
+  </section>
+
+  <section data-role="spec" id="respot">
+    <h2>Respot in place</h2>
+    <p>Between balls in a frame, standing pins must remain exactly where they came to rest, even if a hit nudged a pin off its home spot without toppling it. Only fallen pins leave via the strings. This matches real string play and matters for the second and third ball, where the player aims at a specific remaining cluster.</p>
+  </section>
+
+  <section data-role="spec" id="tangle">
+    <h2>Tangles, hangs, and yanks</h2>
+    <p>The strings are not a clean abstraction, and VibePins treats their failure modes as emergent flavor rather than bugs:</p>
+    <dl>
+      <dt id="tangle-hang">Hanging pin</dt>
+      <dd>A cord can leave a pin dangling above or beside the deck rather than cleanly fallen or cleanly standing. Pins Mechanical's own house rule is "no untangling of strings," meaning the lane plays it as-is. VibePins resolves a hanging pin by the detection rule in <a href="#detection">detection</a>: if it is not upright and at rest on the deck, it counts as fallen, even if the string is still holding it aloft.</dd>
+
+      <dt id="tangle-yank">Neighbor yank</dt>
+      <dd>When a falling pin reaches the end of its slack, or when the reset lifts a tangled cluster, a taut cord can tug a neighboring pin. This can occasionally knock down or save a pin that physics alone would not have. Allowed and intended; it is part of the string character. It must arise from the constraint simulation, not from scripted cheating.</dd>
+
+      <dt id="tangle-cross">Crossed cords</dt>
+      <dd>Cords can cross during chaotic falls. Visually this should be tolerated (cords may overlap) without the simulation deadlocking. There is no manual untangle action in v1; the next full re-rack lifts everything and clears the geometry.</dd>
+    </dl>
+  </section>
+
+  <section data-role="spec" id="non-goals">
+    <h2>What this system does not do</h2>
+    <ul>
+      <li>No sweep bar or pin sweep animation. Fallen pins are lifted, never wiped.</li>
+      <li>No free-fall (gravity-only) pinsetter machine. This is a string house specifically.</li>
+      <li>No manual untangle minigame in v1. Tangles resolve at the next re-rack.</li>
+      <li>No simulation of cord wear, motor torque faults, or maintenance. Those are real but out of scope (see <a href="99-out-of-scope.html">out of scope</a>).</li>
+    </ul>
+  </section>
+
+  <section data-role="build-log">
+    <h2>Build log</h2>
+    <ul>
+      <li data-date="2026-05-28">Section drafted. No code yet. Mechanics sourced from real string-pinsetter machines (neck-attached cords, overhead drive unit 2.2 to 2.8m up, tension-based detection, 3 to 5 second sweepless reset) and the Pins Mechanical "no untangling of strings" house rule.</li>
+    </ul>
+  </section>
+
+</body>
+</html>

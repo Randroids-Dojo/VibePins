@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Async multiplayer</title></head>
+<body>
+
+  <h1>Async multiplayer</h1>
+  <p data-status="not_started">Status: not_started</p>
+
+  <section data-role="spec" id="intent">
+    <h2>Intent</h2>
+    <p>The signature social feature (pillar 5) is asynchronous, turn-based multiplayer. Two or more friends share one duckpin match. A player bowls their turn, then hands off; the next player opens a link on their own phone and bowls whenever they have a moment. No one needs to be online at the same time, no one needs an account, and the match plays out over minutes or hours or a whole day. It wraps the exact same single game mode as solo play (see <a href="02-core-loop.html">core loop</a>); multiplayer is a turn-ordering and persistence layer around the authentic ten-frame round, not a different game.</p>
+  </section>
+
+  <section data-role="spec" id="match-model">
+    <h2>Match model</h2>
+    <ul>
+      <li>A match has a unique id, two to a small number of players, and a shared frame clock. v1 targets two players; the model should not hard-code two.</li>
+      <li>Each player bowls their own ten-frame line. Standard bowling turn order: players alternate by frame. On player A's turn they bowl their whole frame (up to three balls, honoring strike/spare early-out), then the turn passes to the next player.</li>
+      <li>The match advances frame by frame until every player has completed ten frames (plus tenth-frame bonus balls). The match then resolves to a final ranking.</li>
+      <li>Match state is authoritative on the server. Either player can close the tab and reopen later to exactly the same state.</li>
+    </ul>
+  </section>
+
+  <section data-role="spec" id="turn-handoff">
+    <h2>Turn and handoff</h2>
+    <ul>
+      <li>At any moment exactly one player is on the clock. The server enforces whose turn it is; an out-of-turn submission is rejected.</li>
+      <li>When a player finishes their turn, the app presents a handoff: a shareable link (and copy/native-share affordance) that points the next player at the match.</li>
+      <li>The recipient opens the link on their device, sees the current state (their standing pins are fresh for their own line, the scoreboard shows everyone), and bowls their frame.</li>
+      <li>The not-your-turn state is a clear, calm "waiting for &lt;name&gt;" screen with the live scoreboard, not a spinner. The your-turn state is unmistakable.</li>
+    </ul>
+  </section>
+
+  <section data-role="spec" id="identity">
+    <h2>Lightweight identity</h2>
+    <p>No accounts in v1. Identity is a display name plus a per-device player token stored locally and bound to a seat in the match. The handoff link carries the match id; a per-seat secret (claimed on first open) authorizes that seat's submissions so a stranger with the link cannot bowl another player's frame. Reopening on the same device resumes the same seat. This is casual-friends security, not bank security; the per-seat-secret scheme was chosen in Q-007.</p>
+  </section>
+
+  <section data-role="spec" id="authority">
+    <h2>Where the game is computed</h2>
+    <p>Physics runs on the bowling player's client (Three.js + Rapier). The client reports the outcome of each ball as pin-fall data (which pins fell on that ball). The server records the per-ball results, computes the authoritative score with the duckpin rules from <a href="02-core-loop.html#scoring">core loop, scoring</a>, and validates that submitted counts are physically possible (never more pins than were standing). This keeps the wire format tiny and lets any device render the scoreboard without re-simulating. Replay/anti-cheat beyond range validation is out of scope for v1 (friends playing friends).</p>
+  </section>
+
+  <section data-role="spec" id="notifications">
+    <h2>Letting the next player know</h2>
+    <p>The baseline that always works: the shared link plus a local "your matches" list. The bowler sends the handoff link however they already talk (text, chat) via the native share sheet or copy button, and a returning player can reopen the game and see, in their matches list, which games are waiting on them. This needs no permissions and no provider, so v1 is never blocked on notifications (resolves Q-008).</p>
+    <p>Optional progressive enhancement: web push. When a player opts in, the game registers a service worker and can send a "your turn" push when the match advances to them. Push is strictly additive: if the player declines permission, or the platform does not support it (for example iOS without an installed PWA), the experience degrades cleanly to the manual-check baseline above. The web push layer is tracked as followup <a href="../FOLLOWUPS.html">F-002</a> and is not required for v1. Email and SMS stay out of scope (see <a href="99-out-of-scope.html">out of scope</a>).</p>
+  </section>
+
+  <section data-role="spec" id="lifecycle">
+    <h2>Match lifecycle and persistence</h2>
+    <ul>
+      <li>Matches persist server-side (reusing the Hoops serverless + Upstash Redis pattern, see <a href="06-reuse-and-tech.html#async-backend">reuse and tech</a>) keyed by match id, with a generous TTL (on the order of a week) so a day-long game never expires mid-play.</li>
+      <li>Create flow: a player starts a match, gets seat 1, and receives a link to invite the next player.</li>
+      <li>Join flow: opening an unclaimed seat link claims that seat with a name.</li>
+      <li>Resume flow: opening a claimed match from your device drops you back into the current state.</li>
+      <li>Completion: when all lines finish, the match locks, shows final standings, and each player's solo-equivalent score may post to the global leaderboard (see <a href="07-leaderboard.html">leaderboard</a>).</li>
+    </ul>
+  </section>
+
+  <section data-role="spec" id="non-goals">
+    <h2>What this system does not do</h2>
+    <ul>
+      <li>No real-time / synchronous multiplayer. There is no live shared session, no spectating a friend's live throw, no presence. Async only.</li>
+      <li>No accounts, friend graphs, or matchmaking. You play with people you share a link with.</li>
+      <li>No server-side physics or full replay validation in v1.</li>
+      <li>No in-match chat. Players talk in whatever app they shared the link through.</li>
+    </ul>
+  </section>
+
+  <section data-role="build-log">
+    <h2>Build log</h2>
+    <ul>
+      <li data-date="2026-05-28">Section created (replacing the earlier arcade-flair section) per dev direction: one authentic mode, plus async turn-based multiplayer as the headline social feature. No code yet.</li>
+    </ul>
+  </section>
+
+</body>
+</html>

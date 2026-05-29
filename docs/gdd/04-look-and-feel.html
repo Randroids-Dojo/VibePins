@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Look and feel</title></head>
+<body>
+
+  <h1>Look and feel</h1>
+  <p data-status="not_started">Status: not_started</p>
+
+  <section data-role="spec" id="reference">
+    <h2>Reference: Pins Mechanical Co., taken literally</h2>
+    <p>The visual and tonal reference is Pins Mechanical Co., and VibePins takes the "Mechanical" literally. Where the venue brand reads as a retro bar, VibePins pushes the machinery to the foreground: this is a world of exposed mechanisms, cords and pulleys, motors and relays, brass and steel and oiled wood. The mood is industrial and tactile, a little retro-futurist, with the warmth of a well-used machine room. Not neon-arcade, not slick-corporate. The fun is watching honest mechanism do its work.</p>
+  </section>
+
+  <section data-role="spec" id="rube-goldberg">
+    <h2>The Rube Goldberg principle</h2>
+    <p>The defining aesthetic move: the string pinsetter (see <a href="03-string-pinsetter.html">string pinsetter</a>) is staged as a Rube Goldberg contraption you get to watch. Cords, guide tubes, pulleys, winding drums, and the overhead drive unit are all visible and legible. Nothing important is hidden behind a panel. The reset is a small mechanical performance: cords go taut, drums turn, pins rise on their strings, the rack swings into place, everything clicks home. Half the satisfaction of the game is watching the machine work, so the machine is on stage, not in a closet.</p>
+  </section>
+
+  <section data-role="spec" id="environment">
+    <h2>The venue and lane</h2>
+    <p>A single, focused 3D scene: one duckpin lane inside a machine-room interior. The lane is shorter than a regulation alley, consistent with the casual venue. Above and behind the pins sits the visible pinsetter rig: a frame of beams, ten guide tubes, ten cords running up to winding drums and the overhead drive unit. Background suggests the room through more machinery (gears, conduit, gauges, the silhouette of other lane rigs, warm work-lights) rather than neon signage or an explorable space. Camera sits behind the foul line looking down the lane, framed so the overhead string rig is clearly in view.</p>
+  </section>
+
+  <section data-role="spec" id="palette-lighting">
+    <h2>Palette, materials, and lighting</h2>
+    <ul>
+      <li>Material-led palette: oiled hardwood lane, brushed and blackened steel, aged brass, copper, cast iron, leather and canvas. Warm metals over cool plastics.</li>
+      <li>Accent color comes from the machine, not signage: amber indicator lamps, the deep red of a painted frame, the glint of polished brass, hazard-stripe yellow on moving parts.</li>
+      <li>Lighting is warm industrial work-light: focused pools over the lane and the pinsetter rig, soft falloff into a dim machine room. Scene fog for depth and grime in the air.</li>
+      <li>Surfaces show use: scuffs, oil sheen, worn edges, dust. Honest wear, not clean CGI.</li>
+      <li>Glossy lane reflecting warm highlights; pins (real duckpins are painted wood, often with red neck bands) lit by the work-lights.</li>
+    </ul>
+  </section>
+
+  <section data-role="spec" id="ui">
+    <h2>UI and scoreboard</h2>
+    <p>The scoreboard reads as a piece of machinery, not a glowing screen: a split-flap or rolling-counter mechanical display, or an electromechanical scoreboard with relay-driven digits and small indicator bulbs. Frame marks (strike, spare, flat ten, open) flip or roll into place with a click. Menus and HUD use sturdy industrial type (stencil, embossed plate, engraved gauge faces) on metal-plate panels with rivets and toggle switches. Keep on-screen text minimal; the game should read without instructions (pillar 4).</p>
+  </section>
+
+  <section data-role="spec" id="audio">
+    <h2>Audio</h2>
+    <p>Audio uses a procedural Web Audio engine in the same style as Hoops (an <code>AudioEngine</code> class that synthesizes sounds rather than shipping audio files: lazy init on first gesture, resume-on-suspend, a global enable toggle). The palette is mechanical, not musical-arcade. See <a href="06-reuse-and-tech.html">reuse and tech</a>.</p>
+    <ul>
+      <li>Pin clatter: the dull, woody knock of squat duckpins, not the bright crack of tenpins. Lower energy, less scatter.</li>
+      <li>Ball roll: a short rumble down the wood, a release thunk on launch.</li>
+      <li>String reset: the signature sound bed. Servo whir, winding drums, taut-cord twang, clicking relays, the rack thunking home. This is the machine's voice.</li>
+      <li>Ambient: a low machine-room hum, distant clanks and motors, the occasional hiss or relay click, mixed quiet under the action.</li>
+      <li>Stings: a satisfying mechanical flourish on the rare strike (bells, a ratchet run, a steam hiss); smaller mechanical cues for spares and good rolls.</li>
+    </ul>
+  </section>
+
+  <section data-role="spec" id="juice">
+    <h2>Juice and feedback</h2>
+    <p>Pillar 4 demands immediate, satisfying feedback, expressed mechanically. On a strike: the contraption runs a brief Rube Goldberg victory routine (a chain reaction through the visible mechanism, bells, sparks or steam, indicator lamps lighting in sequence) plus a screen shake and a sound flourish, sized to how rare strikes are in duckpin. On a spare: a smaller mechanical flourish. Every ball gives clear, fast confirmation of the count. The string lift itself is core juice: it is genuinely fun to watch the pins get reeled up. Avoid long, unskippable animations; keep the loop fast.</p>
+  </section>
+
+  <section data-role="build-log">
+    <h2>Build log</h2>
+    <ul>
+      <li data-date="2026-05-28">Aesthetic re-pointed from neon-arcade to mechanical / machine / Rube Goldberg per dev direction. Pins Mechanical taken literally: exposed mechanism, brass/steel/oiled-wood materials, electromechanical scoreboard, the string pinsetter staged as a contraption to watch.</li>
+      <li data-date="2026-05-28">Section drafted. No code yet. Original aesthetic direction sourced from Pins Mechanical Co. brand.</li>
+    </ul>
+  </section>
+
+</body>
+</html>

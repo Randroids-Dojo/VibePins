@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Reuse and tech</title></head>
+<body>
+
+  <h1>Reuse and tech</h1>
+  <p data-status="not_started">Status: not_started</p>
+
+  <section data-role="spec" id="overview">
+    <h2>Overview</h2>
+    <p>VibePins should not reinvent infrastructure that the sibling project Hoops (a neon arcade basketball game in this same workspace, at <code>../Hoops</code>) already solved. Hoops is Three.js + cannon-es + Vite + Vercel, with a procedural Web Audio engine, swipe input, a particle system, a serverless leaderboard, and a screens/HUD/settings/tutorial/feedback scaffold. This section records what to borrow, what to adapt, and what to leave. It is design intent for reuse; the concrete sequencing lives in <code>docs/IMPLEMENTATION_PLAN.html</code>.</p>
+  </section>
+
+  <section data-role="spec" id="stack">
+    <h2>Stack and the physics-engine decision</h2>
+    <p>VibePins stack: Three.js + Rapier (WASM) physics + Vite + TypeScript, deployed static to Vercel. Hoops uses cannon-es, not Rapier. The deliberate divergence is for the string pinsetter: VibePins' core system needs rope/distance joint constraints and stable, deterministic stacking of ten tethered pins (see <a href="03-string-pinsetter.html">string pinsetter</a>), where Rapier's joints and determinism are a better fit. Confirmed (Q-002 resolved): Rapier it is. Scene-level patterns from Hoops port regardless of engine.</p>
+  </section>
+
+  <section data-role="spec" id="scene">
+    <h2>Scene and physics scaffolding (adapt from Hoops world3d.js)</h2>
+    <ul>
+      <li>A single owner module for the Three.js renderer, scene, camera, and the physics world, modeled on Hoops' <code>World3D</code>.</li>
+      <li>A central config constants object (Hoops' <code>COURT</code>) holding lane dimensions, pin/ball sizes and masses, camera position and look-at, and spawn points. VibePins' version (a <code>LANE</code> constant) is the single source of tunable geometry.</li>
+      <li>A collision-group bitmask (Hoops' <code>GROUP</code>) for ball / pin / lane / gutter / string layers.</li>
+      <li>Renderer setup conventions to copy: pixel-ratio cap at 2, soft shadow maps, sRGB output, scene fog for the dark venue depth.</li>
+    </ul>
+  </section>
+
+  <section data-role="spec" id="input">
+    <h2>Input plumbing (the control scheme lives in section 08)</h2>
+    <p>The throw is a three-step stop-the-meter sequence (SNES Super Bowling style), specified in <a href="08-controls.html">controls</a>, not a swipe. What ports from Hoops is the plumbing, not the gesture: Hoops already runs an oscillating launch-power meter, so its meter timing and the <code>Input</code> class shape (pointer/keyboard handling, a single confirm action with callbacks) are directly reusable for stopping the spin and power meters. VibeKit's gesture helpers are largely unneeded here; the confirm action is a simple tap/click/key. Mouse, touch, and keyboard must all work (pillar 4).</p>
+  </section>
+
+  <section data-role="spec" id="audio-particles">
+    <h2>Audio and particles (reuse the patterns)</h2>
+    <ul>
+      <li><strong>Audio:</strong> port Hoops' procedural <code>AudioEngine</code> (lazy init on first gesture, resume-on-suspend, enable toggle, synthesized one-shots). Replace basketball sounds with pin clatter, ball roll, and the string-reset whir (see <a href="04-look-and-feel.html#audio">look and feel, audio</a>).</li>
+      <li><strong>Particles:</strong> reuse Hoops' particle system and/or the VibeKit <code>confetti</code> module, re-skinned as mechanical debris (sparks, steam), for the strike celebration (see <a href="04-look-and-feel.html#juice">look and feel, juice</a>).</li>
+    </ul>
+  </section>
+
+  <section data-role="spec" id="shell">
+    <h2>App shell (adapt from Hoops)</h2>
+    <p>Hoops has a reusable meta-UI layer worth adapting: a screens/state machine (<code>screens.js</code>), HUD (<code>hud.js</code>), settings with persistence (<code>settings.js</code>), a first-run tutorial (<code>tutorial.js</code>), a feedback FAB (<code>feedbackFab.js</code>), a console-capture helper for debugging (<code>consoleCapture.js</code>), and an update banner (<code>updateBanner.js</code>). VibePins adapts the ones it needs; the tutorial should stay minimal per pillar 4.</p>
+  </section>
+
+  <section data-role="spec" id="vibekit">
+    <h2>VibeKit</h2>
+    <p>VibeKit (<code>@randroids-dojo/vibekit</code>) is the workspace's shared, pre-1.0 TypeScript module library (swipe/gesture helpers, <code>confetti</code>, seeded <code>rng</code>, <code>math</code>, <code>virtual-joystick</code>, a leaderboard server entry, etc.), consumed by Hoops and siblings. VibePins depends on it the same way Hoops does (github tag-pin, e.g. <code>github:Randroids-Dojo/VibeKit#vX.Y.Z</code>), confirmed by Q-003. Because it is pre-1.0 and may break on any release, it goes on the dependency ledger (see <code>docs/DEPENDENCY_LEDGER.html</code>).</p>
+  </section>
+
+  <section data-role="spec" id="async-backend">
+    <h2>Serverless backend for multiplayer and leaderboard (v1)</h2>
+    <p>Both v1 server features, async multiplayer (<a href="05-async-multiplayer.html">section 05</a>) and the global leaderboard (<a href="07-leaderboard.html">section 07</a>), reuse the Hoops backend pattern: Vercel serverless functions plus Upstash Redis, with zod-validated request payloads. Hoops already demonstrates per-mode and daily boards, name length caps, and env-var handling for both legacy <code>KV_REST_API_*</code> and current <code>UPSTASH_REDIS_REST_*</code> names; copy that shape.</p>
+    <ul>
+      <li><strong>Leaderboard:</strong> mirror Hoops' sorted-set boards under a <code>vibepins:leaderboard</code> namespace (all-time + daily).</li>
+      <li><strong>Matches:</strong> store each async match as a JSON document under <code>vibepins:match:&lt;id&gt;</code> with a roughly one-week TTL, holding seats, per-ball results, and whose turn it is. The server is authoritative for turn order and scoring (see <a href="05-async-multiplayer.html#authority">async multiplayer, authority</a>).</li>
+      <li>Validate every write with zod and reject impossible pin counts and out-of-turn submissions.</li>
+    </ul>
+    <p>VibeKit ships a <code>./server</code> entry (kv helpers, signing, rate-limiting) that may cover some of this; evaluate it when wiring the backend.</p>
+  </section>
+
+  <section data-role="spec" id="conventions">
+    <h2>Project conventions to mirror</h2>
+    <ul>
+      <li>Build/test: Vite + Vitest + <code>tsc --noEmit</code> typecheck, as in Hoops' package scripts.</li>
+      <li>A <code>DEPENDENCY_LEDGER</code> with a watch list (Hoops watches VibeKit); VibePins' is HTML per the spiral-html scaffold.</li>
+      <li>Dots-based task tracking and a features backlog, consistent with Hoops' workflow.</li>
+      <li>Auto-deploy to Vercel on push to <code>main</code>.</li>
+    </ul>
+  </section>
+
+  <section data-role="build-log">
+    <h2>Build log</h2>
+    <ul>
+      <li data-date="2026-05-28">Section drafted. No code yet. Reuse manifest captured from a read of ../Hoops (world3d, input, audio, particles, screens/hud/settings/tutorial/feedback, serverless leaderboard) and VibeKit.</li>
+    </ul>
+  </section>
+
+</body>
+</html>
