@@ -49,8 +49,12 @@ export type ResetMode = 'between-balls' | 'rerack';
 //   shake-down   recovery only: pay the cords back out so the snagged cluster
 //                drops and gravity swings it loose.
 //   shake-up     recovery only: reel back up to re-check after a shake.
-//   reposition   kinematic carry: the set-down pins move over their home spots.
-//   lower        kinematic carry: the held pins lower onto their home spots.
+//   seat         kinematic catch: the swinging pin's head is pulled up into its
+//                centering cone, which straightens it vertical and centers it under
+//                the cone (over its home spot), arresting the swing. Held there.
+//   lower        kinematic carry: the seated pins lower STRAIGHT DOWN out of the
+//                cone onto their home spots, already vertical. Held-aloft pins stay
+//                seated in their cones (vertical, centered), never lowered.
 export type ResetPhase =
   | 'idle'
   | 'settle-hold'
@@ -58,7 +62,7 @@ export type ResetPhase =
   | 'verify-lift'
   | 'shake-down'
   | 'shake-up'
-  | 'reposition'
+  | 'seat'
   | 'lower';
 
 export interface ResetTarget {
@@ -79,9 +83,16 @@ export interface ReelTarget {
 export interface ResetConfig {
   readonly settleHoldFrames: number;
   readonly liftFrames: number;
+  // repositionFrames is the seat (cone-catch / straighten) duration: the swinging
+  // pin's head is pulled up into its cone and aligned vertical, centered under it.
+  // Named repositionFrames for back-compat with the timing window source.
   readonly repositionFrames: number;
   readonly lowerFrames: number;
   readonly liftPinY: number; // pin centre height while carried clear of the deck
+  // The cone seat height: pin centre when its head is seated up in the cone,
+  // vertical and centered under it. The lower carry brings it straight down from
+  // here. Defaults to liftPinY when omitted (the cone sits at the carried clearance).
+  readonly seatY?: number;
   readonly restY: number; //    pin centre height resting on the deck (floorY + pinHeight/2)
   // Cord-tension lift geometry. slackRopeLength is the at-throw slack the cord
   // hangs at; liftRopeLength is the short length the reel-up shortens to, so the
@@ -110,14 +121,20 @@ const lerp = (a: number, b: number, t: number): number => {
   return a + (b - a) * t;
 };
 
-// The carried pin centre target for the kinematic phases (reposition / lower).
-// `home` is the pin's home spot, `settled` where it hung after the lift.
-//   reposition: carry the pin (held high) across to over its home spot
-//   lower:      set it down onto the home spot
+// The carried pin centre target for the kinematic phases (seat / lower).
+// `home` is the pin's home spot (its centering cone sits directly above it),
+// `settled` where it hung after the cord-tension lift.
+//   seat:  the cone catches the swinging pin: carry it from where it hangs up and
+//          over to centered under its cone (over its home spot) at the cone seat
+//          height, vertical. This straightens the swing, it is NOT a snap on the
+//          deck. seatY defaults to liftPinY (the carried clearance under the cone).
+//   lower: set the seated pin STRAIGHT DOWN out of the cone onto its home spot,
+//          already vertical.
 //
-// `holdAloft` is the knocked-down case on a between-balls cycle: the pin stays
-// reeled up and aloft over its settled spot through reposition and lower, cleared
-// out of play rather than set back down (REQ-009).
+// `holdAloft` is the knocked-down case on a between-balls cycle: the pin is caught
+// in its cone (seated vertical over its home spot, like every pin) and stays held
+// there through lower, cleared out of play rather than set back down (REQ-009). It
+// is held in its cone, not lowered.
 export function pinTargetFor(
   phase: ResetPhase,
   progress: number,
@@ -127,13 +144,22 @@ export function pinTargetFor(
   holdAloft = false,
 ): Vec3 {
   const s = smoothstep(progress);
+  const seatY = cfg.seatY ?? cfg.liftPinY;
   switch (phase) {
-    case 'reposition':
-      if (holdAloft) return { x: settled.x, y: cfg.liftPinY, z: settled.z };
-      return { x: lerp(settled.x, home.x, s), y: cfg.liftPinY, z: lerp(settled.z, home.z, s) };
+    case 'seat':
+      // Catch the swinging pin in its cone: carry it from where it hangs (over its
+      // settled spot at the lift clearance) up/over to centered under its cone
+      // (over its home spot) at the seat height, where the cone straightens it.
+      return {
+        x: lerp(settled.x, home.x, s),
+        y: lerp(cfg.liftPinY, seatY, s),
+        z: lerp(settled.z, home.z, s),
+      };
     case 'lower':
-      if (holdAloft) return { x: settled.x, y: cfg.liftPinY, z: settled.z };
-      return { x: home.x, y: lerp(cfg.liftPinY, cfg.restY, s), z: home.z };
+      // Held-aloft (cleared) pins stay seated in their cone, vertical and centered
+      // over their home spot; never lowered (REQ-009).
+      if (holdAloft) return { x: home.x, y: seatY, z: home.z };
+      return { x: home.x, y: lerp(seatY, cfg.restY, s), z: home.z };
     default:
       // settle-hold / idle / the cord-tension phases have no kinematic target;
       // the pin is dynamic and hangs from its reeling cord. Fall back to the held
@@ -161,8 +187,9 @@ export function ropeLengthFor(phase: ResetPhase, progress: number, cfg: ResetCon
   }
 }
 
-// The ordered kinematic-carry phases that always run after a clear lift.
-const FORWARD: readonly ResetPhase[] = ['reposition', 'lower'];
+// The ordered kinematic-carry phases that always run after a clear lift: the cone
+// catches and straightens the swinging pin (seat), then it lowers onto its spot.
+const FORWARD: readonly ResetPhase[] = ['seat', 'lower'];
 
 export class ResetCycle {
   private running = false;
@@ -208,7 +235,7 @@ export class ResetCycle {
         return this.cfg.shakeDownFrames ?? 0;
       case 'shake-up':
         return this.cfg.shakeUpFrames ?? 0;
-      case 'reposition':
+      case 'seat':
         return this.cfg.repositionFrames;
       case 'lower':
         return this.cfg.lowerFrames;
@@ -285,8 +312,8 @@ export class ResetCycle {
       this.enterPhase('shake-down');
     } else {
       // Clean (the common case), or the cap reached (force-clear): set the rack.
-      // No shake runs on a clean rack: go straight to the kinematic carry.
-      this.enterPhase('reposition');
+      // No shake runs on a clean rack: go straight to the cone-seat carry.
+      this.enterPhase('seat');
     }
   }
 
@@ -337,12 +364,12 @@ export class ResetCycle {
         return;
       case 'lift':
         // Top of the cord-tension reel-up. With recovery armed, pause for the snag
-        // read (verify-lift). Without it, a clean reel-up always proceeds to set.
+        // read (verify-lift). Without it, a clean reel-up always proceeds to seat.
         if (this.hasRecovery) this.enterPhase('verify-lift');
-        else this.enterPhase('reposition');
+        else this.enterPhase('seat');
         return;
       case 'verify-lift':
-        // Pause until reportSnag decides: clean -> reposition, snag -> shake.
+        // Pause until reportSnag decides: clean -> seat, snag -> shake.
         this.awaitingVerdict = true;
         return;
       case 'shake-down':
@@ -382,9 +409,10 @@ export class ResetCycle {
     const reel = this.reelForPhase(phase, this.phaseFrame);
     this.phaseFrame += 1;
     if (this.phaseFrame >= this.framesFor(phase)) this.advancePhase();
-    // Kinematic targets are only meaningful for the carry phases; null them out on
-    // the dynamic cord-tension phases so the adapter does not teleport a hanging pin.
-    const carry = phase === 'reposition' || phase === 'lower' ? targets : [];
+    // Kinematic targets are only meaningful for the carry phases (seat / lower);
+    // null them out on the dynamic cord-tension phases so the adapter does not
+    // teleport a hanging pin.
+    const carry = phase === 'seat' || phase === 'lower' ? targets : [];
     return { targets: carry, reel };
   }
 

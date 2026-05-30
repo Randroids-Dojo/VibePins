@@ -6,7 +6,7 @@
 // pinning the geometry here is the meaningful coverage.
 
 import { describe, it, expect } from 'vitest';
-import { LANE, PINSETTER, TETHER, pinsetterRigParts } from '../src/config.js';
+import { LANE, PINSETTER, TETHER, RESET, pinsetterRigParts } from '../src/config.js';
 import { pinRackPositions } from '../src/pins.js';
 
 const rack = pinRackPositions();
@@ -59,6 +59,37 @@ describe('pinsetter rig layout', () => {
     expect(rig.driveUnit.center.y).toBeGreaterThan(PINSETTER.frameTopY);
     // The drive unit sits down-lane (-z) past the back pin row.
     expect(rig.driveUnit.center.z).toBeLessThan(backRowZ);
+  });
+
+  it('hangs one downward-opening centering cone over every home spot', () => {
+    expect(rig.cones).toHaveLength(rack.length);
+    for (let i = 0; i < rack.length; i += 1) {
+      // The cone sits directly over its home spot, so a reeled-up pin head is
+      // pulled up into it and the lower then comes straight down onto the spot.
+      expect(rig.cones[i].center.x).toBeCloseTo(rack[i].x);
+      expect(rig.cones[i].center.z).toBeCloseTo(rack[i].z);
+      // A downward-opening funnel: the throat (slot) is narrower than the mouth.
+      expect(rig.cones[i].slotRadius).toBeLessThan(rig.cones[i].mouthRadius);
+      // The seat height is the carried clearance, the single source shared with the
+      // reset's seat behaviour, so the geometry and the catch line up.
+      expect(rig.cones[i].seatY).toBeCloseTo(RESET.liftPinY);
+    }
+  });
+
+  it('places each cone above the seated pin head and below the guide tubes', () => {
+    for (let i = 0; i < rig.cones.length; i += 1) {
+      const cone = rig.cones[i];
+      // A pin seated at seatY has its head (top) at seatY + pinHeight/2. The cone
+      // mouth (its lowest point) sits at or above that head, so the head tucks up
+      // into the funnel rather than the cone floating well above it.
+      const seatedHeadTopY = cone.seatY + LANE.pinHeight / 2;
+      const coneMouthY = cone.center.y - cone.height / 2;
+      expect(coneMouthY).toBeLessThanOrEqual(seatedHeadTopY + 0.02);
+      // The cone sits below the guide tubes (which stop above the standing pins),
+      // so the table reads as a distinct overhead component the pins seat up into.
+      const tubeBottomY = rig.guideTubes[i].center.y - rig.guideTubes[i].length / 2;
+      expect(cone.center.y).toBeLessThan(tubeBottomY);
+    }
   });
 
   it('keeps the whole frame within the lane width (no collider, but reads clean)', () => {

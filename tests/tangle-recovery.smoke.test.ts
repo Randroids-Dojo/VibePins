@@ -79,7 +79,7 @@ function runReset(
       continue;
     }
 
-    if (phase === 'reposition' && !captured) {
+    if (phase === 'seat' && !captured) {
       for (const i of reeled) {
         if (!pinnedLow.has(i)) pins[i].body.setBodyType(RAPIER.RigidBodyType.KinematicPositionBased, true);
         reelPin(world, pins[i], TETHER.slackLength);
@@ -192,9 +192,9 @@ describe('genuine-snag shake recovery on the real cord sim (REQ-024)', () => {
     expect(steps).toBeLessThan(
       reset.totalFrames + (TANGLE.shakeDownFrames + TANGLE.shakeUpFrames) * (TANGLE.maxRetries + 2) + 200,
     );
-    // The phases ended with the kinematic carry (reposition then lower), so the
-    // rack was set despite the snag.
-    expect(phases[phases.length - 2]).toBe('reposition');
+    // The phases ended with the kinematic carry (seat then lower), so the rack was
+    // set despite the snag.
+    expect(phases[phases.length - 2]).toBe('seat');
     expect(phases[phases.length - 1]).toBe('lower');
     world.free();
   });

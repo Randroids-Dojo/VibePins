@@ -27,14 +27,14 @@ describe('reset timing window', () => {
 });
 
 describe('reset phase ordering (no-recovery cycle)', () => {
-  it('runs settle-hold, lift, reposition, lower in order at the frame boundaries', () => {
+  it('runs settle-hold, lift, seat, lower in order at the frame boundaries', () => {
     const rc = new ResetCycle(cfg);
     rc.start('rerack', [], homeSpots, settledSpots);
     expect(rc.phase).toBe('settle-hold');
     stepN(rc, RESET.settleHoldFrames);
     expect(rc.phase).toBe('lift');
     stepN(rc, RESET.liftFrames);
-    expect(rc.phase).toBe('reposition');
+    expect(rc.phase).toBe('seat');
     stepN(rc, RESET.repositionFrames);
     expect(rc.phase).toBe('lower');
     stepN(rc, RESET.lowerFrames);
@@ -116,9 +116,11 @@ describe('reset target selection (REQ-009, REQ-019, REQ-021)', () => {
       expect(at(i).z).toBe(homeSpots[i].z);
       expect(at(i).y).toBe(restY);
     }
+    // The fallen pins are caught and held SEATED in their own cones (over their
+    // home spots, at the seat height), cleared off the deck, not lowered (REQ-009).
     for (const i of fallen) {
-      expect(at(i).x).toBeCloseTo(settledSpots[i].x, 6);
-      expect(at(i).z).toBeCloseTo(settledSpots[i].z, 6);
+      expect(at(i).x).toBeCloseTo(homeSpots[i].x, 6);
+      expect(at(i).z).toBeCloseTo(homeSpots[i].z, 6);
       expect(at(i).y).toBeCloseTo(cfg.liftPinY, 6);
     }
   });
@@ -132,28 +134,44 @@ describe('reset target selection (REQ-009, REQ-019, REQ-021)', () => {
   });
 });
 
-describe('pinTargetFor carry choreography (reposition / lower)', () => {
+describe('pinTargetFor carry choreography (seat / lower)', () => {
   const home: Vec3 = { x: 0.2, y: restY, z: -18.3 };
   const settled: Vec3 = { x: 0.6, y: 0.05, z: -18.0 };
+  // A cfg whose cone seat sits above the carried clearance, to prove the seat
+  // straightens UP into the cone and the lower comes straight down out of it.
+  const seatCfg = { ...cfg, seatY: cfg.liftPinY + 0.12 };
 
-  it('carries the raised pin from over its settled spot to over home', () => {
-    const begin = pinTargetFor('reposition', 0, home, settled, cfg);
+  it('seats the swinging pin up and over from its settled spot into its cone (over home)', () => {
+    // Default cfg: the cone seat sits at the carried clearance (seatY = liftPinY).
+    const begin = pinTargetFor('seat', 0, home, settled, cfg);
     expect(begin).toEqual({ x: settled.x, y: cfg.liftPinY, z: settled.z });
-    const end = pinTargetFor('reposition', 1, home, settled, cfg);
+    const end = pinTargetFor('seat', 1, home, settled, cfg);
     expect(end).toEqual({ x: home.x, y: cfg.liftPinY, z: home.z });
   });
 
-  it('lowers the pin onto its home spot during lower', () => {
-    expect(pinTargetFor('lower', 0, home, settled, cfg)).toEqual({ x: home.x, y: cfg.liftPinY, z: home.z });
-    expect(pinTargetFor('lower', 1, home, settled, cfg)).toEqual({ x: home.x, y: restY, z: home.z });
-    expect(pinTargetFor('lower', 0.25, home, settled, cfg).y).toBeGreaterThan(pinTargetFor('lower', 0.75, home, settled, cfg).y);
+  it('catches the pin UP into the cone seat height (seatY above the lift clearance)', () => {
+    const begin = pinTargetFor('seat', 0, home, settled, seatCfg);
+    expect(begin.y).toBeCloseTo(seatCfg.liftPinY, 6);
+    const end = pinTargetFor('seat', 1, home, settled, seatCfg);
+    // Seated centered under the cone (over its home spot), pulled up to the seat.
+    expect(end).toEqual({ x: home.x, y: seatCfg.seatY, z: home.z });
   });
 
-  it('holds a fallen pin aloft over its settled spot through reposition and lower', () => {
-    const repos = pinTargetFor('reposition', 0.5, home, settled, cfg, true);
-    expect(repos).toEqual({ x: settled.x, y: cfg.liftPinY, z: settled.z });
-    const low = pinTargetFor('lower', 0.5, home, settled, cfg, true);
-    expect(low).toEqual({ x: settled.x, y: cfg.liftPinY, z: settled.z });
+  it('lowers the pin STRAIGHT DOWN out of its cone onto its home spot during lower', () => {
+    expect(pinTargetFor('lower', 0, home, settled, seatCfg)).toEqual({ x: home.x, y: seatCfg.seatY, z: home.z });
+    expect(pinTargetFor('lower', 1, home, settled, seatCfg)).toEqual({ x: home.x, y: restY, z: home.z });
+    // x/z never wander off the home spot through the lower (straight down).
+    const mid = pinTargetFor('lower', 0.5, home, settled, seatCfg);
+    expect(mid.x).toBe(home.x);
+    expect(mid.z).toBe(home.z);
+    expect(pinTargetFor('lower', 0.25, home, settled, seatCfg).y).toBeGreaterThan(
+      pinTargetFor('lower', 0.75, home, settled, seatCfg).y,
+    );
+  });
+
+  it('holds a fallen pin SEATED in its cone (over home, at the seat height) through lower', () => {
+    const low = pinTargetFor('lower', 0.5, home, settled, seatCfg, true);
+    expect(low).toEqual({ x: home.x, y: seatCfg.seatY, z: home.z });
   });
 
   it('lifts the pin clear of the standing pins (liftPinY above pinHeight)', () => {
@@ -227,7 +245,7 @@ describe('genuine-snag up/down shake recovery controller (REQ-024)', () => {
     // The reel-up checks once (verify-lift), finds no snag, and sets the rack. No
     // shake-down or shake-up runs: this is the bug the playtester reported (an
     // up/down unwind on EVERY reset). A clean rack must NOT shake.
-    expect(phases).toEqual(['settle-hold', 'lift', 'verify-lift', 'reposition', 'lower']);
+    expect(phases).toEqual(['settle-hold', 'lift', 'verify-lift', 'seat', 'lower']);
     expect(phases).not.toContain('shake-down');
     expect(phases).not.toContain('shake-up');
     expect(rc.retryCount).toBe(0);
@@ -248,7 +266,7 @@ describe('genuine-snag up/down shake recovery controller (REQ-024)', () => {
       'shake-down',
       'shake-up',
       'verify-lift',
-      'reposition',
+      'seat',
       'lower',
     ]);
     expect(rc.retryCount).toBe(2);
@@ -261,7 +279,7 @@ describe('genuine-snag up/down shake recovery controller (REQ-024)', () => {
     const phases = runWithVerdicts(rc, Array(50).fill(true));
     expect(rc.retryCount).toBe(TANGLE.maxRetries);
     expect(phases.filter((p) => p === 'shake-down').length).toBe(TANGLE.maxRetries);
-    expect(phases[phases.length - 2]).toBe('reposition');
+    expect(phases[phases.length - 2]).toBe('seat');
     expect(phases[phases.length - 1]).toBe('lower');
     expect(rc.isComplete()).toBe(true);
   });
@@ -300,7 +318,7 @@ describe('genuine-snag up/down shake recovery controller (REQ-024)', () => {
     }
     expect(seen.has('verify-lift')).toBe(false);
     expect(seen.has('shake-down')).toBe(false);
-    expect([...seen].sort()).toEqual(['lift', 'lower', 'reposition', 'settle-hold']);
+    expect([...seen].sort()).toEqual(['lift', 'lower', 'seat', 'settle-hold']);
   });
 
   it('reportSnag is a no-op when the cycle is not at a verdict checkpoint', () => {

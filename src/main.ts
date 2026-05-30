@@ -153,7 +153,11 @@ const ball = new Ball(world);
 let game = new Game();
 const scoreboard = scoreboardEl ? new Scoreboard(scoreboardEl) : null;
 
-const reset = new ResetCycle({ ...RESET, ...TANGLE, restY: PIN_REST_Y });
+// The cone seat height is the carried clearance RESET.liftPinY: the reel-up pulls
+// each pin's head up into its centering cone at that height, where it is
+// straightened vertical before lowering. Shared with the rendered cone seatY in
+// pinsetterRigParts so the geometry and the seat behaviour line up.
+const reset = new ResetCycle({ ...RESET, ...TANGLE, restY: PIN_REST_Y, seatY: RESET.liftPinY });
 const settle = new SettleWindow(DETECTION, DETECTION.settleAtRestFrames, DETECTION.settleMaxFrames);
 const shotWatcher = new ShotWatcher(SHOT);
 // Over-the-line release detection (REQ-032). Watches the thrown ball's down-lane
@@ -265,7 +269,7 @@ let resetMode: ResetMode = 'rerack';
 // the freshly fallen ones.
 let clearedPins = new Set<number>();
 // The reset phase on the previous tick, so stepReset can act on the frame a phase
-// is entered (capture the reeled, hanging rack kinematic when the reposition carry
+// is entered (capture the reeled, hanging rack kinematic when the seat carry
 // begins). Reset on each cycle.
 let prevResetPhase: ResetPhase = 'idle';
 
@@ -1274,9 +1278,11 @@ function reeledPins(): number[] {
 //     (a pin whose neck failed to rise to its clearance because its cord is held
 //     low by another pin lying across it). A clean rack (the common case) reports
 //     no snag and runs NO shake; a real snag runs the bounded up/down shake.
-//   reposition / lower: the rack is captured KINEMATIC at its hanging pose and
-//     carried over the home spots and set down (the held-aloft fallen pins stay
-//     aloft, cleared, on a between-balls cycle).
+//   seat / lower: the rack is captured KINEMATIC at its hanging pose; seat catches
+//     each swinging pin's head up in its centering cone (straightening it vertical
+//     and centered over its home spot), then lower sets the standing pins straight
+//     down out of the cone onto their spots (the held-aloft fallen pins stay seated
+//     in their cones, cleared, on a between-balls cycle).
 function stepReset(dt: number): void {
   const { targets, reel } = reset.update(dt);
   const phase = reset.phase;
@@ -1292,11 +1298,12 @@ function stepReset(dt: number): void {
     return;
   }
 
-  // Entering the kinematic carry (reposition): the cord-tension lift (and any
-  // shake) has hung the rack aloft. Capture every reeled pin kinematic where it
-  // hangs so the carry sets it home from there rather than snapping back, and tell
-  // the cycle where each pin actually ended up.
-  if (phase === 'reposition' && prevResetPhase !== 'reposition') {
+  // Entering the kinematic carry (seat): the cord-tension lift (and any shake) has
+  // hung the rack aloft, swinging. Capture every reeled pin kinematic where it
+  // hangs so the seat catches it from there (the cone pulls the head up and
+  // straightens the swing) rather than snapping, and tell the cycle where each pin
+  // actually ended up.
+  if (phase === 'seat' && prevResetPhase !== 'seat') {
     pins.recaptureKinematic(reeledPins());
     reset.updateSettled(pins.pinStates().map((s) => s.position));
   }
