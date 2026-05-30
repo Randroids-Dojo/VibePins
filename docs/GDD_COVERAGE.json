@@ -1,7 +1,7 @@
 {
  "_comment_1": "ATOMIC GRANULARITY ONLY. One row per requirement, not per chapter. A 14-day project should produce on the order of 100 rows. If your row count is implausibly low for project age, the loop will self-terminate before the product is good. This is the Flatline failure mode.",
  "_comment_2": "Allowed status values: not_started | partial | done | out_of_scope. Every row should carry implementationRefs and testRefs once status >= partial. followupRefs link to F-NNN entries in FOLLOWUPS.html.",
- "updatedAt": "2026-05-29T19:05",
+ "updatedAt": "2026-05-29T19:40",
  "rows": [
   {
    "id": "REQ-001",
@@ -809,9 +809,18 @@
    "id": "REQ-057",
    "requirement": "A completed solo ten-frame game posts its authentic final score to the leaderboard",
    "gddRef": "docs/gdd/07-leaderboard.html#what-counts",
-   "status": "not_started",
-   "implementationRefs": [],
-   "testRefs": [],
+   "status": "done",
+   "note": "On game over the summary screen shows a name field and a Submit Score button. The client (src/leaderboard.ts) turns the finished GameScore into the per-frame ball line via framesFromScore and POSTs it to api/leaderboard.ts, which re-scores it with the shared scoreGame engine; the server total is authoritative, never a client-claimed number. The player name persists in src/settings.ts and pre-fills the field. A double-submit guard locks the form after a successful post, and a failed submit is non-fatal (status line only).",
+   "implementationRefs": [
+    "src/leaderboard.ts",
+    "src/main.ts",
+    "src/settings.ts",
+    "index.html"
+   ],
+   "testRefs": [
+    "tests/leaderboard.client.test.ts",
+    "tests/settings.test.ts"
+   ],
    "followupRefs": []
   },
   {

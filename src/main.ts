@@ -25,6 +25,7 @@ import { FoulDetector } from './foul.js';
 import { GutterDetector } from './gutter.js';
 import { Screens, type Screen } from './screens.js';
 import { Settings } from './settings.js';
+import { Leaderboard } from './leaderboard.js';
 import { Tutorial } from './tutorial.js';
 import { AudioEngine } from './audio.js';
 import { VictoryRoutine } from './victory.js';
@@ -46,6 +47,13 @@ const menuAudioBtn = document.getElementById('menu-audio');
 const menuTutorialBtn = document.getElementById('menu-tutorial');
 const summaryAgainBtn = document.getElementById('summary-again');
 const summaryMenuBtn = document.getElementById('summary-menu');
+
+// Leaderboard score submission on the summary screen (REQ-057): the name field,
+// submit form/button, and the status line that reports the server rank or error.
+const summarySubmitForm = document.getElementById('summary-submit') as HTMLFormElement | null;
+const summaryNameInput = document.getElementById('summary-name') as HTMLInputElement | null;
+const summarySubmitBtn = document.getElementById('summary-submit-btn') as HTMLButtonElement | null;
+const summarySubmitStatusEl = document.getElementById('summary-submit-status');
 
 // First-run tutorial coach panel (REQ-047).
 const tutorialEl = document.getElementById('tutorial');
@@ -131,6 +139,13 @@ let phase: Phase = 'aiming';
 // dropping straight into play (REQ-045, REQ-046).
 const screens = new Screens('menu');
 const settings = new Settings();
+
+// Global leaderboard client (REQ-057). Posts the completed game's per-frame ball
+// line to the serverless backend, which re-scores it authoritatively.
+const leaderboard = new Leaderboard();
+// Whether the current summary's score has already been submitted, so the player
+// cannot double-post the same game.
+let scoreSubmitted = false;
 
 // First-run control tutorial (REQ-047). Armed only when the player has not seen
 // it before; it advances through the three throw steps as the player confirms
@@ -405,6 +420,70 @@ summaryAgainBtn?.addEventListener('click', () => {
   audio.playClick();
   screens.playAgain();
 });
+
+// Reflect a submit-status message on the summary, with a state for the colour
+// cue (neutral / ok / error). Empty clears the line.
+function setSubmitStatus(message: string, state: 'neutral' | 'ok' | 'error' = 'neutral'): void {
+  if (!summarySubmitStatusEl) return;
+  summarySubmitStatusEl.textContent = message;
+  if (state === 'neutral') summarySubmitStatusEl.removeAttribute('data-state');
+  else summarySubmitStatusEl.setAttribute('data-state', state);
+}
+
+// Ready the leaderboard form for a freshly finished game: pre-fill the name from
+// the persisted setting, re-enable the controls, and clear any prior status.
+function primeSubmitForm(): void {
+  scoreSubmitted = false;
+  if (summaryNameInput) {
+    summaryNameInput.value = settings.playerName;
+    summaryNameInput.disabled = false;
+  }
+  if (summarySubmitBtn) {
+    summarySubmitBtn.disabled = false;
+    summarySubmitBtn.textContent = 'Submit Score';
+  }
+  setSubmitStatus('');
+}
+
+// Submit the just-finished game's score (REQ-057). The completed game's score
+// carries the per-frame ball line, which the client turns into the wire payload;
+// the server re-scores it and returns the authoritative rank. Guard against a
+// double-submit of the same game, and persist the name for next time.
+async function submitScore(): Promise<void> {
+  if (scoreSubmitted || leaderboard.loading) return;
+  const summary = game.summary();
+  if (!summary) {
+    setSubmitStatus('No completed game to submit', 'error');
+    return;
+  }
+  const name = (summaryNameInput?.value ?? '').trim();
+  if (!name) {
+    setSubmitStatus('Enter a name first', 'error');
+    summaryNameInput?.focus();
+    return;
+  }
+  settings.setPlayerName(name);
+  audio.playClick();
+  if (summarySubmitBtn) summarySubmitBtn.disabled = true;
+  setSubmitStatus('Submitting...', 'neutral');
+
+  const result = await leaderboard.submitGame(name, summary.score, 'solo');
+  if (result && result.success) {
+    scoreSubmitted = true;
+    if (summaryNameInput) summaryNameInput.disabled = true;
+    if (summarySubmitBtn) summarySubmitBtn.textContent = 'Submitted';
+    const rankText = result.rank ? ` You are rank #${result.rank}.` : '';
+    setSubmitStatus(`Score ${result.score} posted.${rankText}`, 'ok');
+  } else {
+    if (summarySubmitBtn) summarySubmitBtn.disabled = false;
+    setSubmitStatus(leaderboard.error ?? 'Could not submit score', 'error');
+  }
+}
+
+summarySubmitForm?.addEventListener('submit', (event) => {
+  event.preventDefault();
+  void submitScore();
+});
 summaryMenuBtn?.addEventListener('click', () => {
   audio.playClick();
   screens.toMenu();
@@ -629,6 +708,8 @@ function recordSettledBall(standingNow: number): void {
     const finalScore = summary?.finalScore ?? 0;
     setStatus(`Game over. Final score ${finalScore}.`);
     if (summaryScoreEl) summaryScoreEl.textContent = String(finalScore);
+    // Prime the leaderboard submit form for this fresh result (REQ-057).
+    primeSubmitForm();
     // Hand off to the shell: show the summary screen with play-again / menu.
     screens.finish();
     return;

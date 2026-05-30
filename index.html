@@ -271,6 +271,23 @@
     }
     .vp-toggle[aria-pressed="true"] { color: #ffcf7a; border-color: #c8923c; }
     .vp-toggle:focus-visible { outline: 2px solid #c8923c; outline-offset: 2px; }
+
+    /* Leaderboard score submission on the summary screen (REQ-057). A name field
+       plus a submit button, styled to match the metal-plate overlay, with a live
+       status line that reports the server-assigned rank or an error. */
+    .vp-submit { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+    .vp-name-input {
+      width: 220px; padding: 11px 14px; text-align: center;
+      font: 700 18px/1 ui-monospace, "SFMono-Regular", Menlo, monospace;
+      letter-spacing: 0.16em; text-transform: uppercase;
+      color: #ffcf7a; background: #0c0e14; caret-color: #ffcf7a;
+      border: 2px solid #3c3f4a; border-radius: 4px;
+    }
+    .vp-name-input::placeholder { color: #6b6450; letter-spacing: 0.12em; }
+    .vp-name-input:focus-visible { border-color: #c8923c; outline: none; }
+    .vp-submit-status { margin: 0; min-height: 1.4em; font-size: 14px; color: #b9a87a; letter-spacing: 0.06em; }
+    .vp-submit-status[data-state="ok"] { color: #8fd17a; }
+    .vp-submit-status[data-state="error"] { color: #e08a6a; }
   </style>
 </head>
 <body>
@@ -340,6 +357,15 @@
   <div id="summary" class="vp-overlay" role="dialog" aria-modal="true" aria-labelledby="summary-title" hidden>
     <h2 id="summary-title" class="vp-title">Game Over</h2>
     <p class="vp-final">Final score <strong id="summary-score">0</strong></p>
+    <!-- Leaderboard score submission (REQ-057). The name pre-fills from the last
+         name used (src/settings.ts) and the server re-scores the submitted line. -->
+    <form id="summary-submit" class="vp-submit">
+      <input id="summary-name" class="vp-name-input" type="text" maxlength="12"
+             autocomplete="off" autocapitalize="characters" spellcheck="false"
+             placeholder="YOUR NAME" aria-label="Name for the leaderboard" />
+      <button id="summary-submit-btn" class="vp-btn" type="submit">Submit Score</button>
+      <p id="summary-submit-status" class="vp-submit-status" aria-live="polite"></p>
+    </form>
     <button id="summary-again" class="vp-btn" type="button">Play Again</button>
     <button id="summary-menu" class="vp-toggle" type="button">Main Menu</button>
   </div>

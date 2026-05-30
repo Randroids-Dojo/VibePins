@@ -21,11 +21,16 @@ export interface SettingsState {
   // set true after the first throw so it never nags again. Replayable from the
   // menu, which clears it back to false.
   tutorialSeen: boolean;
+  // The display name the player submits scores under (REQ-057). Persisted so the
+  // name entry on the summary screen pre-fills with the last name used. Empty
+  // until the player first types one.
+  playerName: string;
 }
 
 const DEFAULTS: SettingsState = {
   audioEnabled: true,
   tutorialSeen: false,
+  playerName: '',
 };
 
 // A minimal storage port so the store works without a real localStorage (tests,
@@ -45,6 +50,7 @@ function parse(raw: string | null): SettingsState {
     return {
       audioEnabled: typeof data.audioEnabled === 'boolean' ? data.audioEnabled : DEFAULTS.audioEnabled,
       tutorialSeen: typeof data.tutorialSeen === 'boolean' ? data.tutorialSeen : DEFAULTS.tutorialSeen,
+      playerName: typeof data.playerName === 'string' ? data.playerName : DEFAULTS.playerName,
     };
   } catch {
     return { ...DEFAULTS };
@@ -99,6 +105,19 @@ export class Settings {
   // to replay the tutorial from the menu.
   setTutorialSeen(seen: boolean): void {
     this.state = { ...this.state, tutorialSeen: seen };
+    this.save();
+  }
+
+  get playerName(): string {
+    return this.state.playerName;
+  }
+
+  // Set the display name used for leaderboard submissions and persist it so the
+  // next summary screen pre-fills with it (REQ-057). The raw input is stored
+  // verbatim; the server sanitizes it on submit, and the field is length-capped
+  // in the markup, so no extra trimming is needed here.
+  setPlayerName(name: string): void {
+    this.state = { ...this.state, playerName: name };
     this.save();
   }
 

@@ -33,7 +33,7 @@ describe('Settings: persisted audio-enable toggle (REQ-046)', () => {
     const storage = fakeStorage();
     const settings = new Settings(storage);
     settings.toggleAudio();
-    expect(storage.store[KEY]).toBe(JSON.stringify({ audioEnabled: false, tutorialSeen: false }));
+    expect(storage.store[KEY]).toBe(JSON.stringify({ audioEnabled: false, tutorialSeen: false, playerName: '' }));
   });
 
   it('reloads a persisted value across instances (survives a session)', () => {
@@ -98,7 +98,7 @@ describe('Settings: persisted tutorial-seen flag (REQ-047)', () => {
     const storage = fakeStorage();
     const settings = new Settings(storage);
     settings.setTutorialSeen(true);
-    expect(storage.store[KEY]).toBe(JSON.stringify({ audioEnabled: true, tutorialSeen: true }));
+    expect(storage.store[KEY]).toBe(JSON.stringify({ audioEnabled: true, tutorialSeen: true, playerName: '' }));
   });
 
   it('ignores a non-boolean tutorialSeen and keeps the default', () => {
@@ -112,5 +112,37 @@ describe('Settings: persisted tutorial-seen flag (REQ-047)', () => {
     );
     expect(settings.audioEnabled).toBe(false);
     expect(settings.tutorialSeen).toBe(true);
+  });
+});
+
+describe('Settings: persisted leaderboard player name (REQ-057)', () => {
+  it('defaults to an empty name for a brand-new player', () => {
+    expect(new Settings(fakeStorage()).playerName).toBe('');
+  });
+
+  it('setPlayerName writes and reports the value', () => {
+    const settings = new Settings(fakeStorage());
+    settings.setPlayerName('ACE');
+    expect(settings.playerName).toBe('ACE');
+  });
+
+  it('persists the player name across instances (survives a session)', () => {
+    const storage = fakeStorage();
+    new Settings(storage).setPlayerName('PIN PAL');
+    expect(new Settings(storage).playerName).toBe('PIN PAL');
+  });
+
+  it('ignores a non-string playerName and keeps the default', () => {
+    const settings = new Settings(fakeStorage({ [KEY]: JSON.stringify({ playerName: 42 }) }));
+    expect(settings.playerName).toBe('');
+  });
+
+  it('persists the name alongside the other settings without disturbing them', () => {
+    const settings = new Settings(
+      fakeStorage({ [KEY]: JSON.stringify({ audioEnabled: false, tutorialSeen: true, playerName: 'BOB' }) }),
+    );
+    expect(settings.audioEnabled).toBe(false);
+    expect(settings.tutorialSeen).toBe(true);
+    expect(settings.playerName).toBe('BOB');
   });
 });
