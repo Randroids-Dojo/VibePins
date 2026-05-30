@@ -90,6 +90,25 @@
       </dd>
     </dl>
   </article>
+
+  <article data-dep="@upstash/redis">
+    <h3><code>@upstash/redis</code></h3>
+    <dl>
+      <dt>Name</dt><dd><code>@upstash/redis</code> (HTTP/REST client for the Upstash Redis store)</dd>
+      <dt>Why watched</dt><dd>backend infrastructure for the leaderboard and async multiplayer cluster (GDD 05, 07). It is the one server-side data dependency; a client change affects how scores and matches persist. Same client and pattern as the sibling project Hoops.</dd>
+      <dt>Source</dt><dd><a href="https://www.npmjs.com/package/@upstash/redis">npm: @upstash/redis</a> and the <a href="https://github.com/upstash/redis-js/releases">redis-js releases</a></dd>
+      <dt>Pin format</dt><dd>npm caret (<code>^1.38.0</code>): server library, non-physics, low blast radius, so a minor bump is acceptable in range.</dd>
+      <dt>Currently pinned</dt><dd><code>^1.38.0</code> (installed 2026-05-29 in the leaderboard backend PR; resolved 1.38.0)</dd>
+      <dt>Detect-new</dt><dd><code>npm view @upstash/redis version</code></dd>
+      <dt>Migration notes</dt>
+      <dd>
+        <ul>
+          <li>The handler reads the legacy KV aliases (<code>KV_REST_API_URL</code> / <code>KV_REST_API_TOKEN</code>) the provisioned store exposes, falling back to canonical <code>UPSTASH_REDIS_REST_*</code>; keep both fallbacks across upgrades.</li>
+          <li>Sorted-set replies and JSON member auto-deserialization behaviour can shift; the leaderboard parser handles both string and pre-parsed members defensively, so re-verify after a bump.</li>
+        </ul>
+      </dd>
+    </dl>
+  </article>
 </section>
 
 <section id="upgrade-procedure">

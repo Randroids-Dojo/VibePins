@@ -38,6 +38,22 @@
 <main id="open">
   <h2>Open</h2>
 
+  <section data-q="Q-013" data-status="open">
+    <h3>Q-013: Leaderboard ranking metric</h3>
+    <dl>
+      <dt>Context</dt><dd>The leaderboard backend (REQ-059 to REQ-064) stores each submission in a Redis sorted set and serves a ranked board. The GDD (07-leaderboard) says a completed game "posts its authentic final score" but does not state the sort direction or whether anything beyond the final duckpin score breaks ties. The metric must be fixed before the in-game board UI reads it.</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li>Rank by the authentic final duckpin score, descending (higher is better). Ties share a rank slot; the sorted set orders equal scores by member string, which is effectively arbitrary but stable.</li>
+          <li>Rank by final score descending with an explicit tie-break (for example earlier submission wins). More work, marginal value for a casual board.</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>A. The single authentic ten-frame score is the one number every player understands, it is what the GDD calls "authentic final score", and a casual friends board does not need deterministic tie-breaking. Shipped under A (score descending, ties arbitrary-but-stable). Flip here if a later slice needs a deterministic tie-break.</dd>
+      <dt>Status</dt><dd>open</dd>
+      <dt>Resolution</dt><dd>(shipped under Recommended default A in the leaderboard backend slice; left open for dev override)</dd>
+    </dl>
+  </section>
+
   <section data-q="Q-012" data-status="open">
     <h3>Q-012: Foul scoring and rack handling</h3>
     <dl>

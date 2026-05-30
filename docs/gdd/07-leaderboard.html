@@ -4,7 +4,7 @@
 <body>
 
   <h1>Global leaderboard</h1>
-  <p data-status="not_started">Status: not_started</p>
+  <p data-status="partial">Status: partial</p>
 
   <section data-role="spec" id="intent">
     <h2>Intent</h2>
@@ -47,6 +47,7 @@
   <section data-role="build-log">
     <h2>Build log</h2>
     <ul>
+      <li data-date="2026-05-29">Backend infrastructure shipped. Added a Vercel serverless function (<code>api/leaderboard.ts</code>) backed by Upstash Redis sorted sets under a <code>vibepins:</code> keyspace: GET serves the top-N all-time or daily board (ranked by final duckpin score descending, Q-013 default A), POST submits a score. A submission carries the per-frame ball sequence and the server recomputes the authentic score with the shared pure <code>scoreGame</code> engine (<code>src/scoring.ts</code>), rejecting impossible or incomplete lines (REQ-059). All-time board capped at 100; daily board keyed by UTC day with a 25-hour TTL (REQ-060, REQ-061). Name sanitization, CORS preflight, and 500-on-failure without leaking detail. Added <code>@upstash/redis</code> (dependency ledger updated). Tests: <code>tests/leaderboard.test.ts</code>, <code>tests/leaderboard.smoke.test.ts</code> (mocked Redis). The in-game submit form, summary-screen and main-menu board display, and player-rank-in-context (REQ-057, REQ-058, REQ-062, REQ-063) are deferred to follow-on slices. PR #34.</li>
       <li data-date="2026-05-28">Section created. Leaderboard moved into v1 scope per dev direction. Reuses the Hoops Upstash/serverless pattern shared with async multiplayer. No code yet.</li>
     </ul>
   </section>
