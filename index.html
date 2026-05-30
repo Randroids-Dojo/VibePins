@@ -346,6 +346,25 @@
       font: 600 14px/1.4 ui-monospace, "SFMono-Regular", Menlo, monospace; letter-spacing: 0.06em;
     }
     .vp-board-message[data-state="error"] { color: #e08a6a; }
+    /* Player rank-in-context block (REQ-062). Sits below the top slice and only
+       fills when the player's best is off that slice; reuses the row styling with
+       the player's own row highlighted so they can spot themselves at a glance. */
+    .vp-board-context {
+      width: 100%; box-sizing: border-box;
+      display: flex; flex-direction: column; gap: 3px;
+    }
+    .vp-board-context:empty { display: none; }
+    .vp-board-context-label {
+      margin-top: 4px; padding: 2px 2px 4px; text-align: center;
+      color: #b9923c; font: 700 11px/1 ui-monospace, "SFMono-Regular", Menlo, monospace;
+      letter-spacing: 0.16em; text-transform: uppercase;
+    }
+    .vp-board-row[data-you="true"] {
+      border-color: #c8923c;
+      background: linear-gradient(#3a3119, #221c0d);
+      box-shadow: inset 0 0 0 1px rgba(255, 207, 122, 0.35), 0 0 8px rgba(200, 146, 60, 0.25);
+    }
+    .vp-board-row[data-you="true"] .vp-board-name { color: #ffcf7a; }
   </style>
 </head>
 <body>
@@ -443,6 +462,9 @@
         <button id="board-tab-daily" class="vp-tab" type="button" aria-pressed="false">Today</button>
       </div>
       <div id="board-list" class="vp-board-list" aria-live="polite"></div>
+      <!-- Player rank-in-context (REQ-062). Populated by src/main.ts when the
+           player's own best sits off the visible top slice; otherwise empty. -->
+      <div id="board-context" class="vp-board-context" aria-live="polite"></div>
     </div>
     <button id="board-back" class="vp-btn" type="button">Back</button>
   </div>

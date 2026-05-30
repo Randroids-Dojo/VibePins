@@ -3,7 +3,15 @@
 // completed game, the happy-path submit, and the non-fatal failure modes.
 
 import { describe, it, expect, vi } from 'vitest';
-import { Leaderboard, framesFromScore, renderBoardRows, type BoardEntry, type FetchLike } from '../src/leaderboard.js';
+import {
+  Leaderboard,
+  framesFromScore,
+  renderBoardRows,
+  renderContextRows,
+  type BoardEntry,
+  type FetchLike,
+  type RankContext,
+} from '../src/leaderboard.js';
 import { scoreGame } from '../src/scoring.js';
 
 // A complete ten-frame game: nine open frames of [3,3,3] (9 points each) plus a
@@ -162,6 +170,82 @@ describe('Leaderboard.fetchBoard (REQ-060/061)', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(board.allTimeEntries).toEqual(SAMPLE_ENTRIES);
     expect(board.dailyEntries).toEqual(SAMPLE_ENTRIES);
+  });
+});
+
+const SAMPLE_CONTEXT: RankContext = {
+  name: 'ZED',
+  rank: 23,
+  score: 40,
+  window: [
+    { name: 'YOU1', score: 44, date: '', source: 'solo', rank: 21, isPlayer: false },
+    { name: 'YOU2', score: 42, date: '', source: 'solo', rank: 22, isPlayer: false },
+    { name: 'ZED', score: 40, date: '', source: 'solo', rank: 23, isPlayer: true },
+    { name: 'YOU4', score: 38, date: '', source: 'solo', rank: 24, isPlayer: false },
+  ],
+};
+
+describe('Leaderboard.fetchBoard rank-in-context (REQ-062)', () => {
+  it('appends the name to the query and stores the context block', async () => {
+    const fetchMock = vi.fn<FetchLike>(async () =>
+      jsonResponse({ type: 'alltime', entries: SAMPLE_ENTRIES, context: SAMPLE_CONTEXT }),
+    );
+    const board = new Leaderboard(fetchMock);
+    await board.fetchBoard('alltime', 20, 'ZED');
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/leaderboard?type=alltime&limit=20&name=ZED');
+    expect(board.allTimeContext).toEqual(SAMPLE_CONTEXT);
+  });
+
+  it('omits the name param and clears context when no name is given', async () => {
+    const fetchMock = vi.fn<FetchLike>(async () => jsonResponse({ type: 'daily', entries: SAMPLE_ENTRIES }));
+    const board = new Leaderboard(fetchMock);
+    await board.fetchBoard('daily', 5);
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/leaderboard?type=daily&limit=5');
+    expect(board.dailyContext).toBeNull();
+  });
+
+  it('fetchBoth forwards the name to both boards', async () => {
+    const fetchMock = vi.fn<FetchLike>(async (url) =>
+      jsonResponse({ type: url.includes('daily') ? 'daily' : 'alltime', entries: SAMPLE_ENTRIES, context: SAMPLE_CONTEXT }),
+    );
+    const board = new Leaderboard(fetchMock);
+    await board.fetchBoth(20, 'ZED');
+    expect(fetchMock.mock.calls.every((c) => String(c[0]).includes('name=ZED'))).toBe(true);
+    expect(board.allTimeContext).toEqual(SAMPLE_CONTEXT);
+    expect(board.dailyContext).toEqual(SAMPLE_CONTEXT);
+  });
+});
+
+describe('renderContextRows (REQ-062, RULE 10 observable render)', () => {
+  it('renders the nearby window with the player row marked when off the top slice', () => {
+    const html = renderContextRows(SAMPLE_CONTEXT, 20);
+    expect(html).toMatch(/your standing/i);
+    expect((html.match(/vp-board-row/g) ?? []).length).toBe(4);
+    expect(html).toContain('data-rank="23"');
+    expect(html).toContain('data-you="true"');
+    // Only the player's own row carries the marker.
+    expect((html.match(/data-you="true"/g) ?? []).length).toBe(1);
+  });
+
+  it('renders nothing when the player already appears in the top slice', () => {
+    const inSlice: RankContext = { ...SAMPLE_CONTEXT, rank: 5 };
+    expect(renderContextRows(inSlice, 20)).toBe('');
+  });
+
+  it('renders nothing when there is no context', () => {
+    expect(renderContextRows(null, 20)).toBe('');
+  });
+
+  it('escapes HTML in names', () => {
+    const evil: RankContext = {
+      name: '<b>',
+      rank: 30,
+      score: 10,
+      window: [{ name: '<b>', score: 10, date: '', source: 'solo', rank: 30, isPlayer: true }],
+    };
+    const html = renderContextRows(evil, 20);
+    expect(html).not.toContain('<b>');
+    expect(html).toContain('&lt;b&gt;');
   });
 });
 

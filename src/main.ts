@@ -25,7 +25,7 @@ import { FoulDetector } from './foul.js';
 import { GutterDetector } from './gutter.js';
 import { Screens, type Screen } from './screens.js';
 import { Settings } from './settings.js';
-import { Leaderboard, renderBoardRows, type BoardType } from './leaderboard.js';
+import { Leaderboard, renderBoardRows, renderContextRows, type BoardType } from './leaderboard.js';
 import { Tutorial } from './tutorial.js';
 import { AudioEngine } from './audio.js';
 import { VictoryRoutine } from './victory.js';
@@ -55,6 +55,7 @@ const summaryLeaderboardBtn = document.getElementById('summary-leaderboard');
 // returns to whichever screen opened it.
 const boardEl = document.getElementById('board');
 const boardListEl = document.getElementById('board-list');
+const boardContextEl = document.getElementById('board-context');
 const boardTabAllTimeBtn = document.getElementById('board-tab-alltime');
 const boardTabDailyBtn = document.getElementById('board-tab-daily');
 const boardBackBtn = document.getElementById('board-back');
@@ -162,6 +163,9 @@ let scoreSubmitted = false;
 // to return to when the board's Back button is pressed (menu or summary).
 let boardTab: BoardType = 'alltime';
 let boardReturnVisible: 'menu' | 'summary' = 'menu';
+// How many top rows the standings list shows. Also the threshold below which the
+// rank-in-context block surfaces the player's own standing (REQ-062).
+const BOARD_LIMIT = 20;
 
 // First-run control tutorial (REQ-047). Armed only when the player has not seen
 // it before; it advances through the three throw steps as the player confirms
@@ -509,6 +513,13 @@ function renderBoard(): void {
     loading: leaderboard.boardLoading,
     error: leaderboard.boardError,
   });
+  // The player's rank-in-context block (REQ-062): only fills when their best sits
+  // below the visible top slice (BOARD_LIMIT rows), so it adds information rather
+  // than repeating a row already on screen.
+  if (boardContextEl) {
+    const context = boardTab === 'daily' ? leaderboard.dailyContext : leaderboard.allTimeContext;
+    boardContextEl.innerHTML = renderContextRows(context, BOARD_LIMIT);
+  }
 }
 
 // Reflect the active tab on the two tab buttons (label state + accessible
@@ -534,7 +545,11 @@ function openBoard(): void {
   if (summaryEl) summaryEl.hidden = true;
   if (boardEl) boardEl.hidden = false;
   syncBoardTabs();
-  void leaderboard.fetchBoth(20).then(renderBoard);
+  // Pass the persisted player name so the server returns the player's standing in
+  // context when their best is off the top slice (REQ-062). An empty name simply
+  // yields no context block.
+  const name = settings.playerName.trim();
+  void leaderboard.fetchBoth(BOARD_LIMIT, name || undefined).then(renderBoard);
 }
 
 // Close the board overlay and return to the screen that opened it. The board is
