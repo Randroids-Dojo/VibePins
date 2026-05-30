@@ -38,6 +38,21 @@
 <main id="open">
   <h2>Open</h2>
 
+  <section data-q="Q-034" data-status="open">
+    <h3>Q-034: Where on the back wall to mount the go/stop signal</h3>
+    <dl>
+      <dt>Context</dt><dd>Playtest follow-up to PR #61: the 3D go/stop signal was buried inside the pinsetter mechanism (placed at the pin deck, <code>y = 2.05</code>, inside the rig) and read as a red glow up in the machine, partly occluded by the rig, cones, and pins. The fix mounts it on the machine-room back wall like a clock. The back wall is centred on the lane and runs the full room width; the signal must clear the back-wall gauge row (<code>MACHINE_ROOM.gaugeY</code> 1.4) and sit high enough that the rig (up around the head spot, metres in front of the wall) never crosses the bowler's line of sight to it.</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li>Centred on the lane, high on the wall (<code>x = 0</code>, <code>y = 2.15</code>, above the gauge row) as a round wall-clock disc. Reads straight down-lane, symmetric, unobstructed since the rig sits below and in front of it.</li>
+          <li>Off to one side of the deck (beside the gauges) so it does not sit over the pins. More like some real lane signals, but a centred, head-on signal reads more clearly down a single straight lane and avoids favouring one side.</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>A. A centred, high wall-clock signal is the simplest consistent placement, reads plainly straight down-lane from the bowler view, and is unobstructed because the rig is below and well in front of the wall. Shipped under A. Revisit with B only if a later playtest shows the centred signal competing with the pins for attention.</dd>
+      <dt>Owner</dt><dd>Playtest gate (Q-010).</dd>
+    </dl>
+  </section>
+
   <section data-q="Q-032" data-status="open">
     <h3>Q-032: Pin body damping vs collider reshape to settle a tethered toppled pin</h3>
     <dl>

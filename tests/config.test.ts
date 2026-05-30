@@ -1,5 +1,14 @@
 import { describe, it, expect } from 'vitest';
-import { LANE, GROUP, PIN_PHYSICS, THROW_LIGHT_3D, MATERIALS, SHOT_CAMERA } from '../src/config.js';
+import {
+  LANE,
+  GROUP,
+  PIN_PHYSICS,
+  THROW_LIGHT_3D,
+  MATERIALS,
+  SHOT_CAMERA,
+  MACHINE_ROOM,
+  MACHINE_ROOM_BACK_Z,
+} from '../src/config.js';
 
 describe('LANE config', () => {
   it('places the head spot down-lane from the foul line', () => {
@@ -59,18 +68,30 @@ describe('PIN_PHYSICS contact material (REQ-030)', () => {
 });
 
 describe('lane-end go/stop signal lamp (REQ-038)', () => {
-  it('sits at the lane end, above and behind the pin deck, facing the bowler', () => {
+  it('is mounted on the back wall like a clock, above the deck and clear of the rig', () => {
     const lamp = THROW_LIGHT_3D;
-    // Down-lane at the pin deck: at or just behind the head spot (into -z), not
-    // back at the bowler. This is the physical lane-end placement that replaced
-    // the on-screen HUD overlay (playtest bug 1).
-    expect(lamp.center.z).toBeLessThanOrEqual(LANE.headSpot.z);
-    // Up in the air over the deck so it reads down the whole lane, well above the
-    // pins.
+    // Mounted on the machine-room back-wall plane (behind the pit, -z), not buried
+    // inside the pinsetter rig. The housing centre sits within its stand-off depth
+    // of the wall inner face, so it reads as a signal hung on the wall.
+    expect(lamp.center.z).toBeGreaterThanOrEqual(MACHINE_ROOM_BACK_Z);
+    expect(lamp.center.z).toBeLessThanOrEqual(MACHINE_ROOM_BACK_Z + lamp.housingDepth + 0.05);
+    // Well behind the pinsetter rig footprint: the rig sits around the head spot
+    // (within frameOverhang of the pins) and the pit runs to headSpot.z minus the
+    // deck plus pit length, so the back wall is metres further down-lane. This is
+    // what keeps the rig, cones, and pins from occluding it (playtest follow-up).
+    const rigBackZ = LANE.headSpot.z - LANE.pinDeckDepth - LANE.pitLength;
+    expect(lamp.center.z).toBeLessThan(rigBackZ);
+    // High on the wall like a wall clock: above the pin deck and above the
+    // back-wall gauge row, so it is unobstructed and reads down the whole lane.
     expect(lamp.center.y).toBeGreaterThan(LANE.pinHeight);
+    expect(lamp.center.y).toBeGreaterThan(MACHINE_ROOM.gaugeY);
+    // Centred on the lane so it is plainly visible straight down-lane.
+    expect(lamp.center.x).toBe(0);
     // The lens faces sit in front of the housing toward the bowler (+z), so the
     // lit lens is visible from the bowler view down-lane.
     expect(lamp.lensFrontZ).toBeGreaterThan(0);
+    // A round housing disc holds the lenses; its rim is wider than a lens.
+    expect(lamp.housingRadius).toBeGreaterThan(lamp.lensRadius);
     // Two stacked lenses: the offset is non-zero so red and green do not overlap.
     expect(lamp.lensOffsetY).toBeGreaterThan(lamp.lensRadius * 0.5);
   });
