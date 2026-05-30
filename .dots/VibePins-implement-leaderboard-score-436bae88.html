@@ -1,0 +1,20 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>implement: leaderboard score-submit client (POST per-frame line on game completion)</title>
+<meta name="dot-title" content="implement: leaderboard score-submit client (POST per-frame line on game completion)">
+<meta name="dot-status" content="open">
+<meta name="dot-priority" content="1">
+<meta name="dot-issue-type" content="task">
+<meta name="dot-created-at" content="2026-05-29T19:30:16.766819-05:00">
+</head>
+<body>
+<article>
+<h1>implement: leaderboard score-submit client (POST per-frame line on game completion)</h1>
+<section id="description">
+On a completed solo ten-frame game, POST the per-frame ball sequence plus display name to api/leaderboard. Covers REQ-057. Add a name-entry affordance (length-capped, sanitized). Wire from the end-of-game flow in src/game.ts / src/victory.ts. The backend already validates and recomputes the score server-side (api/leaderboard.ts).
+</section>
+</article>
+</body>
+</html>

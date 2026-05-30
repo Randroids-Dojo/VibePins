@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@dimforge/rapier3d-compat": "0.19.3",
+    "@upstash/redis": "^1.38.0",
     "three": "0.184.0"
   },
   "devDependencies": {

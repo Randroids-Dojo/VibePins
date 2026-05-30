@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="leaderboard-backend" data-date="2026-05-29">
+    <h3>Leaderboard Backend Infrastructure</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/leaderboard-backend</code></dd>
+      <dt>PR</dt><dd>#34</dd>
+      <dt>Changed</dt><dd>Stood up the global-leaderboard backend (GDD 07-leaderboard), the first slice of the multiplayer/leaderboard cluster unblocked by the provisioned <code>vibepins-kv</code> Upstash store. Added <code>@upstash/redis</code> and a zero-config Vercel serverless function <code>api/leaderboard.ts</code> following the sibling Hoops pattern: <code>GET</code> serves the top-N all-time or daily board, <code>POST</code> submits a score. Two Redis sorted sets under a <code>vibepins:</code> keyspace, an all-time board capped at 100 and a daily board (UTC day key, 25-hour TTL), both ranked by final duckpin score descending. CORS preflight, name sanitization (length-capped, allowlisted characters), and 500-on-failure that never leaks the error detail. Critically, a submission carries the per-frame ball sequence (not a client-claimed total); the server recomputes the score with the shared pure <code>scoreGame</code> engine from <code>src/scoring.ts</code> and rejects impossible or incomplete lines (REQ-059). Added <code>api</code> to the tsconfig include set.</dd>
+      <dt>Verification</dt><dd>em-dash grep clean on changed files; <code>git diff --check</code> clean; <code>npm run typecheck</code> clean; <code>npm test</code> 359/359 passing including new <code>tests/leaderboard.test.ts</code> (12: GET shape for both boards, POST sanitize/recompute/rank, server score overrides a client-claimed value, rejects impossible/incomplete/missing payloads, CORS preflight, 405, 500-without-leak) and <code>tests/leaderboard.smoke.test.ts</code> (POST then GET round trip), all against a mocked Redis client (no live store); <code>npm run build</code> succeeds and the <code>api/</code> function is correctly excluded from the client bundle. <code>.env.local</code> not staged.</dd>
+      <dt>Assumptions</dt><dd>The board ranks by final duckpin score descending (Q-014, the simplest consistent default). Score range clamped to [1, 300] (a perfect duckpin game is 300). The handler reads the legacy KV aliases (<code>KV_REST_API_URL</code> / <code>KV_REST_API_TOKEN</code>) the store exposes with a fallback to canonical <code>UPSTASH_REDIS_REST_*</code>. Inputs are hand-validated (no zod) since the authoritative gate is the existing scoring engine.</dd>
+      <dt>GDD coverage</dt><dd>REQ-059, REQ-060, REQ-061 flipped to <code>partial</code>; REQ-064 flipped to <code>partial</code> (backend serves the leaderboard; multiplayer matches and the zod note deferred). Build log appended to <code>docs/gdd/07-leaderboard.html</code>.</dd>
+      <dt>Followups</dt><dd>None new. Follow-on UI and per-mode/daily-display slices tracked as <code>implement:</code> dots (leaderboard submit form, summary-screen board display, main-menu board, player-rank-in-context).</dd>
+    </dl>
+  </article>
+
   <article data-slice="f003-bundle-code-split" data-date="2026-05-29">
     <h3>Code-Split The Production Bundle (F-003 resolved)</h3>
     <dl>

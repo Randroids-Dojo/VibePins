@@ -827,27 +827,27 @@
    "id": "REQ-059",
    "requirement": "Submitted scores are validated server-side against the duckpin rules; impossible scores are rejected",
    "gddRef": "docs/gdd/07-leaderboard.html#what-counts",
-   "status": "not_started",
-   "implementationRefs": [],
-   "testRefs": [],
+   "status": "partial",
+   "implementationRefs": ["api/leaderboard.ts", "src/scoring.ts"],
+   "testRefs": ["tests/leaderboard.test.ts", "tests/leaderboard.smoke.test.ts"],
    "followupRefs": []
   },
   {
    "id": "REQ-060",
    "requirement": "An all-time global top board (capped) is maintained",
    "gddRef": "docs/gdd/07-leaderboard.html#boards",
-   "status": "not_started",
-   "implementationRefs": [],
-   "testRefs": [],
+   "status": "partial",
+   "implementationRefs": ["api/leaderboard.ts"],
+   "testRefs": ["tests/leaderboard.test.ts", "tests/leaderboard.smoke.test.ts"],
    "followupRefs": []
   },
   {
    "id": "REQ-061",
    "requirement": "A daily board resets each day",
    "gddRef": "docs/gdd/07-leaderboard.html#boards",
-   "status": "not_started",
-   "implementationRefs": [],
-   "testRefs": [],
+   "status": "partial",
+   "implementationRefs": ["api/leaderboard.ts"],
+   "testRefs": ["tests/leaderboard.test.ts"],
    "followupRefs": []
   },
   {
@@ -872,9 +872,9 @@
    "id": "REQ-064",
    "requirement": "A Vercel serverless plus Upstash Redis backend with zod-validated payloads serves both multiplayer and the leaderboard",
    "gddRef": "docs/gdd/06-reuse-and-tech.html#async-backend",
-   "status": "not_started",
-   "implementationRefs": [],
-   "testRefs": [],
+   "status": "partial",
+   "implementationRefs": ["api/leaderboard.ts"],
+   "testRefs": ["tests/leaderboard.test.ts", "tests/leaderboard.smoke.test.ts"],
    "followupRefs": []
   }
  ]
