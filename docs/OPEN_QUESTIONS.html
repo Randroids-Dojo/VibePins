@@ -55,7 +55,22 @@
     </dl>
   </section>
 
-  <section data-q="Q-034" data-status="open">
+  <section data-q="Q-036" data-status="open">
+    <h3>Q-036: Where to mount the go/stop signal so it is never occluded by the machinery</h3>
+    <dl>
+      <dt>Context</dt><dd>Playtest follow-up to PR #65, superseding Q-034. The back-wall placement from Q-034 was still partly occluded: the bowler looks down-lane toward -z and the machine-room back wall (<code>MACHINE_ROOM_BACK_Z</code>) is the furthest point down-lane, so the pinsetter rig and the centering cones sit BETWEEN the bowler and the wall and a wall-mounted signal reads behind the mechanism. The signal must sit where nothing (rig, cones, pins, table) crosses the bowler sight line to it.</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li>Mount it on the masking header above the pin-deck opening, in FRONT of the rig along the sight line (a z toward the bowler of the rig front edge <code>PINSETTER_RIG_FRONT_Z</code>), centred and high (<code>y = 2.2</code>). The way a real lane carries the signal on the masking unit in front of the pins. Nothing in the machinery can occlude it because the whole signal body is closer to the bowler than every rig part.</li>
+          <li>Keep it on the back wall but raise it above the rig top and ceiling line so the rig cannot cross the sight line. The ceiling sits just above the rig, so there is little room; a header in front of the rig is cleaner and matches a real lane.</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>A. A masking-header signal in front of the rig is the simplest consistent placement that is provably unobstructed (every rig part, cone, and pin is further down-lane than the whole signal body), and it matches how a real lane mounts the signal. Shipped under A. A shared <code>PINSETTER_RIG_FRONT_Z</code> derives the rig front edge so the placement test asserts the signal sits in front of the measured machinery.</dd>
+      <dt>Owner</dt><dd>Playtest gate (Q-010).</dd>
+    </dl>
+  </section>
+
+  <section data-q="Q-034" data-status="resolved">
     <h3>Q-034: Where on the back wall to mount the go/stop signal</h3>
     <dl>
       <dt>Context</dt><dd>Playtest follow-up to PR #61: the 3D go/stop signal was buried inside the pinsetter mechanism (placed at the pin deck, <code>y = 2.05</code>, inside the rig) and read as a red glow up in the machine, partly occluded by the rig, cones, and pins. The fix mounts it on the machine-room back wall like a clock. The back wall is centred on the lane and runs the full room width; the signal must clear the back-wall gauge row (<code>MACHINE_ROOM.gaugeY</code> 1.4) and sit high enough that the rig (up around the head spot, metres in front of the wall) never crosses the bowler's line of sight to it.</dd>
@@ -67,6 +82,7 @@
       </dd>
       <dt>Recommended default</dt><dd>A. A centred, high wall-clock signal is the simplest consistent placement, reads plainly straight down-lane from the bowler view, and is unobstructed because the rig is below and well in front of the wall. Shipped under A. Revisit with B only if a later playtest shows the centred signal competing with the pins for attention.</dd>
       <dt>Owner</dt><dd>Playtest gate (Q-010).</dd>
+      <dt>Resolution</dt><dd>Superseded by Q-036. The back-wall placement was still occluded because the back wall is the furthest point down-lane and the rig/cones sit between the bowler and the wall. The signal was remounted on the masking header in front of the rig (PR #TBD, the throw-light-front-of-rig slice).</dd>
     </dl>
   </section>
 

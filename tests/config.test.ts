@@ -7,8 +7,11 @@ import {
   MATERIALS,
   SHOT_CAMERA,
   MACHINE_ROOM,
-  MACHINE_ROOM_BACK_Z,
+  PINSETTER_RIG_FRONT_Z,
+  PINSETTER,
+  pinsetterRigParts,
 } from '../src/config.js';
+import { pinRackPositions } from '../src/pins.js';
 
 describe('LANE config', () => {
   it('places the head spot down-lane from the foul line', () => {
@@ -68,23 +71,49 @@ describe('PIN_PHYSICS contact material (REQ-030)', () => {
 });
 
 describe('lane-end go/stop signal lamp (REQ-038)', () => {
-  it('is mounted on the back wall like a clock, above the deck and clear of the rig', () => {
+  it('is mounted on the masking header in front of the rig, above the deck, unobstructed from the bowler', () => {
     const lamp = THROW_LIGHT_3D;
-    // Mounted on the machine-room back-wall plane (behind the pit, -z), not buried
-    // inside the pinsetter rig. The housing centre sits within its stand-off depth
-    // of the wall inner face, so it reads as a signal hung on the wall.
-    expect(lamp.center.z).toBeGreaterThanOrEqual(MACHINE_ROOM_BACK_Z);
-    expect(lamp.center.z).toBeLessThanOrEqual(MACHINE_ROOM_BACK_Z + lamp.housingDepth + 0.05);
-    // Well behind the pinsetter rig footprint: the rig sits around the head spot
-    // (within frameOverhang of the pins) and the pit runs to headSpot.z minus the
-    // deck plus pit length, so the back wall is metres further down-lane. This is
-    // what keeps the rig, cones, and pins from occluding it (playtest follow-up).
-    const rigBackZ = LANE.headSpot.z - LANE.pinDeckDepth - LANE.pitLength;
-    expect(lamp.center.z).toBeLessThan(rigBackZ);
-    // High on the wall like a wall clock: above the pin deck and above the
-    // back-wall gauge row, so it is unobstructed and reads down the whole lane.
+    // The bowler sits at large +z and looks down-lane toward -z (the machinery is
+    // at the most negative z). For the signal to be unobstructed, every part of the
+    // rig, cones, and pins must be further down-lane (more negative z) than the
+    // signal: the signal's whole housing disc (its front lens included) sits in
+    // FRONT of the rig front edge along the sight line. This is the fix for PR #65,
+    // where a back-wall signal sat behind the rig and the rig/cones occluded it.
+    const rig = pinsetterRigParts(pinRackPositions());
+    // Frontmost z of every rig part (beams, tubes, drums, shafts, cones, drive
+    // unit): a box's front face is center.z + half.z, a y-axis cylinder's is just
+    // its center.z, an x-axis cylinder's is center.z + radius, a cone's front is
+    // center.z + mouthRadius. The largest of these is the closest machinery to the
+    // bowler. The signal must be strictly in front of all of it.
+    const rigFrontZ = Math.max(
+      ...rig.beams.map((b) => b.center.z + b.half.z),
+      rig.driveUnit.center.z + rig.driveUnit.half.z,
+      ...rig.guideTubes.map((c) => c.center.z + (c.axis === 'z' ? c.length / 2 : c.radius)),
+      ...rig.drums.map((c) => c.center.z + (c.axis === 'z' ? c.length / 2 : c.radius)),
+      ...rig.shafts.map((c) => c.center.z + (c.axis === 'z' ? c.length / 2 : c.radius)),
+      ...rig.cones.map((c) => c.center.z + c.mouthRadius),
+      // Standing pins sit at the rack spots with belly radius footprint.
+      ...pinRackPositions().map((p) => p.z + LANE.pinBellyRadius),
+    );
+    // The shared rig front edge and the measured rig front agree (one source of
+    // truth, so the placement constant tracks the geometry).
+    expect(PINSETTER_RIG_FRONT_Z).toBeGreaterThanOrEqual(rigFrontZ);
+    // The signal centre is in front of the rig front edge.
+    expect(lamp.center.z).toBeGreaterThan(PINSETTER_RIG_FRONT_Z);
+    // Even the lens face, the closest point of the signal to the bowler, stays
+    // clear of the machinery (it only moves further toward the bowler, +z).
+    const lensFaceZ = lamp.center.z + lamp.housingDepth + lamp.lensFrontZ;
+    expect(lensFaceZ).toBeGreaterThan(rigFrontZ);
+    // And the back of the housing disc is still in front of the rig, so the whole
+    // signal body is unobstructed, not just its face.
+    expect(lamp.center.z).toBeGreaterThan(rigFrontZ);
+    // High on the masking header: above the pin deck and above the back-wall gauge
+    // row, but below the ceiling so it stays inside the room.
     expect(lamp.center.y).toBeGreaterThan(LANE.pinHeight);
     expect(lamp.center.y).toBeGreaterThan(MACHINE_ROOM.gaugeY);
+    expect(lamp.center.y).toBeLessThan(MACHINE_ROOM.ceilingY);
+    // Sanity: PINSETTER still uses the shared overhang the rig front is derived from.
+    expect(PINSETTER.frameOverhang).toBeGreaterThan(0);
     // Centred on the lane so it is plainly visible straight down-lane.
     expect(lamp.center.x).toBe(0);
     // The lens faces sit in front of the housing toward the bowler (+z), so the
