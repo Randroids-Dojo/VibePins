@@ -14,6 +14,7 @@
 // rather than throwing, because a leaderboard hiccup must never break the
 // end-of-game flow.
 
+import { escapeHtml } from './html.js';
 import type { GameScore } from './scoring.js';
 
 const API_BASE = '/api/leaderboard';
@@ -141,19 +142,6 @@ export function renderContextRows(context: RankContext | null, topCount: number)
       )
       .join('')
   );
-}
-
-// Escape the five HTML-significant characters so a player-supplied name cannot
-// inject markup when dropped into innerHTML. The server already strips most
-// punctuation (api/leaderboard.ts sanitizeName), but this is the rendering
-// boundary so it escapes regardless.
-function escapeHtml(text: string): string {
-  return String(text)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
 }
 
 export class Leaderboard {

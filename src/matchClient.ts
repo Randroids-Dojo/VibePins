@@ -16,6 +16,7 @@
 // the UI without crashing the game loop. This module holds no UI; rendering the
 // your-turn / waiting states and the handoff link is a follow-on slice (REQ-050/051).
 
+import { escapeHtml } from './html.js';
 import { computeStandings, type PublicMatch, type Standing } from './match.js';
 import type { MatchCredential, Settings } from './settings.js';
 
@@ -85,19 +86,6 @@ export function renderStandingsRows(match: PublicMatch | null, mySeat: number | 
       );
     })
     .join('');
-}
-
-// Escape the five HTML-significant characters so a player-supplied name cannot
-// inject markup when dropped into innerHTML (same render-boundary escape as
-// src/leaderboard.ts). The server already strips most punctuation, but this is the
-// rendering boundary so it escapes regardless.
-function escapeHtml(text: string): string {
-  return String(text)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
 }
 
 export class MatchClient {
