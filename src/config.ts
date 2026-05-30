@@ -802,6 +802,14 @@ export const BALL_RETURN = {
   // never holds up the next shot: the reset cycle is the gate on the next shot,
   // and this is shorter than it.
   returnSeconds: 1.6,
+  // Down-runway speed the returned ball is given when it re-enters the cradle as
+  // a dynamic body (REQ-039 physical return). The ball is placed at the runway
+  // back and rolls home toward the bowler-end cradle under this speed plus
+  // gravity, so it physically bumps the queued balls and settles against them
+  // rather than easing kinematically. Tuned low so the bump is gentle and the
+  // queue settles fast (no balls escaping the cradle); damping and sleeping take
+  // it the rest of the way to rest within a bounded number of steps.
+  returnRollSpeed: 1.3,
 } as const;
 
 // The ball rack at the bowler end of the return: a small cradle holding a
@@ -1223,4 +1231,103 @@ export function pitBoxes(): Box[] {
   }));
 
   return [floor, backWall, ...sideWalls];
+}
+
+// The physical ball-cradle at the bowler end of the return (REQ-039). Unlike the
+// decorative balls-on-the-floor of PR #66, the cradle is a real set of static
+// colliders that physically HOLD a queue of dynamic ball bodies at rest: a level
+// trough floor the balls sit on, two side walls (in x) that keep them from
+// rolling off laterally, and a front end stop (+z, the bowler end) the front
+// ball rests against. The back (-z) is open so the just-thrown ball returns up
+// the runway, rolls into the trough, bumps the back of the queue, and the queue
+// settles forward against the stop (the bump-and-settle). Pure layout derived
+// from BALL_RACK so world3d and the BallRack share one source of truth.
+export const BALL_CRADLE = {
+  // Half-thickness of the trough floor/wall slabs.
+  slab: 0.03,
+  // Lateral half-width of the trough interior: a touch over a ball radius so a
+  // ball nestles between the side walls without binding (it can still roll in z).
+  innerHalfX: LANE.ballRadius + 0.018,
+  // Height of the side/end walls above the trough floor: most of a ball radius so
+  // the walls retain the balls without towering over them.
+  wallHeight: LANE.ballRadius * 1.6,
+  // How far past the front rest ball the end stop sits (its inner face is one
+  // ball radius plus a hair in front of the front ball centre).
+  stopGap: 0.004,
+} as const;
+
+// The trough floor top sits one ball radius below the resting ball centre, so a
+// ball seated on the floor has its centre at BALL_RACK.restY.
+export const BALL_CRADLE_FLOOR_TOP_Y = BALL_RACK.restY - LANE.ballRadius;
+
+// Static colliders that form the physical ball cradle (REQ-039): a level trough
+// floor, two side walls, a front end stop, and a back stop just behind the last
+// queued ball so the resting queue is fully bounded while the runway hand-off
+// drops the returned ball in from above. Pure so the cradle bounds are unit
+// testable and shared with world3d. Boxes are axis-aligned cuboids (the same
+// Box shape as the gutter/pit colliders).
+export function ballCradleBoxes(): Box[] {
+  const c = BALL_CRADLE;
+  const rack = ballRackPositions();
+  const front = rack[0];
+  const back = rack[rack.length - 1];
+  const frontZ = front.z;
+  const backZ = back.z;
+  const centerZ = (frontZ + backZ) / 2;
+  // The trough runs from a hair behind the back ball to the end stop in front,
+  // long enough to also catch the returned ball as it rolls in from the back.
+  const runHalfZ = (frontZ - backZ) / 2 + LANE.ballRadius + 0.02;
+  const floorTopY = BALL_CRADLE_FLOOR_TOP_Y;
+  const wallCenterY = floorTopY + c.wallHeight / 2;
+
+  const floor: Box = {
+    center: { x: front.x, y: floorTopY - c.slab, z: centerZ },
+    half: { x: c.innerHalfX, y: c.slab, z: runHalfZ },
+  };
+  // Side walls in x, the full trough length, retaining the balls laterally.
+  const sideWalls: Box[] = ([-1, 1] as const).map((side) => ({
+    center: { x: front.x + side * (c.innerHalfX + c.slab), y: wallCenterY, z: centerZ },
+    half: { x: c.slab, y: c.wallHeight / 2, z: runHalfZ + c.slab },
+  }));
+  // Front end stop: the front ball rests against its inner face.
+  const stop: Box = {
+    center: {
+      x: front.x,
+      y: wallCenterY,
+      z: frontZ + LANE.ballRadius + c.stopGap + c.slab,
+    },
+    half: { x: c.innerHalfX + c.slab, y: c.wallHeight / 2, z: c.slab },
+  };
+  // Back stop behind the last queued ball, so a returned ball that overshoots the
+  // queue is still contained (it cannot roll back out the runway end).
+  const backStop: Box = {
+    center: {
+      x: front.x,
+      y: wallCenterY,
+      z: backZ - LANE.ballRadius - 0.02 - c.slab,
+    },
+    half: { x: c.innerHalfX + c.slab, y: c.wallHeight / 2, z: c.slab },
+  };
+
+  return [floor, ...sideWalls, stop, backStop];
+}
+
+// Resting centres of the queued balls seated on the cradle floor, front
+// (bowler-most, +z) ball first. The front ball sits against the end stop and
+// each later ball nestles one ball diameter behind it (just touching), so the
+// queue reads as balls resting in physical contact, not floating on a grid. The
+// returned ball joins the back of this queue. Pure so the BallRack seeding and
+// the settle test share the same target.
+export function ballCradleRestPositions(): Vec3[] {
+  const rack = ballRackPositions();
+  const front = rack[0];
+  // Front ball centre one radius in front-stop interior; the stop inner face is
+  // at frontZ + ballRadius + stopGap, so the ball centre rests at frontZ with a
+  // hair of clearance. Subsequent balls nestle one diameter behind.
+  const out: Vec3[] = [];
+  const diameter = LANE.ballRadius * 2;
+  for (let i = 0; i < rack.length; i += 1) {
+    out.push({ x: front.x, y: BALL_RACK.restY, z: front.z - i * diameter });
+  }
+  return out;
 }

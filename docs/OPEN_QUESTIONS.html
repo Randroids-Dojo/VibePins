@@ -72,6 +72,23 @@
     </dl>
   </section>
 
+  <section data-q="Q-037" data-status="open">
+    <h3>Q-037: How the physical ball-return cradle holds the queue and where the returned ball settles</h3>
+    <dl>
+      <dt>Context</dt><dd>Playtest follow-up to PR #66, which left the rack balls as decorative meshes on the floor and the return as a position-only kinematic ease. The return is now physically accurate: a static collider trough (<code>BALL_CRADLE</code>) holds a queue of dynamic Rapier ball bodies (<code>src/ballRack.ts</code>), and the just-thrown ball physically rolls into the cradle and settles against the queue. Two coupled decisions: how the queue is divided between the held bodies and the live playable ball, and what keeps the queue stable (no jitter / creep / escapes) while the returned ball bumps it.</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li>The cradle physically holds the QUEUED spare balls (<code>count - 1</code> dynamic bodies) behind the front pickup slot; the live playable ball is the +1 that comes and goes from the front. On return the live ball physically rolls into the cradle and settles against the queue (the bump-and-settle), then <code>respawn</code> parks it kinematic at the front rest slot for the next pickup once the reset beat is done. The trough floor is LEVEL with a front end stop, so a settled queue has nothing driving it (gravity plus the returned ball's roll-in are the only motion) and Rapier sleeps the bodies once at rest.</li>
+          <li>Make every cradle ball (including the front) a dynamic body and index-advance the queue on each pickup, lifting the literal front body and shuffling the rest forward. More faithful to a real return tray, but it re-homes the live ball identity across modules (launch, kinematics, foul, gutter, chase cam all read the one <code>Ball</code>) and risks an unstable queue on a sloped floor, a much larger and riskier slice.</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>A. Holding the spares as the physical queue and keeping the live ball as the +1 that returns and settles at the front satisfies every literal ask (cradle holds balls not the floor, returned ball rolls in / collides / settles, pickup takes the front, bounded and stable) without re-homing the live-ball identity. A level floor plus a front stop plus damping and sleeping make the queue provably stable (verified at rest in <code>tests/ball-cradle.smoke.test.ts</code>). Shipped under A. The full index-advancing tray (B) is deferred to a polish dot.</dd>
+      <dt>Owner</dt><dd>Playtest gate (Q-010).</dd>
+      <dt>Status</dt><dd>open</dd>
+      <dt>Resolution</dt><dd>(shipped under Recommended default A in the physical-ball-return-cradle slice, PR #69; left open for dev override after the re-playtest)</dd>
+    </dl>
+  </section>
+
   <section data-q="Q-034" data-status="resolved">
     <h3>Q-034: Where on the back wall to mount the go/stop signal</h3>
     <dl>
