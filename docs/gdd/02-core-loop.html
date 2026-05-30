@@ -57,7 +57,7 @@
 
   <section data-role="spec" id="pin-accounting">
     <h2>Pin accounting between balls</h2>
-    <p>After each ball within a frame: count the pins that fell on that ball, lift those fallen pins out via the string reset, and leave standing pins exactly where they are (respot in place). The next ball in the same frame is thrown at the remaining standing pins only. At frame end, perform a full re-rack of all ten pins. The fallen-vs-standing decision is made by the pinsetter detection described in <a href="03-string-pinsetter.html#detection">String pinsetter, detection</a>.</p>
+    <p>After each ball within a frame: count the pins that fell on that ball, then reset via the string pinsetter so the next ball faces only the remaining standing pins. When pins were knocked down, the machine reels up the whole rack, re-spots the standing pins on their home spots, and leaves the fallen pins reeled up and aloft (see <a href="03-string-pinsetter.html#respot">String pinsetter, re-spot</a>); the standing cluster the player left therefore stays in play for the next ball. At frame end, perform a full re-rack of all ten pins. The fallen-vs-standing decision is made by the pinsetter detection described in <a href="03-string-pinsetter.html#detection">String pinsetter, detection</a>.</p>
   </section>
 
   <section data-role="spec" id="scoreboard">

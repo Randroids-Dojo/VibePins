@@ -249,11 +249,6 @@ function wakeAudio(): void {
 
 // Pins standing before the current ball was thrown, so pinfall = before - after.
 let standingBeforeBall = 10;
-// The pin indices the active reset is carrying. On a rerack they are handed back
-// to the dynamics when the cycle completes; on a between-balls reset they are the
-// fallen pins lifted clear, which stay kinematic and aloft (cleared) until the
-// next rerack, so they are not handed back here.
-let resetTargets: number[] | null = null;
 // The mode of the active (or just-completed) reset, so the resetting phase knows
 // whether to hand the carried pins back to the dynamics (rerack) or leave them
 // held aloft and cleared (between-balls).
@@ -373,35 +368,40 @@ function countStandingPins(): number {
 
 // Start a reset cycle in the given mode, making the carried pins kinematic.
 //
-// rerack (frame end): carry all ten pins home, including any cleared pins held
-// aloft from earlier between-balls resets this frame, so the deck reads as a
-// fresh rack. between-balls: lift only the pins newly fallen on this ball clear
-// of the deck and leave them aloft; standing pins respot in place and previously
-// cleared pins stay where they are (REQ-009, REQ-021).
+// rerack (frame end): reel all ten pins and carry them home, including any pins
+// held aloft from earlier between-balls resets this frame, so the deck reads as a
+// fresh rack. between-balls: reel the WHOLE rack up (the recall-all motion of a
+// real string machine), lower the standing pins back onto their home spots
+// (re-spotting a nudged-but-standing pin, REQ-021), and leave the newly fallen
+// pins reeled up and aloft, cleared out of play (REQ-009).
 function startReset(mode: ResetMode): void {
   resetMode = mode;
-  const fallen =
-    mode === 'rerack'
-      ? pinRackPositions().map((_, i) => i)
-      : detectPins(pins, DETECTION)
-          .filter((p) => !p.standing)
-          .map((p) => p.pinIndex)
-          // Pins already lifted clear earlier in the frame are aloft, so a fresh
-          // settle reads them fallen. They are already cleared; do not re-reel them.
-          .filter((index) => !clearedPins.has(index));
-  const settled = pins.pinStates().map((s) => s.position);
-  if (fallen.length === 0) {
-    // Nothing new to reel (a clean miss between balls): skip straight to the next
-    // shot. The rack already holds exactly the pins the next ball aims at.
+  const fallen = detectPins(pins, DETECTION)
+    .filter((p) => !p.standing)
+    .map((p) => p.pinIndex)
+    // Pins already lifted clear earlier in the frame are aloft, so a fresh settle
+    // reads them fallen. They are already cleared; on a between-balls cycle keep
+    // them aloft (do not re-reel as freshly fallen). A rerack carries them home
+    // alongside everything else, so it does not filter them out.
+    .filter((index) => mode === 'rerack' || !clearedPins.has(index));
+  if (mode !== 'rerack' && fallen.length === 0) {
+    // Nothing new was knocked down (a clean miss / pure gutter with the rack
+    // untouched): no recall needed. Skip straight to the next shot; the rack
+    // already holds exactly the pins the next ball aims at (REQ-009).
     beginShot();
     return;
   }
-  pins.beginReset(fallen);
-  reset.start(mode, fallen, pinRackPositions(), settled);
+  const settled = pins.pinStates().map((s) => s.position);
+  // Reel the whole rack. On a between-balls cycle the previously cleared pins are
+  // already kinematic and aloft; beginReset on them is harmless and keeps them
+  // held. The fallen list passed to start() marks which pins stay aloft.
+  const allPins = pinRackPositions().map((_, i) => i);
+  const heldAloft = mode === 'rerack' ? fallen : [...new Set([...fallen, ...clearedPins])];
+  pins.beginReset(allPins);
+  reset.start(mode, heldAloft, pinRackPositions(), settled);
   // The pinsetter's signature voice: servo whir, taut cords, relay clicks, the
   // rack thunking home (REQ-043).
   audio.playStringReset();
-  resetTargets = fallen;
   phase = 'resetting';
 }
 
@@ -1218,18 +1218,21 @@ function stepShotLoop(dt: number): void {
   } else if (phase === 'resetting') {
     pins.resetStep(reset.update(dt));
     if (reset.isComplete()) {
+      // The pins lowered onto a home spot are handed back to the dynamics at rest
+      // (all ten on a rerack; the standing pins on a between-balls cycle). The
+      // pins held reeled up and aloft stay kinematic and cleared.
+      pins.endReset(reset.landedTargets);
       if (resetMode === 'rerack') {
-        // Frame end: every carried pin is set back on the deck under gravity, and
-        // the deck is a fresh rack again, so nothing stays cleared.
-        if (resetTargets) pins.endReset(resetTargets);
+        // Frame end: every pin is set back on the deck, a fresh rack, so nothing
+        // stays cleared.
         clearedPins = new Set();
-      } else if (resetTargets) {
-        // Between balls: the lifted pins stay kinematic and aloft (cleared off the
-        // deck) until the next rerack. Remember them so the rerack carries them
-        // home and a later between-balls settle does not try to re-reel them.
-        for (const index of resetTargets) clearedPins.add(index);
+      } else {
+        // Between balls: the standing pins were re-spotted onto their home spots
+        // (handed back above); the knocked-down pins stay aloft and cleared off
+        // the deck until the next rerack. Remember them so the rerack carries them
+        // home and a later between-balls settle does not re-reel them.
+        clearedPins = new Set(reset.heldAloftTargets);
       }
-      resetTargets = null;
       beginShot();
     }
   }

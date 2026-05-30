@@ -38,19 +38,19 @@
 <main id="open">
   <h2>Open</h2>
 
-  <section data-q="Q-018" data-status="open">
-    <h3>Q-018: Between-balls string motion, lift fallen vs recall all</h3>
+  <section data-q="Q-019" data-status="open">
+    <h3>Q-019: Where a re-spotted standing pin lands, its home spot vs its nudged resting position</h3>
     <dl>
-      <dt>Context</dt><dd>A playtest dot described the between-balls reset as "recall (lift) all pins, then lower only the standing ones, leaving fallen cleared". The GDD (core loop and string pinsetter) describes it differently: "only fallen pins are lifted; standing pins are left untouched (respot in place)". Both produce the identical deck end state for the next ball: the previously standing pins remain exactly where they were, and the previously fallen pins are gone. They differ only in the visible motion (lift the fallen pins, vs lift everyone then set the standing ones back down).</dd>
+      <dt>Context</dt><dd>With the between-balls recall-all motion (Q-018 resolved B: reel the whole rack up, lower the standing pins, leave the downed pins aloft), a standing pin that a hit nudged off its home spot but did not topple has to land somewhere when it is lowered back. It can be re-set on its precise home spot, or returned to the (possibly nudged) position it was reeled up from.</dd>
       <dt>Options</dt><dd>
         <ol type="A">
-          <li>Lift only the fallen pins clear of the deck and leave them aloft; never touch the standing pins. Matches the GDD wording exactly and is the simplest consistent motion.</li>
-          <li>Recall (lift) all ten, then lower only the standing pins back. Matches the playtester's mental model but moves standing pins the player deliberately left in place, against the GDD respot-in-place rule.</li>
+          <li>Re-spot every standing pin on its precise HOME spot. The recall reels the whole rack and the drive unit sets each standing pin back on its home position, so a nudged-but-standing pin returns to its spot. Simplest and consistent with how the reel/reposition/lower path already works.</li>
+          <li>Return each standing pin to its nudged resting position (where it was reeled up from). Preserves the exact pre-recall cluster geometry but requires a separate "lower in place" path and contradicts how a real machine re-sets pins on the spotting fixtures.</li>
         </ol>
       </dd>
-      <dt>Recommended default</dt><dd>A. RULE 2: the GDD wins. RULE 7: prefer the simpler consistent flow. The end state the playtest actually requires (fallen cleared, standing untouched) is satisfied either way; A honours the GDD respot-in-place rule and does not disturb the standing cluster. Shipped under A.</dd>
+      <dt>Recommended default</dt><dd>A. A real string machine sets standing pins back on their home spots (the spotting fixtures define where a pin sits), and the existing reposition/lower path already carries a pin to its home spot, so A is the simplest consistent flow (RULE 7). The downed pins are still cleared, so the next ball faces the same standing pins on their home spots. Shipped under A.</dd>
       <dt>Status</dt><dd>open</dd>
-      <dt>Resolution</dt><dd>(shipped under Recommended default A in the between-balls reset fix slice; left open for dev override)</dd>
+      <dt>Resolution</dt><dd>(shipped under Recommended default A in the recall-all-then-re-spot-standing slice; left open for dev override)</dd>
     </dl>
   </section>
 
@@ -138,6 +138,22 @@
 
 <aside id="resolved">
   <h2>Resolved</h2>
+
+  <section data-q="Q-018" data-status="resolved">
+    <h3>Q-018: Between-balls string motion, lift fallen vs recall all</h3>
+    <dl>
+      <dt>Context</dt><dd>A playtest dot described the between-balls reset as "recall (lift) all pins, then lower only the standing ones, leaving fallen cleared". The GDD (core loop and string pinsetter) originally described it differently: "only fallen pins are lifted; standing pins are left untouched (respot in place)". Both produce the same deck end state for the next ball (standing pins remain, fallen pins gone); they differ in the visible motion (lift only the fallen pins, vs reel the whole rack up then set the standing ones back down).</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li>Lift only the fallen pins clear of the deck and leave them aloft; never touch the standing pins. Matches the old GDD wording and is the simplest motion.</li>
+          <li>Recall (lift) all ten, then lower only the standing pins back onto their home spots, leaving the downed pins aloft. Matches a real string machine and the playtester's observation at Pins Mechanical.</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>A (original). Shipped first under A in PR #48.</dd>
+      <dt>Status</dt><dd>resolved</dd>
+      <dt>Resolution</dt><dd>B (recall all, then re-set the standing pins on their home spots, leaving the downed pins aloft). The original default A was overridden: the product owner confirmed by research and by watching the machine at Pins Mechanical that real string pinsetters reel up the WHOLE rack on the between-balls respot when one or more pins were knocked down, then lower the STANDING pins back onto their HOME spots while the knocked-down pins stay reeled up and aloft, cleared out of play. The GDD wording was corrected accordingly (explicitly authorized) and the between-balls <code>ResetCycle</code> now reels all ten up, lowers the standing pins home, and holds the downed pins aloft (<code>landedTargets</code> / <code>heldAloftTargets</code>). The deck end state for the next ball is unchanged (same standing cluster, downed pins gone), so scoring is unaffected; only the visible motion and the re-spot of a nudged-but-standing pin changed. Where a re-spotted standing pin lands (home spot vs nudged position) is tracked separately as Q-019. Shipped in the recall-all-then-re-spot-standing slice.</dd>
+    </dl>
+  </section>
 
   <section data-q="Q-017" data-status="resolved">
     <h3>Q-017: Wire-payload validation library for the serverless backend (zod vs hand-validation)</h3>

@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="between-balls-recall-all-respot-standing" data-date="2026-05-29">
+    <h3>Between-balls reset: recall the whole rack, then re-spot the standing pins (playtest follow-up to bug 2)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/20260529-234456-retract-all-respot</code></dd>
+      <dt>PR</dt><dd>#TBD</dd>
+      <dt>Changed</dt><dd>Corrected the between-balls string-pinsetter motion to match a real string machine (confirmed by research and by the product owner watching the machine at Pins Mechanical), superseding PR #48's "lift only the fallen pins" behaviour. When one or more pins were knocked down, the WHOLE rack now reels up (the visible recall-all motion), then the STANDING pins are carried back over their HOME spots and lowered onto them (re-spotting a nudged-but-standing pin onto its spot), while the KNOCKED-DOWN pins stay reeled up and aloft, cleared out of play, never lowered. <code>src/reset.ts</code>: <code>ResetCycle.start</code> reels all ten in both modes; a new <code>holdAloft</code> branch in <code>pinTargetFor</code> keeps the fallen pins at <code>liftPinY</code> over their settled spot through reposition and lower; the cycle exposes <code>landedTargets</code> (set back on a home spot, handed to the dynamics) and <code>heldAloftTargets</code> (stay kinematic and cleared), and a between-balls cycle now runs the full settle-lift-reposition-lower like a rerack. <code>src/main.ts</code> <code>startReset</code> makes the whole rack kinematic, marks the freshly fallen (plus already-cleared) pins as held-aloft, and on completion hands the landed standing pins back on their home spots while keeping the downed pins aloft in <code>clearedPins</code> until the next rerack; a between-balls ball with nothing newly knocked down stays a no-op (skips to the next shot). The full rerack (frame end / strike / deck clear) still reels and lowers all ten home, unchanged. Scoring is unaffected (standing pins stay in play, downed pins cleared); the change is the visible motion and which pins move.</dd>
+      <dt>Verification</dt><dd>em-dash grep clean on changed files; <code>git diff --check</code> clean; <code>tsc --noEmit</code> clean; full vitest 561/561; <code>vite build</code> succeeds. <code>tests/reset.smoke.test.ts</code> rewritten on real Rapier: a between-balls cycle lifts EVERY pin (standing and fallen) clear of the deck (observable y over time, the assertion that fails against the old lift-only-fallen behaviour, RULE 10), the standing pins come to rest upright on their HOME spots, and the fallen pins stay aloft. <code>tests/reset.test.ts</code> adds pure targeting coverage: the whole rack is reeled, standing pins land home while fallen hold aloft, and a fallen pin rises then holds. <code>tests/reset-cycle-timing.smoke.test.ts</code> and <code>tests/shotLoop.test.ts</code> still pass unchanged (the rack-action sequencing and the 3-5s timing are unaffected).</dd>
+      <dt>Assumptions</dt><dd>Standing pins re-spot onto their precise HOME spots, not their nudged resting position (Q-019, Recommended default A: a real machine sets pins on the spotting fixtures and the existing reposition/lower path already carries a pin home). A between-balls cycle with no pin knocked down is a no-op (no recall needed), keeping it simple and consistent (Q-018 resolution B).</dd>
+      <dt>GDD coverage</dt><dd>REQ-019 and REQ-021 requirement text corrected to the recall-all-then-re-spot-standing behaviour (both stay <code>done</code>); 03-string-pinsetter gains a Build log entry and corrected reset-cycle / respot spec sections; Q-018 resolved (B) and new Q-019 logged in OPEN_QUESTIONS.</dd>
+      <dt>Followups</dt><dd>None.</dd>
+    </dl>
+  </article>
+
   <article data-slice="hide-meters-during-loading" data-date="2026-05-29">
     <h3>Hide the spin/power gauges during the loading walk-up (playtest bug 6)</h3>
     <dl>
