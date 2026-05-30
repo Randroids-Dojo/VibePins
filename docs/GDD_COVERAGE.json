@@ -602,10 +602,12 @@
         "src/meter.ts",
         "src/main.ts",
         "index.html",
-        "src/config.ts"
+        "src/config.ts",
+        "src/camera.ts"
       ],
       "testRefs": [
-        "tests/meter.test.ts"
+        "tests/meter.test.ts",
+        "tests/camera.test.ts"
       ],
       "followupRefs": []
     },

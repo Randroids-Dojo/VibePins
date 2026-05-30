@@ -16,7 +16,7 @@ import { PinSet, pinRackPositions } from './pins.js';
 import { Ball, ballSpawnPosition } from './ball.js';
 import { detectPins, SettleWindow } from './detection.js';
 import { ResetCycle, type ResetMode } from './reset.js';
-import { ShotCamera, canThrow, lineupMarkerOffset, lineupFractionFromOffset } from './camera.js';
+import { ShotCamera, canThrow, lineupMarkerOffset, lineupFractionFromOffset, shotMetersVisibility } from './camera.js';
 import { SweepMeter, meterBandSpan } from './meter.js';
 import { Game } from './game.js';
 import { Scoreboard } from './scoreboard.js';
@@ -303,17 +303,21 @@ function renderLineup(): void {
 }
 
 // Show or hide the spin/power gauges and slide each needle to its meter's live
-// cursor (REQ-038). During the aiming phase exactly one gauge is shown: the spin
-// gauge while the spin meter sweeps or is stopped before the power step starts,
-// then the power gauge while the power meter sweeps. The needle uses the same
+// cursor (REQ-038). The gauges appear only once the line is locked and the timed
+// steps run: the spin gauge while the spin meter sweeps or is stopped before the
+// power step starts, then the power gauge while the power meter sweeps. They stay
+// hidden through the loading walk-up and the line-up step (shotMetersVisibility),
+// so the meters show only when it is time to aim. The needle uses the same
 // [-1, +1] -> rail-px map as the line-up marker; the centred band is sized from
 // the tuned config so the highlight always matches the real sweet spot. Called
 // every aiming frame so the sweep motion is observable (RULE 10).
 function renderMeters(): void {
   if (!metersEl) return;
-  const aiming = phase === 'aiming';
-  const showSpin = aiming && !shotCamera.isAligning && !powerMeter.isSweeping;
-  const showPower = aiming && powerMeter.isSweeping;
+  const { showSpin, showPower } = shotMetersVisibility(
+    phase === 'aiming',
+    shotCamera.currentPhase,
+    powerMeter.isSweeping,
+  );
   metersEl.hidden = !(showSpin || showPower);
   if (gaugeSpinEl) gaugeSpinEl.hidden = !showSpin;
   if (gaugePowerEl) gaugePowerEl.hidden = !showPower;
