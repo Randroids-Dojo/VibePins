@@ -132,6 +132,7 @@
       <dt>Blocker</dt><dd>none, but low value until more modules exist to chunk.</dd>
       <dt>Unblock condition</dt><dd>enough app surface (gameplay systems, app shell) that splitting yields a real first-paint win.</dd>
       <dt>PR / Dot reference</dt><dd>(not started)</dd>
+      <dt>Resolved</dt><dd>PR #TBD. The single ~2.8MB bundle is split into three cacheable chunks via Rolldown <code>build.rolldownOptions.output.codeSplitting.groups</code> in <code>vite.config.ts</code>: app entry (~45kB), <code>three</code> (~540kB), and <code>rapier</code> (~2.2MB, the inlined physics WASM). An app-code change now re-downloads only the entry chunk instead of busting the whole vendor payload. Splitting is build-time grouping, not dynamic import, so the boot path stays synchronous (<code>main.ts</code> pulls world3d/ball/pins eagerly) with no async-boot waterfall. The Rapier chunk is irreducibly large because the <code>-compat</code> build inlines its WASM and that is not splittable app code, so <code>build.chunkSizeWarningLimit</code> is raised to 2400kB: the warning now fires only on genuinely oversized chunks (a future regression that re-bloats a chunk past the intrinsic vendor size), not on a vendor whose size is intrinsic. Verified: production build emits the three chunks with no chunk-size or deprecation warning, the preview server boots and all three chunks resolve (HTTP 200), typecheck clean, 346 tests pass.</dd>
     </dl>
   </section>
 </section>
