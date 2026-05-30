@@ -24,6 +24,7 @@ import { ShotWatcher } from './shot.js';
 import { FoulDetector } from './foul.js';
 import { GutterDetector } from './gutter.js';
 import { Screens, type Screen } from './screens.js';
+import { rackActionFor, phaseAfterRecord } from './shotLoop.js';
 import { Settings } from './settings.js';
 import { Leaderboard, renderBoardRows, renderContextRows, type BoardType } from './leaderboard.js';
 import { MatchClient } from './matchClient.js';
@@ -248,8 +249,20 @@ function wakeAudio(): void {
 
 // Pins standing before the current ball was thrown, so pinfall = before - after.
 let standingBeforeBall = 10;
-// The pin indices the active reset is carrying (handed back when it completes).
+// The pin indices the active reset is carrying. On a rerack they are handed back
+// to the dynamics when the cycle completes; on a between-balls reset they are the
+// fallen pins lifted clear, which stay kinematic and aloft (cleared) until the
+// next rerack, so they are not handed back here.
 let resetTargets: number[] | null = null;
+// The mode of the active (or just-completed) reset, so the resetting phase knows
+// whether to hand the carried pins back to the dynamics (rerack) or leave them
+// held aloft and cleared (between-balls).
+let resetMode: ResetMode = 'rerack';
+// Pins lifted clear by between-balls resets earlier in this frame and still held
+// kinematically aloft. They stay cleared off the deck until the next rerack hands
+// them back. Tracked so the rerack carries exactly the held pins home alongside
+// the freshly fallen ones.
+let clearedPins = new Set<number>();
 
 const ALIGN_STEP = 0.04;
 
@@ -355,16 +368,27 @@ function countStandingPins(): number {
 }
 
 // Start a reset cycle in the given mode, making the carried pins kinematic.
+//
+// rerack (frame end): carry all ten pins home, including any cleared pins held
+// aloft from earlier between-balls resets this frame, so the deck reads as a
+// fresh rack. between-balls: lift only the pins newly fallen on this ball clear
+// of the deck and leave them aloft; standing pins respot in place and previously
+// cleared pins stay where they are (REQ-009, REQ-021).
 function startReset(mode: ResetMode): void {
+  resetMode = mode;
   const fallen =
     mode === 'rerack'
       ? pinRackPositions().map((_, i) => i)
       : detectPins(pins, DETECTION)
           .filter((p) => !p.standing)
-          .map((p) => p.pinIndex);
+          .map((p) => p.pinIndex)
+          // Pins already lifted clear earlier in the frame are aloft, so a fresh
+          // settle reads them fallen. They are already cleared; do not re-reel them.
+          .filter((index) => !clearedPins.has(index));
   const settled = pins.pinStates().map((s) => s.position);
   if (fallen.length === 0) {
-    // Nothing to reel (a clean miss between balls): skip straight to the next shot.
+    // Nothing new to reel (a clean miss between balls): skip straight to the next
+    // shot. The rack already holds exactly the pins the next ball aims at.
     beginShot();
     return;
   }
@@ -439,6 +463,7 @@ function advanceTutorial(): void {
 function startNewGame(): void {
   game = new Game();
   phase = 'aiming';
+  clearedPins = new Set();
   renderScore();
   // Arm the first-run coach (no-op if already seen) and show its first step.
   tutorial.begin();
@@ -456,6 +481,7 @@ function startNewGame(): void {
 function startMatchFrame(): void {
   game = new Game();
   phase = 'aiming';
+  clearedPins = new Set();
   renderScore();
   startReset('rerack');
 }
@@ -1188,7 +1214,17 @@ function stepShotLoop(dt: number): void {
   } else if (phase === 'resetting') {
     pins.resetStep(reset.update(dt));
     if (reset.isComplete()) {
-      if (resetTargets) pins.endReset(resetTargets);
+      if (resetMode === 'rerack') {
+        // Frame end: every carried pin is set back on the deck under gravity, and
+        // the deck is a fresh rack again, so nothing stays cleared.
+        if (resetTargets) pins.endReset(resetTargets);
+        clearedPins = new Set();
+      } else if (resetTargets) {
+        // Between balls: the lifted pins stay kinematic and aloft (cleared off the
+        // deck) until the next rerack. Remember them so the rerack carries them
+        // home and a later between-balls settle does not try to re-reel them.
+        for (const index of resetTargets) clearedPins.add(index);
+      }
       resetTargets = null;
       beginShot();
     }
@@ -1247,24 +1283,33 @@ function recordSettledBall(standingNow: number): void {
     }
   }
 
+  // The pinsetter action for this ball (pure sequencing, src/shotLoop.ts):
+  //   rerack        frame end, or a deck-clearing ball inside a continuing frame
+  //                 (a tenth-frame strike/spare bonus), so the next ball faces a
+  //                 fresh full rack (REQ-010, REQ-007).
+  //   between-balls lift only the newly fallen pins clear and leave the standing
+  //                 ones, so the next ball aims at the remaining cluster (REQ-009).
+  //   none          the game is over.
+  const action = rackActionFor(result);
+
   // Async-match turn (REQ-053): collect this ball's pin-fall (the same dead-ball
   // aware count the solo flow scores) into the frame array. When the frame's turn
-  // is over, submit it and hand back to the hub; otherwise fall through so the
-  // Game spine's between-balls / re-rack reset readies the next ball of the frame
-  // (a strike or spare ends a normal frame before three balls; the tenth always
-  // bowls three, re-racking for its bonus balls just like the solo tenth).
+  // is over, submit it and hand back to the hub; otherwise run the same rack action
+  // the solo flow runs so the next ball of the frame faces the right deck (a strike
+  // or spare ends a normal frame before three balls; the tenth always bowls three,
+  // re-racking for its bonus balls just like the solo tenth).
   if (matchTurn) {
     const frameDone = matchTurn.accumulator.record(pinsDowned);
     if (frameDone) {
       void finishMatchFrame();
       return;
     }
-    if (result.reset !== 'none') startReset(result.reset);
+    if (action !== 'none') startReset(action);
     return;
   }
 
-  if (result.outcome === 'game-over') {
-    phase = 'over';
+  if (action === 'none') {
+    phase = phaseAfterRecord(action);
     const summary = game.summary();
     const finalScore = summary?.finalScore ?? 0;
     setStatus(`Game over. Final score ${finalScore}.`);
@@ -1276,10 +1321,10 @@ function recordSettledBall(standingNow: number): void {
     return;
   }
 
-  // The Game spine returns 'between-balls' (lift only fallen pins, REQ-009) or
-  // 'rerack' (full re-rack at frame end, REQ-010); 'none' only accompanies the
-  // game-over outcome handled above, so the remaining values are valid ResetModes.
-  if (result.reset !== 'none') startReset(result.reset);
+  // Run the rack action: a between-balls clear of the fallen pins (REQ-009) or a
+  // full re-rack (REQ-010 frame end, or a bonus-ball deck clear). startReset routes
+  // into the resetting phase, which returns to aiming for the next throw.
+  startReset(action);
 }
 
 requestAnimationFrame(frame);

@@ -38,6 +38,22 @@
 <main id="open">
   <h2>Open</h2>
 
+  <section data-q="Q-018" data-status="open">
+    <h3>Q-018: Between-balls string motion, lift fallen vs recall all</h3>
+    <dl>
+      <dt>Context</dt><dd>A playtest dot described the between-balls reset as "recall (lift) all pins, then lower only the standing ones, leaving fallen cleared". The GDD (core loop and string pinsetter) describes it differently: "only fallen pins are lifted; standing pins are left untouched (respot in place)". Both produce the identical deck end state for the next ball: the previously standing pins remain exactly where they were, and the previously fallen pins are gone. They differ only in the visible motion (lift the fallen pins, vs lift everyone then set the standing ones back down).</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li>Lift only the fallen pins clear of the deck and leave them aloft; never touch the standing pins. Matches the GDD wording exactly and is the simplest consistent motion.</li>
+          <li>Recall (lift) all ten, then lower only the standing pins back. Matches the playtester's mental model but moves standing pins the player deliberately left in place, against the GDD respot-in-place rule.</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>A. RULE 2: the GDD wins. RULE 7: prefer the simpler consistent flow. The end state the playtest actually requires (fallen cleared, standing untouched) is satisfied either way; A honours the GDD respot-in-place rule and does not disturb the standing cluster. Shipped under A.</dd>
+      <dt>Status</dt><dd>open</dd>
+      <dt>Resolution</dt><dd>(shipped under Recommended default A in the between-balls reset fix slice; left open for dev override)</dd>
+    </dl>
+  </section>
+
   <section data-q="Q-015" data-status="open">
     <h3>Q-015: Bowling an async-match frame in-browser, and copy-only handoff</h3>
     <dl>
