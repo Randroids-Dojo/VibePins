@@ -225,12 +225,22 @@ describe('crossed/tangled cords are tolerated and cleared by the next re-rack (R
     // no manual untangle; the next re-rack lifts everything and resets it).
     const settled = pins.map((b) => b.translation());
     const all = pins.map((_, i) => i);
-    for (const i of all) pins[i].setBodyType(RAPIER.RigidBodyType.KinematicPositionBased, true);
     const reset = new ResetCycle({ ...RESET, restY });
     reset.start('rerack', all, homes, settled);
+    // The cord-tension lift keeps the pins dynamic and reels the cords; the carry
+    // phases capture them kinematic and set them home. This test only needs the
+    // tangled geometry CLEARED by a full re-rack, so the lift frames elapse and the
+    // kinematic carry does the set-down (the cord reel is exercised in the reset
+    // smoke). Capture the pins kinematic at the first carry phase.
     let steps = 0;
+    let captured = false;
     while (reset.isRunning && steps < reset.totalFrames + 5) {
-      for (const t of reset.step()) {
+      const { targets } = reset.step();
+      if (reset.phase === 'reposition' && !captured) {
+        for (const i of all) pins[i].setBodyType(RAPIER.RigidBodyType.KinematicPositionBased, true);
+        captured = true;
+      }
+      for (const t of targets) {
         pins[t.pinIndex].setNextKinematicTranslation({ x: t.x, y: t.y, z: t.z });
         pins[t.pinIndex].setNextKinematicRotation(IDENTITY);
       }

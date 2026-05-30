@@ -14,7 +14,7 @@
 import { createWorld3D } from './world3d.js';
 import { PinSet, pinRackPositions } from './pins.js';
 import { Ball, ballSpawnPosition } from './ball.js';
-import { detectPins, isRackTangled, SettleWindow } from './detection.js';
+import { detectPins, isRackSnagged, SettleWindow } from './detection.js';
 import { ResetCycle, type ResetMode, type ResetPhase } from './reset.js';
 import { ShotCamera, canThrow, lineupMarkerOffset, lineupFractionFromOffset, shotMetersVisibility } from './camera.js';
 import { SweepMeter, meterBandSpan } from './meter.js';
@@ -42,7 +42,7 @@ import { MatchFrameAccumulator } from './matchFrame.js';
 import { Tutorial } from './tutorial.js';
 import { AudioEngine } from './audio.js';
 import { VictoryRoutine } from './victory.js';
-import { DETECTION, FOUL, GUTTER, LANE, PIN_REST_Y, POWER, RESET, SHOT, SHOT_CAMERA, SPIN, TANGLE, VICTORY } from './config.js';
+import { DETECTION, FOUL, GUTTER, LANE, PIN_REST_Y, POWER, RESET, SHOT, SHOT_CAMERA, SPIN, TANGLE, TETHER, VICTORY } from './config.js';
 
 const canvas = document.getElementById('lane') as HTMLCanvasElement | null;
 if (!canvas) {
@@ -258,9 +258,9 @@ let resetMode: ResetMode = 'rerack';
 // them back. Tracked so the rerack carries exactly the held pins home alongside
 // the freshly fallen ones.
 let clearedPins = new Set<number>();
-// The reset phase on the previous tick, so stepReset can act on the frame a
-// recovery sub-phase is entered (release the rack to the dynamics for the tangle
-// hang test, re-capture it kinematic before the re-lift). Reset on each cycle.
+// The reset phase on the previous tick, so stepReset can act on the frame a phase
+// is entered (capture the reeled, hanging rack kinematic when the reposition carry
+// begins). Reset on each cycle.
 let prevResetPhase: ResetPhase = 'idle';
 
 const ALIGN_STEP = 0.04;
@@ -396,9 +396,11 @@ function startReset(mode: ResetMode): void {
     return;
   }
   const settled = pins.pinStates().map((s) => s.position);
-  // Reel the whole rack. On a between-balls cycle the previously cleared pins are
-  // already kinematic and aloft; beginReset on them is harmless and keeps them
-  // held. The fallen list passed to start() marks which pins stay aloft.
+  // Reel the whole rack by the cords. beginReset just wakes the pins so the
+  // cord-tension lift acts immediately (the just-fallen and standing pins are
+  // dynamic, so the reeling rope drags them up by the neck). On a between-balls
+  // cycle the previously cleared pins are already kinematic and aloft; waking them
+  // is harmless and they hold position. The fallen list marks which stay aloft.
   const allPins = pinRackPositions().map((_, i) => i);
   const heldAloft = mode === 'rerack' ? fallen : [...new Set([...fallen, ...clearedPins])];
   pins.beginReset(allPins);
@@ -1192,55 +1194,51 @@ function reeledPins(): number[] {
   return [...reset.targets];
 }
 
-// One tick of the reset cycle, including the tangle drop-and-unwind recovery
-// (REQ-024). The pure ResetCycle drives the phase timing and the bounded retry
-// loop; this adapter wires it to the real physics so the struggle is visible and
-// the tangle verdict reads from the live sim:
+// One tick of the reset cycle (REQ-018 to REQ-021, REQ-024). The pure ResetCycle
+// drives the phase timing and the bounded snag-recovery loop; this adapter wires
+// it to the real physics so the lift is genuinely cord-tension driven and the
+// snag verdict reads from the live sim:
 //
-//   settle-hold / lift / re-lift / reposition / lower: the carried pins are
-//     kinematic and follow the cycle's targets (the strings reeling them).
-//   release: the reeled pins are lowered kinematically from the aloft clearance
-//     down to just above the deck (releaseY), a visible drop, the strings paying
-//     out.
-//   verify-clear: the lowered rack is let LOOSE on its cords (made dynamic) so it
-//     settles under gravity; a clear rack lands on its own distinct columns and
-//     stills, a tangled one piles up snagged or keeps swinging. The verdict reads
-//     that live state (isRackTangled) and feeds the cycle, which re-lifts then
-//     either sets the rack (clear, or the retry cap reached: a force-clear so the
-//     reset never hangs) or drops and unwinds again.
+//   settle-hold: the rack rests on the deck; no cord motion.
+//   lift / shake-down / shake-up: the pins stay DYNAMIC and the cords are reeled
+//     (the rope joint shortens). The constraint drags each pin up BY ITS NECK so
+//     it hangs and swings under gravity (the signature cord-tension lift), never
+//     stood upright on the deck. shake-down/shake-up only run on a genuine snag.
+//   verify-lift: at the top of the reel the live rack is read for a genuine snag
+//     (a pin whose neck failed to rise to its clearance because its cord is held
+//     low by another pin lying across it). A clean rack (the common case) reports
+//     no snag and runs NO shake; a real snag runs the bounded up/down shake.
+//   reposition / lower: the rack is captured KINEMATIC at its hanging pose and
+//     carried over the home spots and set down (the held-aloft fallen pins stay
+//     aloft, cleared, on a between-balls cycle).
 function stepReset(dt: number): void {
-  const targets = reset.update(dt);
+  const { targets, reel } = reset.update(dt);
   const phase = reset.phase;
 
-  // Entering verify-clear: the rack has been lowered to just above the deck; let
-  // it loose on its cords so the settle and the tangle read run on real physics.
-  if (phase === 'verify-clear' && prevResetPhase !== 'verify-clear') {
-    pins.releaseToDynamics(reeledPins());
-  }
-
-  // The tangle verdict: the settle window has elapsed and the cycle is paused for
-  // a read. Classify the live (loose, settled) rack and feed the cycle; it re-lifts
-  // and then either proceeds (clear / force-clear) or drops to keep unwinding.
-  if (reset.needsTangleVerdict) {
-    const tangled = isRackTangled(pins.pinStates(), RESET.liftPinY, TANGLE);
-    reset.reportTangle(tangled);
+  // The snag verdict: at the top of the cord-tension reel the cycle is paused for
+  // a read. A clean rack reports no snag (no shake); only a genuine cord snag (a
+  // pin held below its clearance) runs the up/down shake recovery, bounded by the
+  // retry cap with a force-clear so the reset can never hang.
+  if (reset.needsSnagVerdict) {
+    const snagged = isRackSnagged(pins.pinStates(), TETHER.neckLocalY, TANGLE);
+    reset.reportSnag(snagged);
     prevResetPhase = phase;
     return;
   }
 
-  // Entering re-lift: the rack is loose and resting near the deck after its drop.
-  // Re-capture it kinematic where it landed so the re-lift reels it up cleanly and
-  // the next phase starts from its new position rather than snapping back.
-  if (phase === 're-lift' && prevResetPhase !== 're-lift') {
+  // Entering the kinematic carry (reposition): the cord-tension lift (and any
+  // shake) has hung the rack aloft. Capture every reeled pin kinematic where it
+  // hangs so the carry sets it home from there rather than snapping back, and tell
+  // the cycle where each pin actually ended up.
+  if (phase === 'reposition' && prevResetPhase !== 'reposition') {
     pins.recaptureKinematic(reeledPins());
     reset.updateSettled(pins.pinStates().map((s) => s.position));
   }
 
-  // Apply the kinematic carry on every phase except verify-clear, where the rack
-  // is dynamic and physics owns its motion.
-  if (phase !== 'verify-clear') {
-    pins.resetStep(targets);
-  }
+  // The cord-tension phases reel the cords (pins dynamic); the carry phases move
+  // the captured kinematic pins.
+  if (reel.length > 0) pins.reelStep(reel);
+  if (targets.length > 0) pins.resetStep(targets);
 
   prevResetPhase = phase;
 }

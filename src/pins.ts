@@ -18,7 +18,7 @@ import RAPIER from '@dimforge/rapier3d-compat';
 import { LANE, GROUP, TETHER, PIN_PHYSICS, type Vec3 } from './config.js';
 import type { World3D } from './world3d.js';
 import type { PinKinematics } from './detection.js';
-import type { ResetTarget } from './reset.js';
+import type { ResetTarget, ReelTarget } from './reset.js';
 
 const UPRIGHT = { x: 0, y: 0, z: 0, w: 1 };
 
@@ -92,9 +92,17 @@ const _neck = new THREE.Vector3();
 interface Pin {
   readonly mesh: THREE.Mesh;
   readonly body: RAPIER.RigidBody;
-  // Fixed, collider-less overhead anchor the cord hangs from. Stored so a later
-  // reset slice can reel it in; not added to the scene (it is invisible).
+  // Fixed, collider-less overhead anchor the cord hangs from. Not added to the
+  // scene (it is invisible).
   readonly anchorBody: RAPIER.RigidBody;
+  // The rope joint between the pin neck and the anchor. Mutable so the reset can
+  // reel the cord in (shorten its max length) to drag the pin up by the neck. A
+  // rope joint's length is not settable at runtime in the compat build, so a reel
+  // step removes this joint and creates a shorter one in its place.
+  joint: RAPIER.ImpulseJoint;
+  // The current rope length, so a reel step skips the remove/recreate when the
+  // length is unchanged (the common case once a phase holds at one length).
+  ropeLength: number;
   // Visual cord: vertex 0 is the static anchor, vertex 1 tracks the pin neck.
   readonly cord: THREE.Line;
 }
@@ -163,7 +171,7 @@ export class PinSet {
       );
       // Slack rope joint: neck (on the pin) to the anchor origin. Slack until the
       // distance hits slackLength, so pins fall and collide freely (REQ-014).
-      this.world.physics.createImpulseJoint(
+      const joint = this.world.physics.createImpulseJoint(
         RAPIER.JointData.rope(TETHER.slackLength, neckLocal, { x: 0, y: 0, z: 0 }),
         body,
         anchorBody,
@@ -187,7 +195,7 @@ export class PinSet {
       cord.frustumCulled = false;
       this.world.scene.add(cord);
 
-      this.pins.push({ mesh, body, anchorBody, cord });
+      this.pins.push({ mesh, body, anchorBody, joint, ropeLength: TETHER.slackLength, cord });
     }
   }
 
@@ -209,15 +217,40 @@ export class PinSet {
     });
   }
 
-  // Make the given pins kinematic so the reset cycle can carry them by their
-  // cords. Their tether joints go inert while kinematic; the rendered cords still
-  // follow each pin neck. Call once at the start of a reset.
+  // Begin a reset. The cord-tension lift keeps the pins DYNAMIC (the cord reels
+  // them up by the neck, gravity makes them hang and swing), so this just wakes
+  // them so the reeling cord acts immediately. No teleport, no snap-upright.
   beginReset(pinIndices: readonly number[]): void {
-    for (const i of pinIndices) this.pins[i].body.setBodyType(RAPIER.RigidBodyType.KinematicPositionBased, true);
+    for (const i of pinIndices) this.pins[i].body.wakeUp();
+  }
+
+  // Reel each pin's cord to the given length (REQ-024 cord-tension lift). As the
+  // rope's max length shortens below the anchor-to-neck distance, the constraint
+  // drags the pin up BY ITS NECK; the belly-heavy pin hangs base-down and swings
+  // under gravity. The rope joint's length is not settable at runtime in the
+  // compat build, so a length change removes the joint and creates a shorter one
+  // in its place (skipped when the length is unchanged, the common steady-state).
+  reelStep(reels: readonly ReelTarget[]): void {
+    const neckLocal = neckLocalAnchor();
+    for (const reel of reels) {
+      const pin = this.pins[reel.pinIndex];
+      if (pin.ropeLength === reel.ropeLength) continue;
+      this.world.physics.removeImpulseJoint(pin.joint, true);
+      pin.joint = this.world.physics.createImpulseJoint(
+        RAPIER.JointData.rope(reel.ropeLength, neckLocal, { x: 0, y: 0, z: 0 }),
+        pin.body,
+        pin.anchorBody,
+        true,
+      );
+      pin.ropeLength = reel.ropeLength;
+      pin.body.wakeUp();
+    }
   }
 
   // Apply one step of reset targets: carry each targeted pin to the given centre,
-  // upright. Pins not in the target list are untouched (respot in place, REQ-021).
+  // upright. Used only for the kinematic reposition / lower phases, after the
+  // cord-tension lift has hung the rack aloft. Pins not in the target list are
+  // untouched (respot in place, REQ-021).
   resetStep(targets: readonly ResetTarget[]): void {
     for (const target of targets) {
       const body = this.pins[target.pinIndex].body;
@@ -226,32 +259,43 @@ export class PinSet {
     }
   }
 
-  // Release the given carried pins to the dynamics WHERE THEY ARE (no teleport,
-  // no zeroed velocity), so the real rope joints and pin-to-pin collisions act on
-  // them. Used by the tangle drop-and-unwind recovery (REQ-024): a snagged cluster
-  // dropped this way swings and unwinds under gravity instead of being scripted.
-  // Unlike endReset this keeps the pin's current motion so the drop reads as the
-  // strings paying out, not a hard reset.
-  releaseToDynamics(pinIndices: readonly number[]): void {
-    for (const i of pinIndices) this.pins[i].body.setBodyType(RAPIER.RigidBodyType.Dynamic, true);
-  }
-
-  // Re-capture the given pins as kinematic at their current pose so the reset can
-  // reel them back up from wherever the release left them. The counterpart to
-  // releaseToDynamics in the recovery loop (REQ-024): after gravity has swung the
-  // dropped pins, this freezes them so the re-lift carries them up cleanly.
+  // Capture the given pins as kinematic at their current hanging pose so the reset
+  // can carry them home cleanly after the cord-tension lift (the reposition /
+  // lower phases). Snaps the cord back to slack so the now-kinematic carry is not
+  // fighting a short rope.
   recaptureKinematic(pinIndices: readonly number[]): void {
-    for (const i of pinIndices) this.pins[i].body.setBodyType(RAPIER.RigidBodyType.KinematicPositionBased, true);
+    for (const i of pinIndices) {
+      const pin = this.pins[i];
+      pin.body.setBodyType(RAPIER.RigidBodyType.KinematicPositionBased, true);
+      this.restoreCord(pin);
+    }
   }
 
-  // Hand the given pins back to the dynamics, at rest. Call when the reset
-  // completes; the pins are then standing on their home spots under gravity.
+  // Restore a pin's cord to its at-throw slack length (the inverse of reeling it
+  // in). Used when a pin is handed back to play or captured for the carry so it is
+  // not left on a short reeled rope.
+  private restoreCord(pin: Pin): void {
+    if (pin.ropeLength === TETHER.slackLength) return;
+    this.world.physics.removeImpulseJoint(pin.joint, true);
+    pin.joint = this.world.physics.createImpulseJoint(
+      RAPIER.JointData.rope(TETHER.slackLength, neckLocalAnchor(), { x: 0, y: 0, z: 0 }),
+      pin.body,
+      pin.anchorBody,
+      true,
+    );
+    pin.ropeLength = TETHER.slackLength;
+  }
+
+  // Hand the given pins back to the dynamics, at rest, with their cords restored
+  // to slack. Call when the reset completes; the pins are then standing on their
+  // home spots under gravity, free on slack cords as in normal play.
   endReset(pinIndices: readonly number[]): void {
     for (const i of pinIndices) {
-      const body = this.pins[i].body;
-      body.setBodyType(RAPIER.RigidBodyType.Dynamic, true);
-      body.setLinvel({ x: 0, y: 0, z: 0 }, true);
-      body.setAngvel({ x: 0, y: 0, z: 0 }, true);
+      const pin = this.pins[i];
+      this.restoreCord(pin);
+      pin.body.setBodyType(RAPIER.RigidBodyType.Dynamic, true);
+      pin.body.setLinvel({ x: 0, y: 0, z: 0 }, true);
+      pin.body.setAngvel({ x: 0, y: 0, z: 0 }, true);
     }
   }
 

@@ -1,0 +1,20 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>tune: tangle drop-and-unwind recovery feel (TANGLE tunables) against playtest</title>
+<meta name="dot-title" content="tune: tangle drop-and-unwind recovery feel (TANGLE tunables) against playtest">
+<meta name="dot-status" content="open">
+<meta name="dot-priority" content="3">
+<meta name="dot-issue-type" content="task">
+<meta name="dot-created-at" content="2026-05-30T00:10:14.839182-05:00">
+</head>
+<body>
+<article>
+<h1>tune: tangle drop-and-unwind recovery feel (TANGLE tunables) against playtest</h1>
+<section id="description">
+Playtest follow-up to REQ-024 / F-014 / Q-021. The reset was reworked to a cord-tension lift (pins reeled up by the neck, dangling/swinging) with tangles made rare and genuine (only when a downed pin lies across another pin's cord so a pin cannot reel to clearance). The drop-and-unwind tunables this dot originally tracked (releaseY, verifyFrames, pileDistance, isRackTangled) were deleted. Re-pointed: playtest and re-tune the NEW tunables in the single RESET / TANGLE config block: the lifted rope length (RESET.liftRopeLength 1.85m, how high/how the dangle reads), the genuine-snag read (TANGLE.clearanceTolerance 0.5m, how rarely the shake fires), and the up/down shake (shakeRopeLength 2.4m, shakeDownFrames/shakeUpFrames 24, maxRetries 4), plus isRackSnagged. Confirm a clean rack never shakes and the dangle reads as strings. Record the resolution on Q-021 (supersedes Q-020).
+</section>
+</article>
+</body>
+</html>

@@ -1,0 +1,22 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>fix: reset lift must be cord-tension-driven (pins hang and swing up by the neck), not snap upright</title>
+<meta name="dot-title" content="fix: reset lift must be cord-tension-driven (pins hang and swing up by the neck), not snap upright">
+<meta name="dot-status" content="closed">
+<meta name="dot-priority" content="1">
+<meta name="dot-issue-type" content="task">
+<meta name="dot-created-at" content="2026-05-30T00:36:57.087924-05:00">
+<meta name="dot-closed-at" content="2026-05-30T00:51:28.957491-05:00">
+<meta name="dot-close-reason" content="Reworked the lift to genuine cord-tension: pins stay dynamic and the rope joint reels in (PinSet.reelStep), dragging each pin up by the neck so it hangs/swings under gravity. Removed the snap-to-upright settle-hold. Proven by a real-Rapier smoke (a lifting pin&#39;s centre hangs below its neck anchor and swings).">
+</head>
+<body>
+<article>
+<h1>fix: reset lift must be cord-tension-driven (pins hang and swing up by the neck), not snap upright</h1>
+<section id="description">
+Playtest + research. Real string pinsetters lift each pin by the cord attached at its NECK: a downed pin is dragged up by the neck and DANGLES from the string, swinging, righting itself base-down under gravity as it rises. It is never stood upright on the deck first. Current reset (src/reset.ts settle-hold + pinTargetFor) snaps the pin upright at its settled spot then elevates it, which looks wrong. Rework the lift so the pin is raised by its neck via cord tension and hangs/swings from the string (keep the pin dynamic and reel in the cord / pull the neck anchor up so Rapier lifts it, OR target the neck point rising with the body hanging below and free to swing), with the rendered cord taut from anchor to neck. Remove the snap-to-upright. The pin should visibly dangle and swing on the way up, then be carried over its home spot and lowered. Update GDD 03-string-pinsetter pillar-2 lift description. Add a real-Rapier test asserting a lifted pin hangs below its neck anchor and swings (not instantly upright). Pairs with the tangle-rarity fix [[tangle]].
+</section>
+</article>
+</body>
+</html>

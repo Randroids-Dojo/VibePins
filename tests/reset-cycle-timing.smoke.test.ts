@@ -115,19 +115,32 @@ function runLiveCycle(): { settleFrames: number; resetFrames: number; phaseOrder
   // measured against a re-rack of all ten.
   const all = pins.map((_, i) => i);
   const settledPositions = pins.map((b) => b.translation());
-  for (const i of all) pins[i].setBodyType(RAPIER.RigidBodyType.KinematicPositionBased, true);
+  // The cord-tension lift keeps the pins dynamic (the cord reels them up); the
+  // carry phases capture them kinematic. This smoke measures the cycle's FRAME
+  // COUNTS (REQ-018 timing), so the lift frames simply elapse and the carry frames
+  // run the kinematic set-down; the cord reel itself is exercised by the
+  // cord-tension lift smoke, not here.
   const reset = new ResetCycle(cfg);
   reset.start('rerack', all, homes, settledPositions);
 
   const phaseOrder: ResetPhase[] = [];
   let last: ResetPhase | null = null;
   let resetFrames = 0;
+  let captured = false;
   while (reset.isRunning) {
     if (reset.phase !== last) {
       phaseOrder.push(reset.phase);
       last = reset.phase;
     }
-    for (const t of reset.step()) {
+    const { targets } = reset.step();
+    // At the first carry phase, capture the pins kinematic (the reposition/lower
+    // carry). The cord-tension lift itself is timing-only here, so the lift frames
+    // simply elapse; the cycle's frame counts are what this smoke measures.
+    if (reset.phase === 'reposition' && !captured) {
+      for (const i of all) pins[i].setBodyType(RAPIER.RigidBodyType.KinematicPositionBased, true);
+      captured = true;
+    }
+    for (const t of targets) {
       pins[t.pinIndex].setNextKinematicTranslation({ x: t.x, y: t.y, z: t.z });
       pins[t.pinIndex].setNextKinematicRotation(IDENTITY);
     }

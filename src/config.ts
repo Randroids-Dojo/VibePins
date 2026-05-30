@@ -598,54 +598,57 @@ export const DETECTION = {
 // window. These are first-pass values for the playtest gate.
 export const RESET = {
   settleHoldFrames: 18, // ~0.30s legibility beat before the strings move
-  liftFrames: 72, //       ~1.20s raise the fallen pins straight up off the deck
+  liftFrames: 72, //       ~1.20s reel the pins up by their neck cords (cord-tension)
   repositionFrames: 60, // ~1.00s carry the raised pins over their home spots
   lowerFrames: 72, //      ~1.20s lower the pins back onto their home spots
   // Carried pin centre height. Above the standing pins (pinHeight) so a lifted
   // pin clears them as it travels: liftPinY - pinHeight/2 > pinHeight.
   liftPinY: 0.6,
+  // Cord-tension lift geometry (the signature feel). The reel-up shortens each
+  // pin's rope joint from the at-throw slack down to liftRopeLength, dragging the
+  // pin up BY ITS NECK so it hangs and swings under gravity (it is never stood
+  // upright on the deck first). slackRopeLength matches TETHER.slackLength so the
+  // lift begins from the cord's real rest slack. liftRopeLength is short enough
+  // that the neck is pulled up near the overhead anchor (TETHER.topY) and the pin
+  // dangles clear of the deck: anchor topY 2.5 minus liftRopeLength ~1.85 puts the
+  // neck near ~0.65m, with the belly-heavy pin hanging base-down below it.
+  slackRopeLength: TETHER.slackLength,
+  liftRopeLength: 1.85,
 } as const;
 
-// Tangle drop-and-unwind recovery during the reset (GDD 03-string-pinsetter,
-// REQ-024). When the rack reaches the top of the lift, the machine checks that
-// every reeled pin hangs clear and still (untangled, at its aloft clearance).
-// A real string machine cannot finish the recall while pins are still snagged in
-// each other's cords, so it pays the strings out a little, lets gravity swing and
-// unwind the cluster, then reels back up and re-checks, repeating until the rack
-// hangs clear. VibePins reproduces this as a visible recovery loop: on a detected
-// tangle the held pins drop partway to releaseY (paying out slack), the sim runs
-// for releaseFrames so collisions and gravity untangle them, then they re-lift
-// over reLiftFrames and the rack is re-checked. The loop is bounded by maxRetries
-// retries; if the rack is still tangled at the cap the machine force-clears (sets
-// the pins anyway) so the reset can never hang or deadlock. These are first-pass
-// values for the playtest gate (Q-010).
+// Tangle up/down shake recovery during the reset (GDD 03-string-pinsetter,
+// REQ-024). Research (real string machines) and the product-owner playtest: a
+// genuine tangle is RARE, less than once per ~1000 frames, and only happens when
+// a downed pin lies across another pin's cord so the cords snag during the
+// cord-tension reel-up and a pin cannot rise to its clearance height. A clean
+// rack reels straight up with NO shake. ONLY on a genuine snag does the machine
+// run an up/down shake: it pays the cords back out a little (the snagged cluster
+// drops), lets gravity swing the snag loose, then reels back up and re-checks.
+// The loop is bounded by maxRetries; at the cap the machine force-clears (sets the
+// rack regardless) so the reset can never hang. These are first-pass values for
+// the playtest gate (Q-010).
 export const TANGLE = {
-  // Settle window (frames) the lowered rack is let loose on its cords so it lands
-  // and stills before the tangle read (~0.50s). The short soft drop from releaseY
-  // settles a clean rack well inside this; the detection reads the live sim at the
-  // end of it.
-  verifyFrames: 30,
-  // How far the held pins are lowered on a release (pin centre height). Below
-  // liftPinY so the drop is visible, just above the deck so the let-loose cluster
-  // settles softly (a gentle drop) rather than slamming down and rocking. The
-  // cords pay out and gravity does the unwinding.
-  releaseY: 0.32,
-  // Frames to lower the held pins from liftPinY down to releaseY (~0.50s), the
-  // visible paying-out of the strings before the rack is let loose.
-  releaseFrames: 30,
-  // Frames to reel the dropped pins back up to liftPinY before the next check
-  // (~0.40s). Snappy so the struggle reads as repeated tugs, not a slow crawl.
-  reLiftFrames: 24,
-  // Retry cap: after this many drop-and-unwind attempts the machine force-clears
-  // (proceeds to set the rack regardless) so the reset is always bounded.
+  // The rope length the cords pay back out to on a shake-down (longer than
+  // RESET.liftRopeLength, so the snagged pins visibly drop and swing). Shorter
+  // than the full slack so the rack stays aloft, not back on the deck.
+  shakeRopeLength: 2.4,
+  // Frames to pay the cords out on a shake (~0.40s): the visible drop.
+  shakeDownFrames: 24,
+  // Frames to reel back up after a shake (~0.40s): the re-tug. Snappy so the
+  // struggle reads as repeated tugs, not a slow crawl.
+  shakeUpFrames: 24,
+  // Retry cap: after this many up/down shakes the machine force-clears (sets the
+  // rack regardless) so the reset is always bounded.
   maxRetries: 4,
-  // Tangle read thresholds (REQ-024). The rack reads tangled if any two pins piled
-  // within pileDistance (a crossed-cord snag dragged them together; well under the
-  // pinSpacing of ~0.30m a clean rack keeps) or any pin is still swinging/colliding
-  // above the at-rest speeds.
-  pileDistance: 0.12,
-  atRestLinSpeed: 0.2,
-  atRestAngSpeed: 0.6,
+  // Genuine-snag read (REQ-024). After the cord-tension reel-up, a pin whose neck
+  // failed to rise to within clearanceTolerance of the lifted clearance height is
+  // genuinely snagged: its cord is held low by another pin lying across it, so it
+  // could not be reeled up. A clean rack lifts every pin to the clearance, so this
+  // never fires; only a real cord snag leaves a pin held low. The clearance height
+  // is the lifted neck height (anchor TETHER.topY minus RESET.liftRopeLength); a
+  // pin reeled to its cord limit hangs its neck near that height.
+  clearanceNeckY: TETHER.topY - RESET.liftRopeLength,
+  clearanceTolerance: 0.5,
 } as const;
 
 // A pin's centre height at rest on the deck (base on the deck surface). Single

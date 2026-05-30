@@ -359,7 +359,7 @@
     },
     {
       "id": "REQ-024",
-      "requirement": "Crossed/tangled cords are tolerated visually without the simulation deadlocking; next re-rack clears geometry. Extended into an observable drop-and-unwind recovery loop on the reset: a tangled recall lowers the rack and lets it loose so gravity unwinds it, retries bounded by a cap, then sets the pins.",
+      "requirement": "Crossed/tangled cords are tolerated visually without the simulation deadlocking; next re-rack clears geometry. The reset lift is genuinely cord-tension driven (pins reeled up by the neck, hanging and swinging under gravity, never snapped upright). Tangles are RARE and GENUINE: only when a downed pin lies across another pin's cord so a pin cannot reel to its clearance height. A clean rack reels straight up with no shake; only a genuine snag runs a bounded up/down motor shake recovery, force-clearing at the retry cap.",
       "gddRef": "docs/gdd/03-string-pinsetter.html#tangle-drop-unwind",
       "status": "done",
       "implementationRefs": [
@@ -372,6 +372,7 @@
       "testRefs": [
         "tests/yank.smoke.test.ts",
         "tests/reset.test.ts",
+        "tests/reset.smoke.test.ts",
         "tests/tangle-recovery.smoke.test.ts"
       ],
       "followupRefs": []
