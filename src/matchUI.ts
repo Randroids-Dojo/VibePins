@@ -57,6 +57,23 @@ export function handoffLink(origin: string, matchId: string): string {
   return `${base}/?${MATCH_PARAM}=${encodeURIComponent(matchId)}`;
 }
 
+// The native-share payload for the handoff link (REQ-050, F-009). Pure: the link
+// in, a `navigator.share`-shaped object out, so the shell can hand it straight to
+// the Web Share API. Title and text give the share sheet a friendly preview; the
+// url is the same id-only handoff link `handoffLink` builds (never the secret).
+export interface HandoffShareData {
+  title: string;
+  text: string;
+  url: string;
+}
+export function handoffShareData(link: string): HandoffShareData {
+  return {
+    title: 'VibePins duckpin match',
+    text: "It's your turn to bowl in our VibePins match.",
+    url: link,
+  };
+}
+
 // Read the match id a recipient opened from the page URL (REQ-055 join via link).
 // `search` is the raw location.search (injected for testability). Returns the id,
 // or null when the param is absent or empty.

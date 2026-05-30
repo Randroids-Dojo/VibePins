@@ -30,6 +30,7 @@ import { MatchClient } from './matchClient.js';
 import {
   matchViewMode,
   handoffLink,
+  handoffShareData,
   matchIdFromSearch,
   waitingHeadline,
   renderLobbyRows,
@@ -851,6 +852,27 @@ function copyToClipboard(text: string, button: HTMLButtonElement | null): void {
   document.body.removeChild(scratch);
 }
 
+// Hand the match link off through the OS share sheet when the Web Share API is
+// available (F-009), degrading cleanly to the clipboard copy on platforms that do
+// not support it (for example most desktop browsers). navigator.share resolves on
+// a successful share and rejects on cancel or failure; either way we do nothing
+// further on the share path. Only when the API is absent do we fall back to copy,
+// so a user who dismisses the share sheet does not also get a surprise copy.
+function shareHandoff(link: string, button: HTMLButtonElement | null): void {
+  const data = handoffShareData(link);
+  const nav = navigator as Navigator & {
+    share?: (d: ShareData) => Promise<void>;
+    canShare?: (d: ShareData) => boolean;
+  };
+  if (typeof nav.share === 'function' && (typeof nav.canShare !== 'function' || nav.canShare(data))) {
+    nav.share(data).catch(() => {
+      // Share cancelled or failed: leave the link visible, no fallback copy.
+    });
+    return;
+  }
+  copyToClipboard(link, button);
+}
+
 menuMatchBtn?.addEventListener('click', () => {
   wakeAudio();
   audio.playClick();
@@ -888,7 +910,7 @@ matchBowlBtn?.addEventListener('click', () => {
 
 matchShareBtn?.addEventListener('click', () => {
   audio.playClick();
-  if (matchClient.match) copyToClipboard(handoffLink(window.location.href, matchClient.match.id), matchShareBtn);
+  if (matchClient.match) shareHandoff(handoffLink(window.location.href, matchClient.match.id), matchShareBtn);
 });
 
 matchRefreshBtn?.addEventListener('click', () => {
