@@ -16,6 +16,7 @@
 
 import { Redis } from '@upstash/redis';
 import { scoreGame, type GameFrames } from '../src/scoring.js';
+import { leaderboardQuerySchema, leaderboardSubmitSchema, parse } from './schemas.js';
 
 // Minimal shapes for the Vercel Node request/response so this file type-checks
 // without pulling in @vercel/node (not a project dependency).
@@ -162,11 +163,23 @@ function parseEntries(raw: unknown[]): BoardEntry[] {
 }
 
 async function handleGet(req: LeaderboardRequest, res: LeaderboardResponse): Promise<LeaderboardResponse> {
-  const type = firstParam(req.query.type) === 'daily' ? 'daily' : 'alltime';
-  const limitParam = parseInt(firstParam(req.query.limit) ?? '20', 10);
-  const count = Math.min(Number.isFinite(limitParam) && limitParam > 0 ? limitParam : 20, MAX_ENTRIES);
+  // Collapse repeated query params to their first value, then validate the shape
+  // and bounds through zod (REQ-064). A malformed limit (non-numeric or
+  // non-positive) is rejected here rather than silently defaulted.
+  const query = {
+    type: firstParam(req.query.type),
+    limit: firstParam(req.query.limit),
+    name: firstParam(req.query.name),
+    mode: firstParam(req.query.mode),
+  };
+  const parsed = parse(leaderboardQuerySchema, query);
+  if (!parsed.ok) {
+    return res.status(400).json({ error: parsed.error });
+  }
+  const type = parsed.data.type === 'daily' ? 'daily' : 'alltime';
+  const count = Math.min(parsed.data.limit ?? 20, MAX_ENTRIES);
   const key = type === 'daily' ? todayKey() : ALLTIME_KEY;
-  const name = firstParam(req.query.name);
+  const name = parsed.data.name;
 
   // Without a name we only need the top slice. With one we read the whole capped
   // board so we can place the player in context (REQ-062); the board is capped at
@@ -181,14 +194,19 @@ async function handleGet(req: LeaderboardRequest, res: LeaderboardResponse): Pro
 }
 
 async function handlePost(req: LeaderboardRequest, res: LeaderboardResponse): Promise<LeaderboardResponse> {
-  const body = (req.body ?? {}) as { name?: unknown; frames?: unknown; source?: unknown };
+  // zod validates the wire SHAPE and bounds (frames is a 1..10 array of 1..3
+  // balls each in [0,10], name/source are optional strings); scoreGame remains
+  // the scoring AUTHORITY that ranks the board (REQ-059). An oversized or
+  // out-of-range payload is rejected here before it reaches the scorer.
+  const parsed = parse(leaderboardSubmitSchema, req.body ?? {});
+  if (!parsed.ok) {
+    return res.status(400).json({ error: parsed.error });
+  }
+  const body = parsed.data;
 
   // The wire format is the per-frame ball sequence, never a client-claimed
   // total. The server recomputes the duckpin score and rejects an impossible
   // or incomplete line (REQ-059).
-  if (!Array.isArray(body.frames)) {
-    return res.status(400).json({ error: 'frames must be an array of per-frame ball counts' });
-  }
   const result = scoreGame(body.frames as GameFrames);
   if (!result.valid) {
     return res.status(400).json({ error: result.error ?? 'invalid game' });

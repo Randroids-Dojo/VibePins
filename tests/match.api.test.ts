@@ -310,6 +310,81 @@ describe('PATCH submit turn', () => {
   });
 });
 
+// REQ-064: the match wire boundary is zod-validated. These cover the schema
+// rejection paths (malformed shape, out-of-range bounds) that must 400 before
+// the request reaches the pure match model or the store.
+describe('zod payload validation (REQ-064)', () => {
+  it('rejects a non-integer seatCount on create with 400 and never writes', async () => {
+    const res = makeRes();
+    await handler({ method: 'POST', query: {}, body: { name: 'Ann', seatCount: 2.5 } }, res);
+    expect(res.statusCode).toBe(400);
+    expect(mockSet).not.toHaveBeenCalled();
+  });
+
+  it('rejects an out-of-range seatCount on create', async () => {
+    const res = makeRes();
+    await handler({ method: 'POST', query: {}, body: { name: 'Ann', seatCount: 99 } }, res);
+    expect(res.statusCode).toBe(400);
+    expect(mockSet).not.toHaveBeenCalled();
+  });
+
+  it('rejects a non-string name on create', async () => {
+    const res = makeRes();
+    await handler({ method: 'POST', query: {}, body: { name: 12345 } }, res);
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('rejects a frame out of the 1..10 range on submit with 400', async () => {
+    const { id, s1 } = await makeActiveMatch();
+    const res = makeRes();
+    await handler(
+      { method: 'PATCH', query: { id }, headers: { 'x-match-secret': s1 }, body: { frame: 11, balls: [3, 4, 0] } },
+      res,
+    );
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('rejects a non-integer frame on submit', async () => {
+    const { id, s1 } = await makeActiveMatch();
+    const res = makeRes();
+    await handler(
+      { method: 'PATCH', query: { id }, headers: { 'x-match-secret': s1 }, body: { frame: 1.5, balls: [3, 4, 0] } },
+      res,
+    );
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('rejects an out-of-range ball pinfall on submit', async () => {
+    const { id, s1 } = await makeActiveMatch();
+    const res = makeRes();
+    await handler(
+      { method: 'PATCH', query: { id }, headers: { 'x-match-secret': s1 }, body: { frame: 1, balls: [99, 0, 0] } },
+      res,
+    );
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('rejects a frame with more than three balls on submit', async () => {
+    const { id, s1 } = await makeActiveMatch();
+    const res = makeRes();
+    await handler(
+      { method: 'PATCH', query: { id }, headers: { 'x-match-secret': s1 }, body: { frame: 1, balls: [1, 1, 1, 1] } },
+      res,
+    );
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('rejects a non-array balls value on submit', async () => {
+    const { id, s1 } = await makeActiveMatch();
+    const res = makeRes();
+    await handler(
+      { method: 'PATCH', query: { id }, headers: { 'x-match-secret': s1 }, body: { frame: 1, balls: 'oops' } },
+      res,
+    );
+    expect(res.statusCode).toBe(400);
+  });
+});
+
 describe('unsupported methods and errors', () => {
   it('returns 405 for anything else', async () => {
     const res = makeRes();

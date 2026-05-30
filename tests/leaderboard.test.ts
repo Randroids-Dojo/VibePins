@@ -261,6 +261,80 @@ describe('POST', () => {
   });
 });
 
+// REQ-064: the wire boundary is zod-validated. These cover the schema rejection
+// paths (malformed shape, out-of-range bounds, oversized payloads) that must 400
+// before the request reaches the scoring layer or the store.
+describe('zod payload validation (REQ-064)', () => {
+  it('rejects a non-array frames value with 400 and never writes', async () => {
+    const res = makeRes();
+    await handler({ method: 'POST', query: {}, body: { name: 'X', frames: 'not-an-array' } }, res);
+    expect(res.statusCode).toBe(400);
+    expect(mockZadd).not.toHaveBeenCalled();
+  });
+
+  it('rejects a ball pinfall above ten before it reaches the scorer', async () => {
+    const res = makeRes();
+    const overRange = Array.from({ length: 10 }, () => [11, 0, 0]);
+    await handler({ method: 'POST', query: {}, body: { name: 'X', frames: overRange } }, res);
+    expect(res.statusCode).toBe(400);
+    expect(mockZadd).not.toHaveBeenCalled();
+  });
+
+  it('rejects a negative ball pinfall', async () => {
+    const res = makeRes();
+    const negative = Array.from({ length: 10 }, () => [-1, 0, 0]);
+    await handler({ method: 'POST', query: {}, body: { name: 'X', frames: negative } }, res);
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('rejects a non-integer ball pinfall', async () => {
+    const res = makeRes();
+    const fractional = Array.from({ length: 10 }, () => [3.5, 3, 0]);
+    await handler({ method: 'POST', query: {}, body: { name: 'X', frames: fractional } }, res);
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('rejects an oversized frames array (more than ten frames)', async () => {
+    const res = makeRes();
+    const tooMany = Array.from({ length: 11 }, () => [3, 3, 0]);
+    await handler({ method: 'POST', query: {}, body: { name: 'X', frames: tooMany } }, res);
+    expect(res.statusCode).toBe(400);
+    expect(mockZadd).not.toHaveBeenCalled();
+  });
+
+  it('rejects a frame with more than three balls', async () => {
+    const res = makeRes();
+    const fatFrame = [[1, 1, 1, 1], ...Array.from({ length: 9 }, () => [3, 3, 0])];
+    await handler({ method: 'POST', query: {}, body: { name: 'X', frames: fatFrame } }, res);
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('rejects an absurdly oversized name string', async () => {
+    const res = makeRes();
+    await handler({ method: 'POST', query: {}, body: { name: 'x'.repeat(5000), frames: COMPLETE_GAME } }, res);
+    expect(res.statusCode).toBe(400);
+    expect(mockZadd).not.toHaveBeenCalled();
+  });
+
+  it('rejects a non-numeric limit on the GET query', async () => {
+    const res = makeRes();
+    await handler({ method: 'GET', query: { limit: 'lots' } }, res);
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('rejects a non-positive limit on the GET query', async () => {
+    const res = makeRes();
+    await handler({ method: 'GET', query: { limit: '0' } }, res);
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('still accepts a well-formed limit and name (no regression)', async () => {
+    const res = makeRes();
+    await handler({ method: 'GET', query: { limit: '5', name: 'Ann', type: 'daily' } }, res);
+    expect(res.statusCode).toBe(200);
+  });
+});
+
 describe('unsupported methods', () => {
   it('returns 405 for anything else', async () => {
     const res = makeRes();

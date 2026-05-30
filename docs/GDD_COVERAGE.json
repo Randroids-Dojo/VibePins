@@ -1040,8 +1040,9 @@
       "id": "REQ-064",
       "requirement": "A Vercel serverless plus Upstash Redis backend with zod-validated payloads serves both multiplayer and the leaderboard",
       "gddRef": "docs/gdd/06-reuse-and-tech.html#async-backend",
-      "status": "partial",
+      "status": "done",
       "implementationRefs": [
+        "api/schemas.ts",
         "api/leaderboard.ts",
         "api/match.ts",
         "src/match.ts"
@@ -1054,7 +1055,7 @@
         "tests/match.smoke.test.ts"
       ],
       "followupRefs": [],
-      "note": "A Vercel serverless plus Upstash Redis backend serves both the leaderboard (api/leaderboard.ts) and async multiplayer matches (api/match.ts, vibepins:match: keyspace, full create/join/resume/submit/complete loop shipped). Every write is validated at the wire boundary with pure model logic (the shared scoreGame engine for score lines, the pure src/match.ts transitions for match writes), rejecting impossible pin counts (REQ-059 done) and out-of-turn submissions (REQ-049 done). Kept partial deliberately: the GDD text says 'zod-validated payloads' and the shipped backend hand-validates instead (zod is not a project dependency; adding it is reserved by RULE 3 and brings no behavioural gain). The functional requirement is met; only the literal library wording diverges. Decision recorded in OPEN_QUESTIONS Q-017 (resolved, option A: keep hand-validation)."
+      "note": "A Vercel serverless plus Upstash Redis backend serves both the leaderboard (api/leaderboard.ts) and async multiplayer matches (api/match.ts, vibepins:match: keyspace, full create/join/resume/submit/complete loop shipped). Request payloads are now zod-validated at the wire boundary (api/schemas.ts), matching the GDD text literally: the leaderboard POST submit (name, frames as a 1..10 array of 1..3 pinfalls in [0,10], source) and GET query (type/limit/name/mode), the match POST create/join bodies (name, seatCount in [MIN,MAX]) and PATCH submitTurn body (frame in [1,10], balls, id/secret). zod is the outer shape/bounds gate; the pure scoreGame engine stays the scoring AUTHORITY that ranks the board (REQ-059) and the pure src/match.ts transitions stay the turn-order/scoring authority (REQ-049, REQ-053). zod encodes (does not loosen) the existing clamps; a malformed, oversized, or out-of-range payload returns 400 before reaching the scorer or the store. Rejection paths are covered in tests/leaderboard.test.ts and tests/match.api.test.ts ('zod payload validation (REQ-064)'). Decision recorded in OPEN_QUESTIONS Q-017 (resolved, decision: add zod, superseding the earlier option-A note)."
     }
   ]
 }
