@@ -583,9 +583,12 @@ export function machineRoomParts(): {
 // down-lane from the rack so the eye reads a track the ball came up. Sizes are
 // tunable here so the return can be re-staged from one place (REQ-025).
 export const BALL_RETURN = {
-  // Centre x of the return assembly: just outside the approach floor edge on the
-  // throwing-hand (+x) side, so it frames the bowler without sitting on the walk-up.
-  centerX: (LANE.width + 0.6) / 2 + 0.22,
+  // Centre x of the return assembly: in the band on the throwing-hand (+x) side
+  // between the gutter and the machine-room side wall, so the whole rig reads
+  // clear of the lane yet stays in front of the wall (not buried in it). The
+  // widest part is the rack (rackSize.x), so this midpoint keeps the rack inner
+  // edge outboard of the gutter and its outer edge inboard of the wall inner face.
+  centerX: (LANE.width / 2 + LANE.gutterWidth + (MACHINE_ROOM.wallHalfX - MACHINE_ROOM.wallThickness)) / 2,
   // The polished rails the ball rides: two parallel runners with a ball-width gap.
   railHalfX: 0.04, //          half-width of each runner
   railGap: 0.09, //            inner gap between the two runners (just under a ball)

@@ -7,13 +7,17 @@
 // geometry here is the meaningful coverage (mirrors tests/machine-room.test.ts).
 
 import { describe, it, expect } from 'vitest';
-import { LANE, SHOT_CAMERA, BALL_RETURN, ballReturnParts } from '../src/config.js';
+import { LANE, SHOT_CAMERA, BALL_RETURN, MACHINE_ROOM, ballReturnParts } from '../src/config.js';
 
 const parts = ballReturnParts();
 
 // The lane playfield reaches out to the bed half-width plus a gutter on each
 // side; the return must stage clear of that on the throwing-hand (+x) side.
 const PLAYFIELD_MAX_X = LANE.width / 2 + LANE.gutterWidth;
+
+// The machine-room side wall's inner (lane-facing) face. The return must stay
+// inboard of it, or the rig would be buried in / occluded by the wall.
+const WALL_INNER_X = MACHINE_ROOM.wallHalfX - MACHINE_ROOM.wallThickness;
 
 describe('metal ball return (REQ-039 / REQ-041)', () => {
   it('builds two runway rails, a rack, and two legs', () => {
@@ -22,12 +26,16 @@ describe('metal ball return (REQ-039 / REQ-041)', () => {
     expect(parts.legs).toHaveLength(2);
   });
 
-  it('stages every part outboard of the lane and gutters', () => {
+  it('stages every part in the band between the gutter and the side wall', () => {
     const all = [...parts.rails, parts.rack, ...parts.legs];
     for (const part of all) {
       // Whole part sits on the +x side, its inner edge beyond the gutter.
       const innerX = part.center.x - part.half.x;
       expect(innerX).toBeGreaterThan(PLAYFIELD_MAX_X);
+      // ...and its outer edge stays inboard of the side wall, so it is not buried
+      // in or occluded by the machine-room shell.
+      const outerX = part.center.x + part.half.x;
+      expect(outerX).toBeLessThanOrEqual(WALL_INNER_X);
     }
   });
 
