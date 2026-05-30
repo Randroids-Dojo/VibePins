@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="multiplayer-leaderboard-coverage-closeout" data-date="2026-05-29">
+    <h3>Coverage Closeout: Native-Share Handoff + Flip Genuinely-Shipped Multiplayer/Leaderboard Partials (REQ-048/050/052/054/055/059/060/061 done)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/20260529-coverage-closeout</code></dd>
+      <dt>PR</dt><dd>#TBD</dd>
+      <dt>Changed</dt><dd>An audit-and-closeout slice. One genuine remainder shipped: the native share-sheet handoff affordance (F-009). Added a pure <code>handoffShareData(link)</code> to <code>src/matchUI.ts</code> that builds a <code>navigator.share</code>-shaped <code>{title, text, url}</code> carrying the id-only handoff link (never the per-seat secret), and a <code>shareHandoff</code> orchestrator in <code>src/main.ts</code> that calls <code>navigator.share</code> when the Web Share API is present (<code>canShare</code>-gated), degrading cleanly to the existing clipboard copy on platforms without it; the play-mode button label is now "Share Handoff Link" (<code>index.html</code>). The rest of the slice was an honest audit of the conservative <code>partial</code> rows against their GDD text and the actual code/tests, plus the test coverage needed to justify each flip: added an all-time cap-trim assertion and a daily UTC-day-key + 25h-expire assertion to <code>tests/leaderboard.test.ts</code> (REQ-060/061), and a <code>handoffShareData</code> payload test to <code>tests/matchUI.test.ts</code> (REQ-050).</dd>
+      <dt>Verification</dt><dd>em-dash grep (U+2014/U+2013) clean on changed files; <code>git diff --check</code> clean; <code>npx tsc --noEmit</code> clean; <code>npx vitest run</code> all passing (new cases: leaderboard all-time cap trim, daily UTC-day key + expire; matchUI <code>handoffShareData</code> shape and secret-free url); <code>npx vite build</code> succeeds. <code>.env.local</code> not staged. Dependency Upgrade Gate: watched pins (three 0.184.0, @dimforge/rapier3d-compat 0.19.3, @upstash/redis ^1.38.0) unchanged; no bump due.</dd>
+      <dt>Assumptions</dt><dd>A flip to <code>done</code> reflects that the requirement is observably satisfied by shipped code and proven by tests (RULE 9). REQ-064 stays <code>partial</code> on purpose: the GDD says "zod-validated payloads" and the backend hand-validates instead; the functional intent is met but the literal library wording diverges, so the decision is recorded as Q-017 (resolved, option A: keep hand-validation, no new dependency per RULE 3) rather than flipped. The playtest-gated tuning partials (REQ-014/025/026/027) were left untouched: they need human playtest / design input (cord slack feel, pin mass/spacing, triangle geometry) and are out of scope for autonomous work.</dd>
+      <dt>GDD coverage</dt><dd>REQ-048, REQ-050, REQ-052, REQ-054, REQ-055, REQ-059, REQ-060, REQ-061 flipped <code>partial -&gt; done</code> with updated notes and refs. REQ-064 stays <code>partial</code> (Q-017). After this slice the only remaining partials are REQ-014/025/026/027 (playtest-gated tuning) and REQ-064 (zod wording). 59 done / 5 partial of 64. Build log appended to <code>docs/gdd/05-async-multiplayer.html</code> and <code>docs/gdd/07-leaderboard.html</code>.</dd>
+      <dt>Followups</dt><dd>F-009 resolved (native share shipped). Q-017 added (resolved). No new followups.</dd>
+    </dl>
+  </article>
+
   <article data-slice="post-match-line-to-leaderboard" data-date="2026-05-29">
     <h3>Async Multiplayer: Post a Completed Match Line to the Global Leaderboard (REQ-058 done)</h3>
     <dl>

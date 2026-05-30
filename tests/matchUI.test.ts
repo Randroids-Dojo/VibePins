@@ -7,6 +7,7 @@ import { describe, it, expect } from 'vitest';
 import {
   matchViewMode,
   handoffLink,
+  handoffShareData,
   matchIdFromSearch,
   waitingHeadline,
   renderLobbyRows,
@@ -99,6 +100,23 @@ describe('handoffLink and matchIdFromSearch (REQ-050/055)', () => {
     expect(matchIdFromSearch('?other=1')).toBeNull();
     expect(matchIdFromSearch(`?${MATCH_PARAM}=`)).toBeNull();
     expect(matchIdFromSearch(`?${MATCH_PARAM}=%20%20`)).toBeNull();
+  });
+});
+
+describe('handoffShareData (REQ-050, F-009)', () => {
+  it('builds a navigator.share-shaped payload carrying the link as the url', () => {
+    const link = `https://vibepins.app/?${MATCH_PARAM}=abc123`;
+    const data = handoffShareData(link);
+    expect(data.url).toBe(link);
+    expect(typeof data.title).toBe('string');
+    expect(data.title.length).toBeGreaterThan(0);
+    expect(typeof data.text).toBe('string');
+    expect(data.text.length).toBeGreaterThan(0);
+  });
+
+  it('never leaks a secret: only the passed link appears in the url field', () => {
+    const link = `https://vibepins.app/?${MATCH_PARAM}=onlyid`;
+    expect(handoffShareData(link).url).toBe(link);
   });
 });
 

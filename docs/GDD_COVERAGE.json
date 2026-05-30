@@ -1,7 +1,7 @@
 {
   "_comment_1": "ATOMIC GRANULARITY ONLY. One row per requirement, not per chapter. A 14-day project should produce on the order of 100 rows. If your row count is implausibly low for project age, the loop will self-terminate before the product is good. This is the Flatline failure mode.",
   "_comment_2": "Allowed status values: not_started | partial | done | out_of_scope. Every row should carry implementationRefs and testRefs once status >= partial. followupRefs link to F-NNN entries in FOLLOWUPS.html.",
-  "updatedAt": "2026-05-29",
+  "updatedAt": "2026-05-29T22:30:00Z",
   "rows": [
     {
       "id": "REQ-001",
@@ -747,18 +747,20 @@
       "id": "REQ-048",
       "requirement": "A match is a shared ten-frame game with two-plus seats and server-authoritative state",
       "gddRef": "docs/gdd/05-async-multiplayer.html#match-model",
-      "status": "partial",
+      "status": "done",
       "implementationRefs": [
         "api/match.ts",
-        "src/match.ts"
+        "src/match.ts",
+        "src/matchClient.ts"
       ],
       "testRefs": [
         "tests/match.test.ts",
         "tests/match.api.test.ts",
-        "tests/match.smoke.test.ts"
+        "tests/match.smoke.test.ts",
+        "tests/matchClient.test.ts"
       ],
       "followupRefs": [],
-      "note": "The match model ships as a pure, JSON-serializable MatchState (src/match.ts): id, clamped 2-to-6 seat count (default 2, not hard-coded to two), per-seat name/secret/claimed/frames, status open/active/complete, and currentSeat/currentFrame. State is authoritative server-side, persisted by api/match.ts in the vibepins:match: keyspace. Turn enforcement and per-ball scoring are deferred to follow-on slices."
+      "note": "Done. The match model ships as a pure, JSON-serializable MatchState (src/match.ts): id, clamped 2-to-6 seat count (default 2, not hard-coded to two), per-seat name/secret/claimed/frames, status open/active/complete, and currentSeat/currentFrame, each seat bowling its own ten-frame line. State is authoritative server-side: api/match.ts persists the JSON document under the vibepins:match: keyspace and every mutation (join, submitTurn) goes through the pure server-side transitions in src/match.ts, never a client-claimed value. The full loop now ships end to end: frame-by-frame turn enforcement (REQ-049), per-ball submission re-scored by the shared scoreGame engine (REQ-053), completion locking and final standings (REQ-056), all driven from MatchClient (src/matchClient.ts) and verified in tests/match.test.ts (create/join, seat clamp, no-mutation transitions), tests/match.api.test.ts (create/join/resume/submit over the route, secret-in-header, public view never carries secrets), tests/match.smoke.test.ts, and tests/matchClient.test.ts."
     },
     {
       "id": "REQ-049",
@@ -780,7 +782,7 @@
       "id": "REQ-050",
       "requirement": "Finishing a turn presents a shareable handoff link via native share / copy",
       "gddRef": "docs/gdd/05-async-multiplayer.html#turn-handoff",
-      "status": "partial",
+      "status": "done",
       "implementationRefs": [
         "src/matchUI.ts",
         "src/main.ts",
@@ -792,7 +794,7 @@
       "followupRefs": [
         "F-009"
       ],
-      "note": "The multiplayer hub overlay (index.html #match, wired in src/main.ts) shows a copyable handoff link in the lobby and waiting/your-turn states. handoffLink (src/matchUI.ts) builds the absolute ?match=<id> URL (id only, never the per-seat secret), and a Copy button writes it to the clipboard with an observable label flash, degrading to a manual select when the clipboard API is unavailable. Opening a ?match=<id> URL (matchIdFromSearch) jumps straight into the hub on the Join path. Bowling a frame in-browser now hands back to the hub where the share button presents the link to pass the match on (the play-note prompts it). Still deferred: the native share-sheet affordance (copy-only for now), tracked as a followup."
+      "note": "Done. The multiplayer hub overlay (index.html #match, wired in src/main.ts) presents the handoff link in the lobby and in the your-turn/waiting states after a frame, with both share affordances the GDD calls for. handoffLink (src/matchUI.ts) builds the absolute ?match=<id> URL (id only, never the per-seat secret). The lobby Copy Link button writes it to the clipboard with an observable label flash, degrading to a manual select when the clipboard API is unavailable. The play-mode Share Handoff Link button now uses the OS share sheet first: shareHandoff (src/main.ts) calls navigator.share with the handoffShareData payload (src/matchUI.ts) when the Web Share API is available (canShare-gated), degrading cleanly to the clipboard copy on platforms without it (F-009 shipped). Opening a ?match=<id> URL (matchIdFromSearch) jumps straight into the hub on the Join path. handoffShareData and handoffLink are unit tested in tests/matchUI.test.ts (link build/parse, share payload carries only the id-only link, never a secret)."
     },
     {
       "id": "REQ-051",
@@ -818,18 +820,23 @@
       "id": "REQ-052",
       "requirement": "Lightweight identity: display name plus per-device token, with a per-seat secret authorizing submissions",
       "gddRef": "docs/gdd/05-async-multiplayer.html#identity",
-      "status": "partial",
+      "status": "done",
       "implementationRefs": [
         "api/match.ts",
-        "src/match.ts"
+        "src/match.ts",
+        "src/matchClient.ts",
+        "src/settings.ts",
+        "src/main.ts"
       ],
       "testRefs": [
         "tests/match.test.ts",
         "tests/match.api.test.ts",
-        "tests/match.smoke.test.ts"
+        "tests/match.smoke.test.ts",
+        "tests/matchClient.test.ts",
+        "tests/settings.test.ts"
       ],
       "followupRefs": [],
-      "note": "Identity is a display name plus a per-seat secret minted with crypto.randomUUID on create/join and returned only to the claiming device (api/match.ts). seatForSecret resolves which seat a device owns for the resume flow. The secret never appears in the public match view (toPublicMatch). The client now binds the per-seat secret to the device: Settings persists a per-match credential (seat, secret, name) keyed by match id (src/settings.ts), and MatchClient (src/matchClient.ts) sends it via the X-Match-Secret header on resume and submit, so reopening a match on the same device resumes the same seat. The in-game UI that surfaces this is the follow-on handoff slice."
+      "note": "Done. Identity is a display name plus a per-seat secret minted with crypto.randomUUID on create/join and returned only to the claiming device (api/match.ts). The per-seat secret authorizes submissions: submitTurn rejects any device whose secret does not own the on-clock seat (REQ-049). seatForSecret resolves which seat a device owns for resume. The secret never appears in the public match view (toPublicMatch, asserted in tests/match.api.test.ts). The client binds the credential to the device per-match: Settings persists a per-match credential (seat, secret, name) keyed by match id (src/settings.ts, tests/settings.test.ts), MatchClient sends it via the X-Match-Secret header on resume and submit (src/matchClient.ts, tests/matchClient.test.ts), and the hub (src/main.ts) prefills and persists the display name (settings.playerName) so reopening a match on the same device resumes the same seat under the same name. casual-friends security per Q-007."
     },
     {
       "id": "REQ-053",
@@ -856,7 +863,7 @@
       "id": "REQ-054",
       "requirement": "Matches persist server-side with a roughly one-week TTL so a day-long game never expires mid-play",
       "gddRef": "docs/gdd/05-async-multiplayer.html#lifecycle",
-      "status": "partial",
+      "status": "done",
       "implementationRefs": [
         "api/match.ts",
         "src/match.ts"
@@ -867,18 +874,20 @@
         "tests/match.smoke.test.ts"
       ],
       "followupRefs": [],
-      "note": "Matches persist in Upstash Redis under vibepins:match:<id> with a 7-day TTL (MATCH_TTL_SECONDS), refreshed on every read (loadMatch) so a day-long game never ages out mid-play."
+      "note": "Done. Matches persist server-side in Upstash Redis as a JSON document under vibepins:match:<id> with a 7-day TTL (MATCH_TTL_SECONDS = 7 * 24 * 60 * 60), and the TTL is refreshed on every read (loadMatch sets expire on each GET) so an actively-played day-long game never ages out mid-play. tests/match.api.test.ts asserts a resume read refreshes the match TTL; tests/match.test.ts pins MATCH_TTL_SECONDS to one week."
     },
     {
       "id": "REQ-055",
       "requirement": "Create, join (claim a seat), and resume flows for a match",
       "gddRef": "docs/gdd/05-async-multiplayer.html#lifecycle",
-      "status": "partial",
+      "status": "done",
       "implementationRefs": [
         "api/match.ts",
         "src/match.ts",
         "src/matchClient.ts",
-        "src/settings.ts"
+        "src/settings.ts",
+        "src/main.ts",
+        "index.html"
       ],
       "testRefs": [
         "tests/match.test.ts",
@@ -887,7 +896,7 @@
         "tests/matchClient.test.ts"
       ],
       "followupRefs": [],
-      "note": "Create (POST, claims seat 1), join (POST with id, claims the next open seat, activates when full), and resume (GET ?id=, returns the public match plus mySeat for a valid per-seat secret) all ship in api/match.ts over the pure src/match.ts transitions. The client side now ships in src/matchClient.ts: MatchClient.createMatch / joinMatch / resumeMatch drive these flows behind an injectable fetch port, persisting the returned per-seat credential through Settings (src/settings.ts) so a reopen resumes the same seat, and exposing isMyTurn / currentPlayerName turn-state helpers. The in-game overlay that wires these into the shell is a follow-on slice (REQ-050/051)."
+      "note": "Done. Create (POST, claims seat 1), join (POST with id, claims the next open seat, activates when full), and resume (GET ?id=, returns the public match plus mySeat for a valid per-seat secret) all ship in api/match.ts over the pure src/match.ts transitions. MatchClient.createMatch / joinMatch / resumeMatch drive these behind an injectable fetch port (src/matchClient.ts), persisting the returned per-seat credential through Settings (src/settings.ts) so a reopen resumes the same seat. All three are now wired into the shell: the menu Multiplayer button opens the hub overlay (index.html #match, src/main.ts), Create/Join run from the entry form (Join when a ?match= deep link was opened), a Refresh control re-resumes the held match, and opening a ?match=<id> link on boot jumps straight into the resume/join path. Verified in tests/match.api.test.ts (create/join/resume over the route), tests/matchClient.test.ts (client flows + credential persistence), tests/match.test.ts and tests/match.smoke.test.ts."
     },
     {
       "id": "REQ-056",
@@ -941,22 +950,26 @@
       "id": "REQ-059",
       "requirement": "Submitted scores are validated server-side against the duckpin rules; impossible scores are rejected",
       "gddRef": "docs/gdd/07-leaderboard.html#what-counts",
-      "status": "partial",
+      "status": "done",
       "implementationRefs": [
         "api/leaderboard.ts",
+        "api/match.ts",
         "src/scoring.ts"
       ],
       "testRefs": [
         "tests/leaderboard.test.ts",
-        "tests/leaderboard.smoke.test.ts"
+        "tests/leaderboard.smoke.test.ts",
+        "tests/match.test.ts",
+        "tests/match.api.test.ts"
       ],
-      "followupRefs": []
+      "followupRefs": [],
+      "note": "Done. A submission carries the per-frame ball line, never a claimed total. Both servers re-score it with the shared pure scoreGame engine (src/scoring.ts) and reject anything impossible: api/leaderboard.ts rejects a non-array payload (400), an invalid line, an incomplete game, and an out-of-range score, persisting only the server-computed total; api/match.ts submitTurn rejects over-rack counts, illegal ball values, and incomplete frames (409) before recording the line. Verified in tests/leaderboard.test.ts (rejects an impossible line, an incomplete game, and a missing payload), tests/leaderboard.smoke.test.ts, and tests/match.api.test.ts / tests/match.test.ts (illegal-frame rejection)."
     },
     {
       "id": "REQ-060",
       "requirement": "An all-time global top board (capped) is maintained",
       "gddRef": "docs/gdd/07-leaderboard.html#boards",
-      "status": "partial",
+      "status": "done",
       "implementationRefs": [
         "api/leaderboard.ts",
         "index.html",
@@ -968,13 +981,14 @@
         "tests/leaderboard.smoke.test.ts",
         "tests/leaderboard.test.ts"
       ],
-      "followupRefs": []
+      "followupRefs": [],
+      "note": "Done. The all-time board is an Upstash sorted set under vibepins:leaderboard, ranked by final duckpin score descending and capped at MAX_ENTRIES = 100: each POST trims the board from the bottom (zremrangebyrank) once it exceeds the cap, so only the top 100 honest scores persist. GET serves the top-N slice (api/leaderboard.ts). The client reads it (Leaderboard.fetchBoard / fetchBoth, renderBoardRows in src/leaderboard.ts) and the all-time tab renders it in the standings overlay (src/main.ts, index.html). Verified in tests/leaderboard.test.ts (default GET returns the all-time shape; a POST past the cap trims with zremrangebyrank('vibepins:leaderboard', 0, total-cap-1)), tests/leaderboard.smoke.test.ts, and tests/leaderboard.client.test.ts (render rows)."
     },
     {
       "id": "REQ-061",
       "requirement": "A daily board resets each day",
       "gddRef": "docs/gdd/07-leaderboard.html#boards",
-      "status": "partial",
+      "status": "done",
       "implementationRefs": [
         "api/leaderboard.ts",
         "index.html",
@@ -985,7 +999,8 @@
         "tests/leaderboard.client.test.ts",
         "tests/leaderboard.test.ts"
       ],
-      "followupRefs": []
+      "followupRefs": [],
+      "note": "Done. The daily board is a per-UTC-day sorted set keyed vibepins:daily:<YYYY-MM-DD> from todayKey (api/leaderboard.ts). Because the key embeds the current UTC date, a new day writes and reads a fresh key (the board resets each day), and each write sets a 25-hour TTL so the previous day's key expires on its own. Each POST writes to both the all-time and the day key and trims the day to MAX_DAILY = 50. GET ?type=daily serves the day's slice; the client daily tab renders it (src/leaderboard.ts, src/main.ts, index.html). Verified in tests/leaderboard.test.ts (GET type=daily returns the daily shape; a POST writes under the current UTC-day key with the 25h expire) and tests/leaderboard.client.test.ts."
     },
     {
       "id": "REQ-062",
@@ -1039,7 +1054,7 @@
         "tests/match.smoke.test.ts"
       ],
       "followupRefs": [],
-      "note": "A Vercel serverless plus Upstash Redis backend serves both the leaderboard (api/leaderboard.ts) and async multiplayer matches (api/match.ts, vibepins:match: keyspace, create/join/resume shipped). Payloads are hand-validated at the wire boundary with pure model logic (zod is not a project dependency; hand-validation chosen per RULE 3)."
+      "note": "A Vercel serverless plus Upstash Redis backend serves both the leaderboard (api/leaderboard.ts) and async multiplayer matches (api/match.ts, vibepins:match: keyspace, full create/join/resume/submit/complete loop shipped). Every write is validated at the wire boundary with pure model logic (the shared scoreGame engine for score lines, the pure src/match.ts transitions for match writes), rejecting impossible pin counts (REQ-059 done) and out-of-turn submissions (REQ-049 done). Kept partial deliberately: the GDD text says 'zod-validated payloads' and the shipped backend hand-validates instead (zod is not a project dependency; adding it is reserved by RULE 3 and brings no behavioural gain). The functional requirement is met; only the literal library wording diverges. Decision recorded in OPEN_QUESTIONS Q-017 (resolved, option A: keep hand-validation)."
     }
   ]
 }

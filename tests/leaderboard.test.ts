@@ -228,6 +228,32 @@ describe('POST', () => {
     expect(res.statusCode).toBe(400);
   });
 
+  it('keeps the all-time board capped, trimming the lowest scores past the cap (REQ-060)', async () => {
+    // Pretend the all-time board already holds more than the 100-entry cap, so
+    // the next write must trim it back down from the bottom (lowest scores).
+    mockZcard.mockResolvedValueOnce(105);
+    const res = makeRes();
+    await handler({ method: 'POST', query: {}, body: { name: 'Ann', frames: COMPLETE_GAME } }, res);
+    expect(res.statusCode).toBe(200);
+    // First zremrangebyrank call trims the all-time board from rank 0 upward.
+    expect(mockZremrangebyrank).toHaveBeenCalledWith('vibepins:leaderboard', 0, 4);
+  });
+
+  it('writes the daily score under a board keyed by the current UTC day (REQ-061)', async () => {
+    const res = makeRes();
+    await handler({ method: 'POST', query: {}, body: { name: 'Ann', frames: COMPLETE_GAME } }, res);
+    expect(res.statusCode).toBe(200);
+    const d = new Date();
+    const expectedDailyKey =
+      `vibepins:daily:${d.getUTCFullYear()}-` +
+      `${String(d.getUTCMonth() + 1).padStart(2, '0')}-` +
+      `${String(d.getUTCDate()).padStart(2, '0')}`;
+    // The daily write targets today's UTC-day key (a new day rolls to a new key,
+    // so the board resets each day) and carries a TTL so stale days expire.
+    expect(mockZadd).toHaveBeenCalledWith(expectedDailyKey, expect.objectContaining({ score: 60 }));
+    expect(mockExpire).toHaveBeenCalledWith(expectedDailyKey, 25 * 60 * 60);
+  });
+
   it('rejects a missing frames payload', async () => {
     const res = makeRes();
     await handler({ method: 'POST', query: {}, body: { name: 'X' } }, res);

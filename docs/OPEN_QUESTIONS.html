@@ -123,6 +123,22 @@
 <aside id="resolved">
   <h2>Resolved</h2>
 
+  <section data-q="Q-017" data-status="resolved">
+    <h3>Q-017: Wire-payload validation library for the serverless backend (zod vs hand-validation)</h3>
+    <dl>
+      <dt>Context</dt><dd>REQ-064 and the GDD async-backend spec (<a href="gdd/06-reuse-and-tech.html#async-backend">reuse and tech</a>) describe the backend as serving both the leaderboard and async multiplayer with <em>zod-validated request payloads</em>, copying the Hoops shape. The shipped backend (<code>api/leaderboard.ts</code>, <code>api/match.ts</code>) instead validates every write by hand at the wire boundary (shape checks plus the shared pure <code>scoreGame</code> engine for the score line, and the pure <code>src/match.ts</code> transitions for match writes). zod is not a project dependency. The question: adopt zod to match the GDD text literally, or keep hand-validation and amend the requirement intent.</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li>Keep hand-validation; zod stays out of <code>package.json</code>.</li>
+          <li>Add zod and reshape both routes' payload validation around schemas to match the GDD text exactly.</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>A.</dd>
+      <dt>Status</dt><dd>resolved</dd>
+      <dt>Resolution</dt><dd>A. The backend keeps hand-validation. The GDD's functional intent (a Vercel serverless + Upstash Redis backend serving both features, every write validated at the boundary, impossible pin counts and out-of-turn submissions rejected) is fully met and proven by tests (REQ-059 done, REQ-049 done). zod was named in the GDD as the Hoops-pattern reference, not as a hard contract on the dependency list; adding it would introduce a new dependency that RULE 3 reserves for explicit approval, for no behavioural gain over the existing pure validators. REQ-064 stays <code>partial</code> only to record that the literal "zod-validated" wording diverges from the shipped hand-validation; the requirement is otherwise satisfied. If a future slice wants schema-level validation it can adopt zod under option B without changing observable behaviour.</dd>
+    </dl>
+  </section>
+
   <section data-q="Q-016" data-status="resolved">
     <h3>Q-016: Which line(s) of a finished async match post to the global leaderboard</h3>
     <dl>

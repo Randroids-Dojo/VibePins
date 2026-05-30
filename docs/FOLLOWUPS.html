@@ -117,6 +117,7 @@
       <dt>Blocker</dt><dd>none; the link itself already exists (<code>handoffLink</code> in <code>src/matchUI.ts</code>).</dd>
       <dt>Unblock condition</dt><dd>add a Share button that calls <code>navigator.share({ url })</code> when available, degrading cleanly to the existing copy button where the Web Share API is unsupported.</dd>
       <dt>PR / Dot reference</dt><dd>(not started)</dd>
+      <dt>Resolved</dt><dd>Shipped. The play-mode Share Handoff Link button now hands the match off through the OS share sheet: <code>shareHandoff</code> (<code>src/main.ts</code>) calls <code>navigator.share</code> with the <code>handoffShareData</code> payload (<code>src/matchUI.ts</code>, a pure <code>{title, text, url}</code> carrying the id-only <code>handoffLink</code>, never the per-seat secret), <code>canShare</code>-gated where that probe exists, and degrades cleanly to the existing clipboard copy on platforms without the Web Share API (most desktop browsers). A cancelled / failed share leaves the link visible with no surprise fallback copy. <code>handoffShareData</code> is unit tested in <code>tests/matchUI.test.ts</code> (payload shape, url carries only the passed link). REQ-050 now done.</dd>
     </dl>
   </section>
 
