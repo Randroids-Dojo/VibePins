@@ -121,20 +121,28 @@ export class Ball {
   }
 
   // Send the ball down-lane with a matching forward roll so it rolls rather
-  // than skids off the line. Rolling without slip for motion along -z means an
-  // angular velocity about the x-axis of omega_x = -v / r; since velocity.z is
-  // -v, that equals velocity.z / r. The spin/angle stop (REQ-034, default 0 for
-  // the legacy straight shot) adds a lateral launch nudge and a vertical-axis
-  // spin that hooks the roll toward the chosen side as it travels (REQ-036).
-  // The power stop (REQ-035, default the legacy fixed speed) sets the down-lane
-  // speed; the forward roll follows from the resulting velocity. The line-up
-  // stance (REQ-033, lateralOffset in metres, default 0 for a centred shot) sets
-  // the base aim so an off-centre stance points the ball back at the pins.
+  // than skids off the line. Pure rolling without slip for motion along -z means
+  // an angular velocity about the x-axis of omega_x = -v / r (= velocity.z / r),
+  // but a real ball still carries skid at the pocket, so the launch applies only
+  // LANE.ballLaunchTopspin of that: full rolling topspin made the ball climb the
+  // head pin and pop over the rack (only the front pin fell); the reduced spin
+  // lets it drive through the pocket low and carry into the pins behind. The
+  // spin/angle stop (REQ-034, default 0 for the legacy straight shot) adds a
+  // lateral launch nudge and a vertical-axis spin that hooks the roll toward the
+  // chosen side as it travels (REQ-036). The power stop (REQ-035, default the
+  // legacy fixed speed) sets the down-lane speed; the forward roll follows from
+  // the resulting velocity. The line-up stance (REQ-033, lateralOffset in metres,
+  // default 0 for a centred shot) sets the base aim so an off-centre stance points
+  // the ball back at the pins.
   launch(stop = 0, power?: number, lateralOffset = 0): void {
     const velocity = ballLaunchVelocity(stop, power, lateralOffset);
     this.body.setLinvel(velocity, true);
     this.body.setAngvel(
-      { x: velocity.z / LANE.ballRadius, y: spinFraction(stop) * SPIN.maxSpinYaw, z: 0 },
+      {
+        x: (velocity.z / LANE.ballRadius) * LANE.ballLaunchTopspin,
+        y: spinFraction(stop) * SPIN.maxSpinYaw,
+        z: 0,
+      },
       true,
     );
   }

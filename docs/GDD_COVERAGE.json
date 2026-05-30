@@ -207,13 +207,15 @@
    "requirement": "Cords carry enough slack that pins fall, slide, and collide freely on ball impact",
    "gddRef": "docs/gdd/03-string-pinsetter.html#free-fall",
    "status": "partial",
+   "note": "The slack rope joint (TETHER.slackLength) keeps the cord slack through the throw so a struck pin falls and collides freely. The playtest-bug-4 carry-through investigation confirmed the cord was NOT the culprit (it stayed slack at impact and did not reel the head pin back or absorb its momentum); the no-carry-through was the ball's launch topspin (REQ-030, Q-029), not the tether. tests/carry-through.smoke.test.ts builds the real slack-tethered rack and shows the head pin's momentum does transfer into the pins behind once the ball drives through.",
    "implementationRefs": [
     "src/pins.ts",
     "src/config.ts"
    ],
    "testRefs": [
     "tests/tether.test.ts",
-    "tests/tether.smoke.test.ts"
+    "tests/tether.smoke.test.ts",
+    "tests/carry-through.smoke.test.ts"
    ],
    "followupRefs": []
   },
@@ -464,15 +466,17 @@
    "requirement": "Pin-to-pin collisions chain with low scatter, tuned so real strikes stay genuinely rare",
    "gddRef": "docs/gdd/01-vision-and-pillars.html#pillars",
    "status": "done",
-   "note": "Beyond the squat belly-heavy mass (REQ-026), the pin contact material is now a deliberate, single-source PIN_PHYSICS config block (friction 0.55, restitution 0). Zero restitution means struck pins barely rebound, so the collision chain dies out fast instead of spraying the rack like tenpin; a small playtest sweep showed any non-zero restitution roughly doubling the furthest pin's travel. Applied to every pin collider in src/pins.ts. A real-Rapier scatter smoke (tests/scatter.smoke.test.ts) throws straight balls across a sweep of lateral aim points and speeds and proves the duckpin feel: a dead-centre straight ball never strikes, no straight shot in the sweep strikes, most frames leave several pins, and no pin is flung sideways more than a few pin-spacings. Spin/angle remain the way to work for the rare strike (REQ-034/036).",
+   "note": "Beyond the squat belly-heavy mass (REQ-026), the pin contact material is now a deliberate, single-source PIN_PHYSICS config block (friction 0.55, restitution 0). Zero restitution means struck pins barely rebound, so the collision chain dies out fast instead of spraying the rack like tenpin; a small playtest sweep showed any non-zero restitution roughly doubling the furthest pin's travel. Applied to every pin collider in src/pins.ts. A real-Rapier scatter smoke (tests/scatter.smoke.test.ts) throws straight balls across a sweep of lateral aim points and speeds and proves the duckpin feel: a dead-centre straight ball never strikes, no straight shot in the sweep strikes, most frames leave several pins, and no pin is flung sideways more than a few pin-spacings. Spin/angle remain the way to work for the rare strike (REQ-034/036). PLAYTEST FIX (bug 4): the scatter material was not over-damped, but the ball failed to CARRY THROUGH: it was launched at full rolling-without-slip topspin (omega_x = v/r), which gripped the head pin and climbed it, popping the ball roughly 0.8m over the rack so only the front pin fell. Root-caused in real Rapier (friction/restitution/ball-mass/pin-mass sweeps did not fix the pop-up; the topspin was the driver). Fix: LANE.ballLaunchTopspin = 0.5 in src/config.ts, applied in Ball.launch() (src/ball.ts), so the ball drives low through the pocket (over-deck peak roughly 0.5m) and carries into the pins behind. PIN_PHYSICS and the mass are UNCHANGED. tests/carry-through.smoke.test.ts launches the ACTUAL game params across representative pocket throws and proves the ball carries past the head pin staying low and topples a pin behind on a majority, while a dead-centre straight ball still never strikes and no representative pocket throw clears the rack (fails against the old full-topspin tuning, passes after). See OPEN_QUESTIONS Q-029.",
    "implementationRefs": [
     "src/config.ts",
-    "src/pins.ts"
+    "src/pins.ts",
+    "src/ball.ts"
    ],
    "testRefs": [
     "tests/scatter.smoke.test.ts",
     "tests/config.test.ts",
-    "tests/lane-physics.smoke.test.ts"
+    "tests/lane-physics.smoke.test.ts",
+    "tests/carry-through.smoke.test.ts"
    ],
    "followupRefs": []
   },
