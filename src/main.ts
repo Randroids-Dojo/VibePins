@@ -706,8 +706,10 @@ function refreshMatch(): void {
   void matchClient.resumeMatch(id).then(renderMatch);
 }
 
-// Copy a string to the clipboard and flash the button label, degrading to a select
-// on the link field when the clipboard API is unavailable (RULE 10 observable).
+// Copy a string to the clipboard and flash the button label. Degrades to a
+// throwaway off-screen input that gets selected when the clipboard API is
+// unavailable or denied, so the fallback works regardless of which block is
+// visible (the lobby link field is hidden in play mode, RULE 10 observable).
 function copyToClipboard(text: string, button: HTMLButtonElement | null): void {
   const flash = (ok: boolean): void => {
     if (!button) return;
@@ -728,8 +730,20 @@ function copyToClipboard(text: string, button: HTMLButtonElement | null): void {
   } catch {
     // Fall through to the manual-select fallback below.
   }
-  matchLinkInput?.select();
+  // No clipboard API: drop a temporary visible-but-offscreen input the player can
+  // copy from, select its contents, then remove it. Selecting a hidden lobby
+  // field would be a dead end when the share button is pressed in play mode.
+  const scratch = document.createElement('input');
+  scratch.type = 'text';
+  scratch.readOnly = true;
+  scratch.value = text;
+  scratch.style.position = 'fixed';
+  scratch.style.opacity = '0';
+  document.body.appendChild(scratch);
+  scratch.select();
+  scratch.setSelectionRange(0, text.length);
   flash(false);
+  document.body.removeChild(scratch);
 }
 
 menuMatchBtn?.addEventListener('click', () => {
@@ -740,9 +754,14 @@ menuMatchBtn?.addEventListener('click', () => {
 
 matchFormEl?.addEventListener('submit', (event) => {
   event.preventDefault();
-  // The form's submit button is Create; Join (when a link was opened) is a
-  // separate button handled below. Submitting always means create here.
-  if (matchCreateBtn?.hidden) return;
+  // Enter in the name field submits the form. Route it to whichever action the
+  // entry block is offering: Join when a handoff link was opened (Create hidden),
+  // else Create. This keeps Enter-to-submit working on the primary join path
+  // rather than dead-ending when the visible button is Join (RULE 10 keyboard).
+  if (matchCreateBtn?.hidden) {
+    void joinMatchFromForm();
+    return;
+  }
   void createMatchFromForm();
 });
 

@@ -46,6 +46,16 @@ describe('matchViewMode (REQ-051)', () => {
     expect(matchViewMode(publicMatch(), null, false)).toBe('none');
   });
 
+  it('never flashes loading back over a match already held (in-flight refresh)', () => {
+    // loading only wins before any match is held; once one is loaded an in-flight
+    // refresh must keep showing the live view, not the loading block.
+    expect(matchViewMode(publicMatch(), 1, true)).toBe('lobby');
+    const active = publicMatch({ status: 'active', currentSeat: 1 });
+    expect(matchViewMode(active, 1, true)).toBe('yourTurn');
+    expect(matchViewMode(active, 2, true)).toBe('waiting');
+    expect(matchViewMode(publicMatch({ status: 'complete' }), 1, true)).toBe('complete');
+  });
+
   it('is your-turn when this seat is on the clock, waiting otherwise', () => {
     const active = publicMatch({ status: 'active', currentSeat: 1 });
     expect(matchViewMode(active, 1, false)).toBe('yourTurn');
