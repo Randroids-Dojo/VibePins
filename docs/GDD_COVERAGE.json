@@ -1,7 +1,7 @@
 {
   "_comment_1": "ATOMIC GRANULARITY ONLY. One row per requirement, not per chapter. A 14-day project should produce on the order of 100 rows. If your row count is implausibly low for project age, the loop will self-terminate before the product is good. This is the Flatline failure mode.",
   "_comment_2": "Allowed status values: not_started | partial | done | out_of_scope. Every row should carry implementationRefs and testRefs once status >= partial. followupRefs link to F-NNN entries in FOLLOWUPS.html.",
-  "updatedAt": "2026-05-29",
+  "updatedAt": "2026-05-29T20:10:00Z",
   "rows": [
     {
       "id": "REQ-001",
@@ -905,9 +905,18 @@
       "id": "REQ-062",
       "requirement": "The player's own best is shown in context (rank and nearby entries) even when off the top slice",
       "gddRef": "docs/gdd/07-leaderboard.html#boards",
-      "status": "not_started",
-      "implementationRefs": [],
-      "testRefs": [],
+      "status": "done",
+      "note": "The standings overlay now surfaces the player's own standing when their best sits below the visible top slice (20 rows). The GET endpoint accepts an optional ?name; when present it reads the whole capped board and returns a context block via the pure rankContext helper (api/leaderboard.ts): the player's 1-based rank and score plus a small window (radius 2) of the entries above and below them, each carrying its own rank and an isPlayer flag. Name matching is case-insensitive on the sanitized name and the first match wins (the board is score-descending so that is the player's best). The client (src/leaderboard.ts) forwards the persisted player name on fetchBoard/fetchBoth, stores allTimeContext/dailyContext per board, and a pure renderContextRows builds a 'Your standing' window that renders only when the player is off the top slice (so it never duplicates a row already on screen). src/main.ts wires it: openBoard passes settings.playerName, renderBoard drops the context HTML into #board-context, and the player's own row is visually highlighted via data-you in index.html. Names are HTML-escaped at the render boundary.",
+      "implementationRefs": [
+        "api/leaderboard.ts",
+        "src/leaderboard.ts",
+        "src/main.ts",
+        "index.html"
+      ],
+      "testRefs": [
+        "tests/leaderboard.test.ts",
+        "tests/leaderboard.client.test.ts"
+      ],
       "followupRefs": []
     },
     {

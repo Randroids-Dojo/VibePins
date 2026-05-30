@@ -48,11 +48,31 @@ export interface BoardEntry {
   source: string;
 }
 
+// One row in the player's rank-in-context window (REQ-062): a board entry plus
+// its 1-based rank and whether it is the player's own row. Mirrors the server's
+// RankContextRow shape (api/leaderboard.ts).
+export interface ContextRow extends BoardEntry {
+  rank: number;
+  isPlayer: boolean;
+}
+
+// The player's own standing plus the entries around it, so a player off the top
+// slice still sees where they sit. Null when the player has no entry on the board
+// or when no name was supplied to the fetch.
+export interface RankContext {
+  name: string;
+  rank: number;
+  score: number;
+  window: ContextRow[];
+}
+
 // The GET response shape: the board it served plus its ranked entries (highest
-// score first, as the server returns them).
+// score first, as the server returns them) and, when a name was sent, that
+// player's rank-in-context block (REQ-062).
 interface BoardResponse {
   type: BoardType;
   entries: BoardEntry[];
+  context?: RankContext | null;
 }
 
 // Build the wire payload from a finished game's score. The score engine already
@@ -97,6 +117,32 @@ export function renderBoardRows(entries: BoardEntry[], state: { loading: boolean
     .join('');
 }
 
+// Build the player's rank-in-context block (REQ-062): the nearby window of rows
+// around the player's own best, with the player's row marked. Pure (context in,
+// string out) so the shell can drop it below the standings list and a test can
+// assert it without a DOM. Returns an empty string when there is no context
+// (player not on the board) or when the player already appears in the visible top
+// slice (`topCount` rows), so the section only surfaces when it adds information.
+// Names are HTML-escaped because they come from other players.
+export function renderContextRows(context: RankContext | null, topCount: number): string {
+  if (!context) return '';
+  // Already visible in the top slice; the dedicated section would be redundant.
+  if (context.rank <= topCount) return '';
+  return (
+    '<div class="vp-board-context-label">Your standing</div>' +
+    context.window
+      .map(
+        (row) =>
+          `<div class="vp-board-row" data-rank="${row.rank}"${row.isPlayer ? ' data-you="true"' : ''}>` +
+          `<span class="vp-board-rank">#${row.rank}</span>` +
+          `<span class="vp-board-name">${escapeHtml(row.name)}</span>` +
+          `<span class="vp-board-score">${Number(row.score) || 0}</span>` +
+          '</div>',
+      )
+      .join('')
+  );
+}
+
 // Escape the five HTML-significant characters so a player-supplied name cannot
 // inject markup when dropped into innerHTML. The server already strips most
 // punctuation (api/leaderboard.ts sanitizeName), but this is the rendering
@@ -128,6 +174,11 @@ export class Leaderboard {
   dailyEntries: BoardEntry[] = [];
   boardLoading = false;
   boardError: string | null = null;
+
+  // The player's rank-in-context block per board (REQ-062), populated when a name
+  // is passed to the fetch. Null when the player is not on that board.
+  allTimeContext: RankContext | null = null;
+  dailyContext: RankContext | null = null;
 
   constructor(fetchImpl?: FetchLike) {
     // Bind to avoid `Illegal invocation` when the global fetch is detached.
@@ -173,17 +224,26 @@ export class Leaderboard {
   // this never throws: a failed load sets `boardError` and leaves the prior
   // entries in place, because a leaderboard hiccup must not break the overlay
   // (the shell renders the error string). `limit` caps how many rows to ask for.
-  async fetchBoard(type: BoardType, limit = 20): Promise<BoardEntry[]> {
+  // When `name` is given, the server also returns that player's rank-in-context
+  // block (REQ-062) which is stored alongside the entries for the matching board.
+  async fetchBoard(type: BoardType, limit = 20, name?: string): Promise<BoardEntry[]> {
     this.boardLoading = true;
     this.boardError = null;
     try {
       const params = new URLSearchParams({ type, limit: String(limit) });
+      if (name) params.set('name', name);
       const res = await this.fetchImpl(`${API_BASE}?${params.toString()}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = (await res.json()) as BoardResponse;
       const entries = Array.isArray(data.entries) ? data.entries : [];
-      if (type === 'daily') this.dailyEntries = entries;
-      else this.allTimeEntries = entries;
+      const context = data.context ?? null;
+      if (type === 'daily') {
+        this.dailyEntries = entries;
+        this.dailyContext = context;
+      } else {
+        this.allTimeEntries = entries;
+        this.allTimeContext = context;
+      }
       return entries;
     } catch (err) {
       this.boardError = 'Could not load leaderboard';
@@ -197,7 +257,7 @@ export class Leaderboard {
   // Refresh both boards so the overlay can flip between tabs without a per-tab
   // round trip. One shared loading flag covers the pair; if either fails its own
   // entries stay as-is and `boardError` is set.
-  async fetchBoth(limit = 20): Promise<void> {
-    await Promise.all([this.fetchBoard('alltime', limit), this.fetchBoard('daily', limit)]);
+  async fetchBoth(limit = 20, name?: string): Promise<void> {
+    await Promise.all([this.fetchBoard('alltime', limit, name), this.fetchBoard('daily', limit, name)]);
   }
 }

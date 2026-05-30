@@ -98,6 +98,44 @@ interface BoardEntry {
   source: string;
 }
 
+// The player's own standing plus the entries immediately around it, so a player
+// off the top slice still sees where they sit (REQ-062). `rank` is 1-based;
+// `window` is the nearby slice (the player's row included), each row carrying
+// its own 1-based `rank` so the client can render a contiguous neighbourhood.
+interface RankContextRow extends BoardEntry {
+  rank: number;
+  isPlayer: boolean;
+}
+interface RankContext {
+  name: string;
+  rank: number;
+  score: number;
+  window: RankContextRow[];
+}
+
+// From the full ranked board (highest first), find the named player's best
+// standing and the `radius` entries on each side of it. Pure so the route can
+// stay thin and a test can assert the window without Redis. Matching is
+// case-insensitive on the sanitized name. Returns null when the player is not on
+// the board. When the player sits inside the top slice the client already shows
+// them, but returning the context regardless keeps the contract simple (RULE 7);
+// the client decides whether to surface it.
+export function rankContext(ranked: BoardEntry[], name: string, radius = 2): RankContext | null {
+  const target = name.trim().toLowerCase();
+  if (!target) return null;
+  // The board is score-descending, so the first match is the player's best.
+  const idx = ranked.findIndex((e) => e.name.trim().toLowerCase() === target);
+  if (idx === -1) return null;
+  const start = Math.max(0, idx - radius);
+  const end = Math.min(ranked.length, idx + radius + 1);
+  const window: RankContextRow[] = ranked.slice(start, end).map((e, i) => ({
+    ...e,
+    rank: start + i + 1,
+    isPlayer: start + i === idx,
+  }));
+  return { name: ranked[idx].name, rank: idx + 1, score: ranked[idx].score, window };
+}
+
 // Parse a zrange-with-scores reply ([member, score, member, score, ...]) into
 // board entries. Upstash may auto-deserialize JSON members, so handle both a
 // parsed object and a raw string defensively.
@@ -128,9 +166,18 @@ async function handleGet(req: LeaderboardRequest, res: LeaderboardResponse): Pro
   const limitParam = parseInt(firstParam(req.query.limit) ?? '20', 10);
   const count = Math.min(Number.isFinite(limitParam) && limitParam > 0 ? limitParam : 20, MAX_ENTRIES);
   const key = type === 'daily' ? todayKey() : ALLTIME_KEY;
+  const name = firstParam(req.query.name);
 
-  const raw = (await redis().zrange(key, 0, count - 1, { rev: true, withScores: true })) as unknown[];
-  return res.status(200).json({ type, entries: parseEntries(raw) });
+  // Without a name we only need the top slice. With one we read the whole capped
+  // board so we can place the player in context (REQ-062); the board is capped at
+  // MAX_ENTRIES so this stays a single bounded read.
+  const fetchCount = name ? MAX_ENTRIES : count;
+  const raw = (await redis().zrange(key, 0, fetchCount - 1, { rev: true, withScores: true })) as unknown[];
+  const ranked = parseEntries(raw);
+  const entries = ranked.slice(0, count);
+
+  const context = name ? rankContext(ranked, name) : null;
+  return res.status(200).json({ type, entries, context });
 }
 
 async function handlePost(req: LeaderboardRequest, res: LeaderboardResponse): Promise<LeaderboardResponse> {

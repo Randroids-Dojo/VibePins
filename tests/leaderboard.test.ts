@@ -44,7 +44,7 @@ vi.mock('@upstash/redis', () => ({
   },
 }));
 
-import handler, { sanitizeName } from '../api/leaderboard.js';
+import handler, { sanitizeName, rankContext } from '../api/leaderboard.js';
 
 interface MockRes {
   statusCode: number;
@@ -123,7 +123,7 @@ describe('GET', () => {
     const res = makeRes();
     await handler({ method: 'GET', query: {} }, res);
     expect(res.statusCode).toBe(200);
-    expect(res.body).toEqual({ type: 'alltime', entries: [] });
+    expect(res.body).toEqual({ type: 'alltime', entries: [], context: null });
   });
 
   it('returns the daily board when type=daily', async () => {
@@ -131,6 +131,63 @@ describe('GET', () => {
     await handler({ method: 'GET', query: { type: 'daily' } }, res);
     expect(res.statusCode).toBe(200);
     expect((res.body as { type: string }).type).toBe('daily');
+  });
+
+  it('returns a null context by default and when no name is asked for', async () => {
+    const res = makeRes();
+    await handler({ method: 'GET', query: {} }, res);
+    expect((res.body as { context: unknown }).context).toBeNull();
+  });
+
+  it('places the named player in context when off the top slice (REQ-062)', async () => {
+    // Post 25 honest games of varying scores so the board has a tail. Frame all
+    // open of [n,0,0] gives a total of 10*n, so n in 1..25 gives 10..250.
+    for (let n = 1; n <= 25; n += 1) {
+      const frames = Array.from({ length: 10 }, () => [n > 9 ? 9 : n, 0, 0]);
+      // Cap the per-ball to 9 so the line stays legal; n>9 reuses 9 but the name
+      // disambiguates each player. Score is deterministic per name.
+      await handler({ method: 'POST', query: {}, body: { name: `P${n}`, frames } }, makeRes());
+    }
+    // P1 scored the lowest (10), so it sits at the very bottom of the board.
+    const res = makeRes();
+    await handler({ method: 'GET', query: { limit: '5', name: 'P1' } }, res);
+    const body = res.body as { entries: unknown[]; context: { rank: number; name: string; window: unknown[] } | null };
+    // Top slice is capped at the requested limit.
+    expect(body.entries.length).toBe(5);
+    // P1 is on the board but well below the top 5, so it gets a context block.
+    expect(body.context).not.toBeNull();
+    expect(body.context?.name).toBe('P1');
+    expect(body.context?.window.length).toBeGreaterThan(0);
+  });
+});
+
+describe('rankContext (REQ-062 pure helper)', () => {
+  const ranked = [
+    { name: 'AAA', score: 100, date: '', source: 'solo' },
+    { name: 'BBB', score: 90, date: '', source: 'solo' },
+    { name: 'CCC', score: 80, date: '', source: 'solo' },
+    { name: 'DDD', score: 70, date: '', source: 'solo' },
+    { name: 'EEE', score: 60, date: '', source: 'solo' },
+  ];
+
+  it('returns the player rank and a window centered on them', () => {
+    const ctx = rankContext(ranked, 'CCC', 1);
+    expect(ctx?.rank).toBe(3);
+    expect(ctx?.score).toBe(80);
+    expect(ctx?.window.map((r) => r.name)).toEqual(['BBB', 'CCC', 'DDD']);
+    expect(ctx?.window.map((r) => r.rank)).toEqual([2, 3, 4]);
+    expect(ctx?.window.find((r) => r.isPlayer)?.name).toBe('CCC');
+  });
+
+  it('clamps the window at the board edges', () => {
+    expect(rankContext(ranked, 'AAA', 2)?.window.map((r) => r.rank)).toEqual([1, 2, 3]);
+    expect(rankContext(ranked, 'EEE', 2)?.window.map((r) => r.rank)).toEqual([3, 4, 5]);
+  });
+
+  it('matches case-insensitively and returns null for an unknown name', () => {
+    expect(rankContext(ranked, 'ccc', 0)?.rank).toBe(3);
+    expect(rankContext(ranked, 'ZZZ', 1)).toBeNull();
+    expect(rankContext(ranked, '   ', 1)).toBeNull();
   });
 });
 
