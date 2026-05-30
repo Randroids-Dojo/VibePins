@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="match-backend-create-join-resume" data-date="2026-05-29">
+    <h3>Async Multiplayer: Match Model and Create/Join/Resume Backend (REQ-048/052/054/055)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/20260529-match-backend-create-join-resume</code></dd>
+      <dt>PR</dt><dd>#TBD</dd>
+      <dt>Changed</dt><dd>First sub-slice of the async multiplayer backend. Added a pure, JSON-serializable match model (<code>src/match.ts</code>): a <code>MatchState</code> with an id, a clamped 2-to-6 seat count (v1 default 2, never hard-coded to two per the GDD), per-seat name/secret/claimed/frames, a <code>status</code> of open/active/complete, and <code>currentSeat</code>/<code>currentFrame</code> carried now so the deferred turn-order slice needs no schema change. The model holds the create/join/resume transitions as pure functions: <code>createMatch</code> (claims seat 1 for the creator, GDD create flow), <code>joinMatch</code> (claims the next open seat and flips the match to active when full), <code>seatForSecret</code> (resume: which seat a per-device secret owns, REQ-052), and <code>toPublicMatch</code> (the secret-free projection any device may see). Added the serverless route (<code>api/match.ts</code>) backed by the same Upstash store in a distinct <code>vibepins:match:</code> keyspace (RULE 11: one store, namespaced per feature, never shared with a sibling): POST without an id creates and returns seat 1 plus its secret; POST with an id joins; GET <code>?id=</code> resumes, returning the public match plus <code>mySeat</code> when a valid per-seat secret is supplied. Matches persist with a one-week TTL refreshed on every read so a day-long game never expires mid-play (REQ-054). Match ids and per-seat secrets use <code>crypto.randomUUID</code> (browser-native, not a new dep). Secrets are returned only to the claiming device and never appear in the public view.</dd>
+      <dt>Verification</dt><dd>em-dash grep clean on all changed files; <code>git diff --check</code> clean; <code>npm run typecheck</code> clean; <code>npm run test</code> 422/422 passing (27 new across <code>tests/match.test.ts</code> pure model, <code>tests/match.api.test.ts</code> route handler with mocked Redis, <code>tests/match.smoke.test.ts</code> create/join/resume round trip); <code>npm run build</code> succeeds. <code>.env.local</code> not staged.</dd>
+      <dt>Assumptions</dt><dd>Per-seat-secret authorization scheme follows Q-007. v1 seat range capped at 6 (a small number per the GDD); documented as the recommended default. The route validates only the wire boundary and delegates all state logic to the pure model, mirroring how <code>api/leaderboard.ts</code> delegates to <code>src/scoring.ts</code>.</dd>
+      <dt>GDD coverage</dt><dd>REQ-048, REQ-052, REQ-054, REQ-055 flipped to <code>partial</code> (model and create/join/resume shipped; turn enforcement, per-ball submission, completion, and UI deferred). REQ-064 stays <code>partial</code> with <code>api/match.ts</code> appended. Build log appended to <code>docs/gdd/05-async-multiplayer.html</code>.</dd>
+      <dt>Followups</dt><dd>New dots created for the deferred sub-slices: turn-order enforcement and out-of-turn rejection (REQ-049), per-ball pin-fall submission with server scoring (REQ-053), completion locking and final standings (REQ-056), handoff link plus your-turn/waiting UI (REQ-050/051), and posting a finished match line to the leaderboard (REQ-058).</dd>
+    </dl>
+  </article>
+
   <article data-slice="leaderboard-rank-in-context" data-date="2026-05-29">
     <h3>Leaderboard Player Rank-In-Context (REQ-062)</h3>
     <dl>

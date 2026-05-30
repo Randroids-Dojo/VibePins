@@ -4,7 +4,7 @@
 <body>
 
   <h1>Async multiplayer</h1>
-  <p data-status="not_started">Status: not_started</p>
+  <p data-status="partial">Status: partial</p>
 
   <section data-role="spec" id="intent">
     <h2>Intent</h2>
@@ -71,6 +71,7 @@
   <section data-role="build-log">
     <h2>Build log</h2>
     <ul>
+      <li data-date="2026-05-29">First backend sub-slice shipped (REQ-048/052/054/055). Pure match model in <code>src/match.ts</code>: a server-authoritative <code>MatchState</code> (id, 2-to-6 seats, per-seat name/secret/claimed/frames, open/active/complete status, currentSeat/currentFrame) with pure create/join/resume transitions. Serverless route <code>api/match.ts</code> persists matches in the <code>vibepins:match:</code> keyspace on the existing Upstash store with a 7-day TTL refreshed on every read. Create claims seat 1 and returns its per-seat secret; join claims the next open seat and activates a full match; GET resumes and resolves the caller's seat from its secret. Secrets are minted with <code>crypto.randomUUID</code> and never exposed in the public match view. Tests: <code>tests/match.test.ts</code>, <code>tests/match.api.test.ts</code>, <code>tests/match.smoke.test.ts</code>. PR #TBD. Deferred to follow-on dots: turn-order enforcement (REQ-049), per-ball submission with server scoring (REQ-053), completion locking and final standings (REQ-056), the handoff and your-turn/waiting UI (REQ-050/051), and posting a finished line to the leaderboard (REQ-058).</li>
       <li data-date="2026-05-28">Section created (replacing the earlier arcade-flair section) per dev direction: one authentic mode, plus async turn-based multiplayer as the headline social feature. No code yet.</li>
     </ul>
   </section>
