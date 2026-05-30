@@ -1,7 +1,7 @@
 {
   "_comment_1": "ATOMIC GRANULARITY ONLY. One row per requirement, not per chapter. A 14-day project should produce on the order of 100 rows. If your row count is implausibly low for project age, the loop will self-terminate before the product is good. This is the Flatline failure mode.",
   "_comment_2": "Allowed status values: not_started | partial | done | out_of_scope. Every row should carry implementationRefs and testRefs once status >= partial. followupRefs link to F-NNN entries in FOLLOWUPS.html.",
-  "updatedAt": "2026-05-29T20:10:00Z",
+  "updatedAt": "2026-05-29",
   "rows": [
     {
       "id": "REQ-001",
@@ -747,10 +747,18 @@
       "id": "REQ-048",
       "requirement": "A match is a shared ten-frame game with two-plus seats and server-authoritative state",
       "gddRef": "docs/gdd/05-async-multiplayer.html#match-model",
-      "status": "not_started",
-      "implementationRefs": [],
-      "testRefs": [],
-      "followupRefs": []
+      "status": "partial",
+      "implementationRefs": [
+        "api/match.ts",
+        "src/match.ts"
+      ],
+      "testRefs": [
+        "tests/match.test.ts",
+        "tests/match.api.test.ts",
+        "tests/match.smoke.test.ts"
+      ],
+      "followupRefs": [],
+      "note": "The match model ships as a pure, JSON-serializable MatchState (src/match.ts): id, clamped 2-to-6 seat count (default 2, not hard-coded to two), per-seat name/secret/claimed/frames, status open/active/complete, and currentSeat/currentFrame. State is authoritative server-side, persisted by api/match.ts in the vibepins:match: keyspace. Turn enforcement and per-ball scoring are deferred to follow-on slices."
     },
     {
       "id": "REQ-049",
@@ -783,10 +791,18 @@
       "id": "REQ-052",
       "requirement": "Lightweight identity: display name plus per-device token, with a per-seat secret authorizing submissions",
       "gddRef": "docs/gdd/05-async-multiplayer.html#identity",
-      "status": "not_started",
-      "implementationRefs": [],
-      "testRefs": [],
-      "followupRefs": []
+      "status": "partial",
+      "implementationRefs": [
+        "api/match.ts",
+        "src/match.ts"
+      ],
+      "testRefs": [
+        "tests/match.test.ts",
+        "tests/match.api.test.ts",
+        "tests/match.smoke.test.ts"
+      ],
+      "followupRefs": [],
+      "note": "Identity is a display name plus a per-seat secret minted with crypto.randomUUID on create/join and returned only to the claiming device (api/match.ts). seatForSecret resolves which seat a device owns for the resume flow. The secret never appears in the public match view (toPublicMatch). The full per-device-token-bound-to-seat client wiring is a follow-on slice."
     },
     {
       "id": "REQ-053",
@@ -801,19 +817,35 @@
       "id": "REQ-054",
       "requirement": "Matches persist server-side with a roughly one-week TTL so a day-long game never expires mid-play",
       "gddRef": "docs/gdd/05-async-multiplayer.html#lifecycle",
-      "status": "not_started",
-      "implementationRefs": [],
-      "testRefs": [],
-      "followupRefs": []
+      "status": "partial",
+      "implementationRefs": [
+        "api/match.ts",
+        "src/match.ts"
+      ],
+      "testRefs": [
+        "tests/match.test.ts",
+        "tests/match.api.test.ts",
+        "tests/match.smoke.test.ts"
+      ],
+      "followupRefs": [],
+      "note": "Matches persist in Upstash Redis under vibepins:match:<id> with a 7-day TTL (MATCH_TTL_SECONDS), refreshed on every read (loadMatch) so a day-long game never ages out mid-play."
     },
     {
       "id": "REQ-055",
       "requirement": "Create, join (claim a seat), and resume flows for a match",
       "gddRef": "docs/gdd/05-async-multiplayer.html#lifecycle",
-      "status": "not_started",
-      "implementationRefs": [],
-      "testRefs": [],
-      "followupRefs": []
+      "status": "partial",
+      "implementationRefs": [
+        "api/match.ts",
+        "src/match.ts"
+      ],
+      "testRefs": [
+        "tests/match.test.ts",
+        "tests/match.api.test.ts",
+        "tests/match.smoke.test.ts"
+      ],
+      "followupRefs": [],
+      "note": "Create (POST, claims seat 1), join (POST with id, claims the next open seat, activates when full), and resume (GET ?id=, returns the public match plus mySeat for a valid per-seat secret) all ship in api/match.ts over the pure src/match.ts transitions. The in-game UI for these flows is a follow-on slice."
     },
     {
       "id": "REQ-056",
@@ -941,13 +973,19 @@
       "gddRef": "docs/gdd/06-reuse-and-tech.html#async-backend",
       "status": "partial",
       "implementationRefs": [
-        "api/leaderboard.ts"
+        "api/leaderboard.ts",
+        "api/match.ts",
+        "src/match.ts"
       ],
       "testRefs": [
         "tests/leaderboard.test.ts",
-        "tests/leaderboard.smoke.test.ts"
+        "tests/leaderboard.smoke.test.ts",
+        "tests/match.test.ts",
+        "tests/match.api.test.ts",
+        "tests/match.smoke.test.ts"
       ],
-      "followupRefs": []
+      "followupRefs": [],
+      "note": "A Vercel serverless plus Upstash Redis backend serves both the leaderboard (api/leaderboard.ts) and async multiplayer matches (api/match.ts, vibepins:match: keyspace, create/join/resume shipped). Payloads are hand-validated at the wire boundary with pure model logic (zod is not a project dependency; hand-validation chosen per RULE 3)."
     }
   ]
 }

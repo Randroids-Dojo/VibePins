@@ -38,6 +38,22 @@
 <main id="open">
   <h2>Open</h2>
 
+  <section data-q="Q-014" data-status="open">
+    <h3>Q-014: Concurrent-join race on a shared match seat</h3>
+    <dl>
+      <dt>Context</dt><dd>The match backend (REQ-055) claims a seat with a read-modify-write: <code>api/match.ts</code> loads the match, <code>joinMatch</code> mutates it, then it is saved. Two players opening the same handoff link within the same instant could both read the match before either save lands and both claim the same open seat, with the second save winning. The GDD frames multiplayer as casual friends sharing one link, and a single open seat is normally claimed by one known recipient, so the window is tiny and low-stakes.</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li>Accept the race for v1. Last-writer-wins on a near-simultaneous double join; in practice friends claim one seat at a time. No extra Redis round trips.</li>
+          <li>Make the claim atomic with an Upstash transaction / optimistic check (WATCH or a Lua script / compare-and-set on the serialized match), retrying on conflict. Correct under contention but adds round trips and complexity for a casual flow.</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>A. The GDD scopes this to casual friends (not bank security), seats are claimed one recipient at a time, and the blast radius of a lost claim is one re-share of the link. Shipped under A. Revisit with option B if a later slice opens matches to wider/anonymous join where simultaneous claims become likely.</dd>
+      <dt>Status</dt><dd>open</dd>
+      <dt>Resolution</dt><dd>(shipped under Recommended default A in the match-backend create/join/resume slice, PR #38; left open for dev override)</dd>
+    </dl>
+  </section>
+
   <section data-q="Q-013" data-status="open">
     <h3>Q-013: Leaderboard ranking metric</h3>
     <dl>
