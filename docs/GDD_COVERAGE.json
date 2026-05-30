@@ -359,16 +359,20 @@
     },
     {
       "id": "REQ-024",
-      "requirement": "Crossed/tangled cords are tolerated visually without the simulation deadlocking; next re-rack clears geometry",
-      "gddRef": "docs/gdd/03-string-pinsetter.html#tangle-cross",
+      "requirement": "Crossed/tangled cords are tolerated visually without the simulation deadlocking; next re-rack clears geometry. Extended into an observable drop-and-unwind recovery loop on the reset: a tangled recall lowers the rack and lets it loose so gravity unwinds it, retries bounded by a cap, then sets the pins.",
+      "gddRef": "docs/gdd/03-string-pinsetter.html#tangle-drop-unwind",
       "status": "done",
       "implementationRefs": [
         "src/pins.ts",
         "src/reset.ts",
-        "src/config.ts"
+        "src/detection.ts",
+        "src/config.ts",
+        "src/main.ts"
       ],
       "testRefs": [
-        "tests/yank.smoke.test.ts"
+        "tests/yank.smoke.test.ts",
+        "tests/reset.test.ts",
+        "tests/tangle-recovery.smoke.test.ts"
       ],
       "followupRefs": []
     },

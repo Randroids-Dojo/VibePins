@@ -606,6 +606,48 @@ export const RESET = {
   liftPinY: 0.6,
 } as const;
 
+// Tangle drop-and-unwind recovery during the reset (GDD 03-string-pinsetter,
+// REQ-024). When the rack reaches the top of the lift, the machine checks that
+// every reeled pin hangs clear and still (untangled, at its aloft clearance).
+// A real string machine cannot finish the recall while pins are still snagged in
+// each other's cords, so it pays the strings out a little, lets gravity swing and
+// unwind the cluster, then reels back up and re-checks, repeating until the rack
+// hangs clear. VibePins reproduces this as a visible recovery loop: on a detected
+// tangle the held pins drop partway to releaseY (paying out slack), the sim runs
+// for releaseFrames so collisions and gravity untangle them, then they re-lift
+// over reLiftFrames and the rack is re-checked. The loop is bounded by maxRetries
+// retries; if the rack is still tangled at the cap the machine force-clears (sets
+// the pins anyway) so the reset can never hang or deadlock. These are first-pass
+// values for the playtest gate (Q-010).
+export const TANGLE = {
+  // Settle window (frames) the lowered rack is let loose on its cords so it lands
+  // and stills before the tangle read (~0.50s). The short soft drop from releaseY
+  // settles a clean rack well inside this; the detection reads the live sim at the
+  // end of it.
+  verifyFrames: 30,
+  // How far the held pins are lowered on a release (pin centre height). Below
+  // liftPinY so the drop is visible, just above the deck so the let-loose cluster
+  // settles softly (a gentle drop) rather than slamming down and rocking. The
+  // cords pay out and gravity does the unwinding.
+  releaseY: 0.32,
+  // Frames to lower the held pins from liftPinY down to releaseY (~0.50s), the
+  // visible paying-out of the strings before the rack is let loose.
+  releaseFrames: 30,
+  // Frames to reel the dropped pins back up to liftPinY before the next check
+  // (~0.40s). Snappy so the struggle reads as repeated tugs, not a slow crawl.
+  reLiftFrames: 24,
+  // Retry cap: after this many drop-and-unwind attempts the machine force-clears
+  // (proceeds to set the rack regardless) so the reset is always bounded.
+  maxRetries: 4,
+  // Tangle read thresholds (REQ-024). The rack reads tangled if any two pins piled
+  // within pileDistance (a crossed-cord snag dragged them together; well under the
+  // pinSpacing of ~0.30m a clean rack keeps) or any pin is still swinging/colliding
+  // above the at-rest speeds.
+  pileDistance: 0.12,
+  atRestLinSpeed: 0.2,
+  atRestAngSpeed: 0.6,
+} as const;
+
 // A pin's centre height at rest on the deck (base on the deck surface). Single
 // source for the reset lower target and the detection/rack geometry.
 export const PIN_REST_Y = LANE.floorY + LANE.pinHeight / 2;

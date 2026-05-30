@@ -1,9 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { RESET, LANE, PIN_REST_Y, type Vec3 } from '../src/config.js';
-import { ResetCycle, pinTargetFor, type ResetConfig } from '../src/reset.js';
+import { RESET, TANGLE, LANE, PIN_REST_Y, type Vec3 } from '../src/config.js';
+import { ResetCycle, pinTargetFor, type ResetConfig, type ResetPhase } from '../src/reset.js';
 
 const restY = PIN_REST_Y;
 const cfg: ResetConfig = { ...RESET, restY };
+// A cycle config WITH the tangle drop-and-unwind recovery armed (REQ-024).
+const recoveryCfg: ResetConfig = { ...RESET, ...TANGLE, restY };
 // Pin home spots (resting height) and settled positions (offset and low).
 const homeSpots: Vec3[] = Array.from({ length: 10 }, (_, i) => ({ x: i * 0.1 - 0.45, y: restY, z: -18.3 }));
 const settledSpots: Vec3[] = homeSpots.map((h) => ({ x: h.x + 0.4, y: 0.05, z: h.z + 0.2 }));
@@ -194,5 +196,179 @@ describe('reset lifecycle edges', () => {
     rc.update(0.5); // ~30 fixed steps
     expect(rc.phase).toBe('lift');
     expect(rc.isComplete()).toBe(false);
+  });
+});
+
+// Pure, deterministic coverage of the tangle drop-and-unwind recovery controller
+// (REQ-024). The "is the rack tangled?" verdict is injected via reportTangle, so
+// the loop logic is testable without any physics: no-tangle fast path, tangled
+// then clears after N drops, and the retry cap forcing a clear.
+describe('tangle drop-and-unwind recovery controller (REQ-024)', () => {
+  const allTen = Array.from({ length: 10 }, (_, i) => i);
+
+  // Run the cycle to completion, answering the tangle verdict from `verdicts`
+  // (one per checkpoint, defaulting to clear once the list runs out). Returns the
+  // ordered list of distinct phases seen, so the recovery sub-phases are visible.
+  function runWithVerdicts(rc: ResetCycle, verdicts: boolean[]): ResetPhase[] {
+    rc.start('rerack', [], homeSpots, settledSpots);
+    const phases: ResetPhase[] = [];
+    let checkpoint = 0;
+    let guard = 0;
+    while (rc.isRunning && guard < 10_000) {
+      if (rc.needsTangleVerdict) {
+        const tangled = verdicts[checkpoint] ?? false;
+        checkpoint += 1;
+        rc.reportTangle(tangled);
+        continue;
+      }
+      if (phases[phases.length - 1] !== rc.phase) phases.push(rc.phase);
+      rc.step();
+      guard += 1;
+    }
+    return phases;
+  }
+
+  it('always drops for a hang test, and on a clear verdict re-lifts then sets the rack', () => {
+    const rc = new ResetCycle(recoveryCfg);
+    const phases = runWithVerdicts(rc, [false]);
+    // The rack always drops (release) for the check, then a clear verdict reels it
+    // back up (re-lift) before setting. One release, no further drops.
+    expect(phases).toEqual([
+      'settle-hold',
+      'lift',
+      'release',
+      'verify-clear',
+      're-lift',
+      'reposition',
+      'lower',
+    ]);
+    expect(phases.filter((p) => p === 'release').length).toBe(1);
+    expect(rc.retryCount).toBe(0);
+    expect(rc.isComplete()).toBe(true);
+  });
+
+  it('on a tangle, drops and unwinds (release then verify) repeatedly until clear', () => {
+    const rc = new ResetCycle(recoveryCfg);
+    // Tangled at the first two checks, clear at the third.
+    const phases = runWithVerdicts(rc, [true, true, false]);
+    expect(phases).toEqual([
+      'settle-hold',
+      'lift',
+      'release',
+      'verify-clear',
+      're-lift',
+      'release',
+      'verify-clear',
+      're-lift',
+      'release',
+      'verify-clear',
+      're-lift',
+      'reposition',
+      'lower',
+    ]);
+    expect(rc.retryCount).toBe(2);
+    // Three drops total: the initial check plus the two retries.
+    expect(phases.filter((p) => p === 'release').length).toBe(3);
+    expect(rc.isComplete()).toBe(true);
+  });
+
+  it('is bounded: a rack that never clears force-clears at the retry cap', () => {
+    const rc = new ResetCycle(recoveryCfg);
+    // Always tangled. The loop must still terminate at maxRetries retries.
+    const phases = runWithVerdicts(rc, Array(50).fill(true));
+    expect(rc.retryCount).toBe(TANGLE.maxRetries);
+    // maxRetries retry drops plus the initial check drop, then it set the rack.
+    expect(phases.filter((p) => p === 'release').length).toBe(TANGLE.maxRetries + 1);
+    expect(phases[phases.length - 2]).toBe('reposition');
+    expect(phases[phases.length - 1]).toBe('lower');
+    expect(rc.isComplete()).toBe(true);
+  });
+
+  it('a release lowers the held pins toward releaseY, then a re-lift reels them back up', () => {
+    const rc = new ResetCycle(recoveryCfg);
+    rc.start('rerack', [], homeSpots, settledSpots);
+    // Drive to the release that precedes the first hang test.
+    let guard = 0;
+    while (rc.phase !== 'release' && guard < 10_000) {
+      rc.step();
+      guard += 1;
+    }
+    expect(rc.phase).toBe('release');
+    const pin = 3;
+    const at = (arr: ReturnType<ResetCycle['step']>) => arr.find((t) => t.pinIndex === pin)!;
+    // Mid-release the held pin is lowered below the aloft clearance (paying out).
+    for (let i = 0; i < Math.floor(TANGLE.releaseFrames / 2); i += 1) rc.step();
+    const dropMid = at(rc.step());
+    expect(dropMid.y).toBeLessThan(recoveryCfg.liftPinY!);
+    expect(dropMid.y).toBeGreaterThan(recoveryCfg.releaseY!);
+    // The release runs into verify-clear; report a tangle to reel it back up.
+    while (rc.phase === 'release') rc.step();
+    expect(rc.phase).toBe('verify-clear');
+    while (!rc.needsTangleVerdict) rc.step();
+    rc.reportTangle(true);
+    expect(rc.phase).toBe('re-lift');
+    let last = rc.step();
+    while (rc.phase === 're-lift') last = rc.step();
+    // The last re-lift step reaches the aloft clearance again.
+    expect(at(last).y).toBeCloseTo(recoveryCfg.liftPinY!, 6);
+  });
+
+  it('the no-recovery config (no tangle tunables) skips verify-clear entirely', () => {
+    const rc = new ResetCycle(cfg);
+    rc.start('rerack', [], homeSpots, settledSpots);
+    const seen = new Set<ResetPhase>();
+    while (rc.isRunning) {
+      seen.add(rc.phase);
+      expect(rc.needsTangleVerdict).toBe(false);
+      rc.step();
+    }
+    expect(seen.has('verify-clear')).toBe(false);
+    expect(seen.has('release')).toBe(false);
+    expect([...seen].sort()).toEqual(['lift', 'lower', 'reposition', 'settle-hold']);
+  });
+
+  it('reportTangle is a no-op when the cycle is not at a verdict checkpoint', () => {
+    const rc = new ResetCycle(recoveryCfg);
+    rc.start('rerack', [], homeSpots, settledSpots);
+    expect(rc.needsTangleVerdict).toBe(false);
+    rc.reportTangle(true); // ignored mid-lift
+    rc.step();
+    expect(rc.phase).toBe('settle-hold');
+    expect(rc.retryCount).toBe(0);
+    expect(rc.targets.length).toBe(allTen.length);
+  });
+
+  it('a recovery cycle still completes the full settle-lift-reposition-lower on a clean rack', () => {
+    const rc = new ResetCycle(recoveryCfg);
+    const phases = runWithVerdicts(rc, [false]);
+    expect(phases[0]).toBe('settle-hold');
+    expect(phases[1]).toBe('lift');
+    expect(phases[phases.length - 1]).toBe('lower');
+  });
+});
+
+describe('pinTargetFor recovery choreography (REQ-024)', () => {
+  const home: Vec3 = { x: 0.2, y: restY, z: -18.3 };
+  const settled: Vec3 = { x: 0.6, y: 0.05, z: -18.0 };
+
+  it('holds the pin at the dropped height (releaseY) during verify-clear', () => {
+    expect(pinTargetFor('verify-clear', 0.5, home, settled, recoveryCfg)).toEqual({
+      x: settled.x,
+      y: recoveryCfg.releaseY,
+      z: settled.z,
+    });
+  });
+
+  it('lowers the pin from liftPinY down toward releaseY during release', () => {
+    const top = pinTargetFor('release', 0, home, settled, recoveryCfg);
+    expect(top.y).toBeCloseTo(recoveryCfg.liftPinY!, 6);
+    const bottom = pinTargetFor('release', 1, home, settled, recoveryCfg);
+    expect(bottom.y).toBeCloseTo(recoveryCfg.releaseY!, 6);
+    expect(bottom.y).toBeLessThan(top.y);
+  });
+
+  it('reels the pin from the deck back up to the clearance during re-lift', () => {
+    expect(pinTargetFor('re-lift', 0, home, settled, recoveryCfg).y).toBeCloseTo(restY, 6);
+    expect(pinTargetFor('re-lift', 1, home, settled, recoveryCfg).y).toBeCloseTo(recoveryCfg.liftPinY!, 6);
   });
 });
