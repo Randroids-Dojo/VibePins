@@ -16,6 +16,7 @@ import {
   VICTORY,
   THROW_LIGHT_3D,
   MATERIALS,
+  AIM_GUIDE,
   gutterBoxes,
   pitBoxes,
   laneSurfaceSpan,
@@ -54,6 +55,12 @@ export class World3D {
   // The lane-end go/stop signal lenses (REQ-038). The two stacked lenses of the
   // down-lane traffic signal; setThrowLight swaps each between its lit and dark
   // material so exactly one glows for the current state.
+  // The line-up aim guide (REQ-033). A glowing amber ribbon laid on the lane bed
+  // from the release point at the chosen stance to the base-aim target down-lane.
+  // setAimGuide repositions and re-orients it every align frame so it tracks the
+  // stance, and hides it once the line is locked so it never clutters the throw.
+  private aimGuide!: THREE.Mesh;
+
   private goLens!: THREE.Mesh;
   private waitLens!: THREE.Mesh;
   private goLitMat!: THREE.Material;
@@ -89,6 +96,7 @@ export class World3D {
     this.buildPinDeck();
     this.buildPinsetterRig();
     this.buildThrowLight();
+    this.buildAimGuide();
     this.buildVictoryDebris();
 
     // Physics world. Gravity straight down; a fixed bed collider gives the
@@ -553,6 +561,63 @@ export class World3D {
   // lens holds. Exposed so a test can assert the signal actually changed state.
   get throwLightState(): 'go' | 'wait' {
     return this.goLens.material === this.goLitMat ? 'go' : 'wait';
+  }
+
+  // Build the line-up aim guide (REQ-033): a thin glowing amber ribbon laid flat
+  // on the lane bed, the bowler's sight line from the release point to the base-aim
+  // target. It is a unit-length plane (1 m along its local +y, AIM_GUIDE.width
+  // across local x), so setAimGuide can stretch and aim it from start to end by
+  // mapping its length axis (+y) onto the start-to-end direction with one basis
+  // matrix plus a length scale. Built hidden; it shows only while aligning. The
+  // material is unlit and emissive-looking (MeshBasicMaterial) so the line glows
+  // the same in the moody venue regardless of the work-lights, and translucent so
+  // the pins read through it.
+  private buildAimGuide(): void {
+    // PlaneGeometry's height is along local +y, so a width x unit-height plane has
+    // its long axis on +y; that is the axis setAimGuide rotates onto the sight line.
+    const geo = new THREE.PlaneGeometry(AIM_GUIDE.width, 1);
+    const mat = new THREE.MeshBasicMaterial({
+      color: AIM_GUIDE.color,
+      transparent: true,
+      opacity: AIM_GUIDE.opacity,
+      depthWrite: false,
+    });
+    this.aimGuide = new THREE.Mesh(geo, mat);
+    this.aimGuide.visible = false;
+    this.scene.add(this.aimGuide);
+  }
+
+  // Show the aim guide stretched from start to end on the bed, or hide it (null).
+  // Called every align frame from main.ts with aimGuideEndpoints(stance) so the
+  // line tracks the stance; passed null once the line is locked so the guide
+  // disappears for the rest of the throw (REQ-033, kept clean off the align step).
+  // The line is observable motion (RULE 10): as the stance slides, the ribbon's
+  // centre and heading change, which a test can read off the mesh.
+  //
+  // The ribbon lies flat on the bed. Its length axis (local +y) is mapped onto the
+  // bed-plane direction from start to end, its normal (local +z) onto world +y (up),
+  // and its width (local x) onto the remaining in-bed axis, via an orthonormal
+  // basis. Scaling local +y by the endpoint distance spans the two points.
+  setAimGuide(guide: { start: Vec3; end: Vec3 } | null): void {
+    if (!guide) {
+      this.aimGuide.visible = false;
+      return;
+    }
+    const dx = guide.end.x - guide.start.x;
+    const dz = guide.end.z - guide.start.z;
+    const length = Math.hypot(dx, dz);
+    const lengthAxis = new THREE.Vector3(dx / length, 0, dz / length); // local +y -> sight line
+    const normalAxis = new THREE.Vector3(0, 1, 0); // local +z -> up out of the bed
+    const widthAxis = new THREE.Vector3().crossVectors(lengthAxis, normalAxis).normalize(); // local +x
+    const basis = new THREE.Matrix4().makeBasis(widthAxis, lengthAxis, normalAxis);
+    this.aimGuide.quaternion.setFromRotationMatrix(basis);
+    this.aimGuide.position.set(
+      (guide.start.x + guide.end.x) / 2,
+      LANE.floorY + AIM_GUIDE.liftY,
+      (guide.start.z + guide.end.z) / 2,
+    );
+    this.aimGuide.scale.set(1, length, 1);
+    this.aimGuide.visible = true;
   }
 
   // Mirror the live debris states onto the pool and (un)hide unused meshes.

@@ -72,6 +72,24 @@
     </dl>
   </section>
 
+  <section data-q="Q-038" data-status="open">
+    <h3>Q-038: Form of the line-up aim guide (where the ball releases and how it heads)</h3>
+    <dl>
+      <dt>Context</dt><dd>Playtest: the lateral sidestep (PR #64) repositions cleanly but gives no read on WHERE the ball will release or how the bowler's arm lines up with the lane. The dot offered several clean options (a trajectory line / chevrons on the bed from the release point down-lane, a release-point marker at the foul line, and/or a rendered hand/arm at the release), any of which could combine. The guide must track the stance (the start = where the ball starts, the stance offset) and reflect the ball's initial direction, show during the align step, and not clutter the rest of the throw, staying consistent with the <code>#lineup</code> indicator, the sidestep camera, and the base-aim launch physics (REQ-033/036, launch resolve unchanged).</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li>A glowing line drawn on the lane bed from the release point at the chosen stance straight to the base-aim target down-lane, tracking the stance every frame and hiding on lock. The endpoints come from a pure helper (<code>aimGuideEndpoints</code>) that reuses the launch base aim, so the guide's heading is exactly the ball's initial direction. Reads as the bowler's sight line on the bed; minimal, clean, and physics-accurate; nothing to occlude the pins.</li>
+          <li>A release-point marker (a glowing disc/chevron) at the foul line only, tracking the stance. Simpler, but shows where the ball starts without the direction the line-up steers it, which is the other half of the playtest ask.</li>
+          <li>A rendered hand/arm holding the ball at the release. The most literal "how the arm lines up" read, but it is a much larger modelling / rigging slice (a posed limb that tracks the stance and the carry) for a marginal gain over a bed line that already shows the start and the heading, and risks clutter in the first-person view.</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>A. A bed aim line from the release point to the base-aim target shows BOTH halves of the ask (where the ball starts at the stance AND which way it heads) in one clean, physics-accurate element, tracks the stance every align frame, and hides on lock so it never clutters the timed steps or the throw. It reuses the launch base aim (so the guide cannot disagree with the ball) and adds no modelling cost. Shipped under A. A release-point marker (B) is subsumed by the line's start; a rendered arm (C) is deferred to a polish dot if the re-playtest still wants a literal limb.</dd>
+      <dt>Owner</dt><dd>Playtest gate (Q-010).</dd>
+      <dt>Status</dt><dd>open</dd>
+      <dt>Resolution</dt><dd>(shipped under Recommended default A in the aim-guide slice; left open for dev override after the re-playtest)</dd>
+    </dl>
+  </section>
+
   <section data-q="Q-037" data-status="open">
     <h3>Q-037: How the physical ball-return cradle holds the queue and where the returned ball settles</h3>
     <dl>

@@ -80,6 +80,45 @@ export function baseAimLateralSpeed(lateralOffset: number, speed: number): numbe
   return AIM.strength * ((LANE.headSpot.x - startX) / travel) * speed;
 }
 
+// Aim-guide endpoints for the line-up step (GDD 08-controls, REQ-033). The guide
+// is a line drawn on the lane bed from where the ball is released to where its
+// base aim points down-lane, so the player reads where the ball starts and which
+// way it heads while sidestepping the stance. It tracks the stance exactly:
+//
+//   start = the release point at the chosen stance: the ball spawn shifted by the
+//     lateral offset (headSpot.x + lateralOffset, at ballSpawnZ), so the near end
+//     of the line sits under the held ball wherever the bowler has stepped.
+//   end   = the down-lane target the base aim sends the ball toward, at AIM.targetZ
+//     (the pin deck). The end x follows the SAME base-aim direction the launch
+//     resolves (baseAimLateralSpeed at the legacy launch speed, the speed before
+//     the power step is timed), so the guide's slope matches the ball's initial
+//     heading. At AIM.strength = 1 the end lands on headSpot.x (a centred attack);
+//     a partial strength leaves the end off-centre, exactly as the ball will roll.
+//
+// Spin is not chosen yet during align, so the guide shows only the base aim (the
+// straight-ball heading from the stance), not the later hook. Pure, so a unit test
+// can assert the endpoints track the stance without a DOM or a physics world.
+export interface AimGuide {
+  readonly start: Vec3;
+  readonly end: Vec3;
+}
+
+export function aimGuideEndpoints(lateralOffset: number): AimGuide {
+  const startX = LANE.headSpot.x + lateralOffset;
+  const speed = LANE.ballLaunchSpeed;
+  const vx = baseAimLateralSpeed(lateralOffset, speed);
+  // Down-lane travel from the release z to the target, and the matching lateral
+  // drift over that travel at the base-aim x-velocity. vz is -speed (down -z), so
+  // the time to span the travel is travel / speed and the x drift is vx * time.
+  const travel = LANE.ballSpawnZ - AIM.targetZ; // positive (target is more -z)
+  const endX = startX + (vx / speed) * travel;
+  const y = LANE.floorY;
+  return {
+    start: { x: startX, y, z: LANE.ballSpawnZ },
+    end: { x: endX, y, z: AIM.targetZ },
+  };
+}
+
 // Launch velocity for a given spin/angle stop, power stop, and line-up stance:
 // down-lane (-z) at the power-resolved speed, plus the spin nudge and the base
 // aim from the lateral start position. With no power stop (undefined) the speed

@@ -13,7 +13,7 @@
 
 import { createWorld3D } from './world3d.js';
 import { PinSet, pinRackPositions } from './pins.js';
-import { Ball, ballSpawnPosition, ballRackFront } from './ball.js';
+import { Ball, ballSpawnPosition, ballRackFront, aimGuideEndpoints } from './ball.js';
 import { BallRack } from './ballRack.js';
 import { detectPins, isRackSnagged, SettleWindow } from './detection.js';
 import { ResetCycle, type ResetMode, type ResetPhase } from './reset.js';
@@ -356,8 +356,18 @@ function renderTutorial(): void {
 // marker tracks shotCamera.alignFraction across the rail span. Called every
 // aiming frame so keyboard nudges and pointer drags both reflect immediately.
 function renderLineup(): void {
-  if (!lineupEl || !lineupMarkerEl || !lineupTrackEl) return;
   const aligning = shotCamera.isAligning;
+  // The 3D aim guide on the bed: a glowing line from the release point at the
+  // chosen stance to the base-aim target down-lane, so the player can see where
+  // the ball starts and which way it heads while sidestepping. It tracks the
+  // stance every align frame and hides once the line is locked, so it never
+  // clutters the rest of the throw (REQ-033). The endpoints are the pure
+  // aimGuideEndpoints, which reuse the launch base-aim so the guide matches the
+  // ball's real initial heading. Driven here (not behind the lineupEl null-guard
+  // below) so the bed guide shows even if the HUD line-up element is absent.
+  world.setAimGuide(aligning ? aimGuideEndpoints(shotCamera.alignment) : null);
+
+  if (!lineupEl || !lineupMarkerEl || !lineupTrackEl) return;
   lineupEl.hidden = !aligning;
   if (!aligning) return;
   const px = lineupMarkerOffset(shotCamera.alignFraction, lineupTrackEl.clientWidth, LINEUP_RAIL_INSET);
@@ -628,6 +638,9 @@ function showScreen(screen: Screen): void {
   if (tutorialEl && screen !== 'playing') tutorialEl.hidden = true;
   // The line-up track likewise belongs only over the live align phase.
   if (lineupEl && screen !== 'playing') lineupEl.hidden = true;
+  // The 3D bed aim guide is part of the same align step; clear it on any non-playing
+  // screen so it never lingers on the bed behind the menu or summary overlay.
+  if (screen !== 'playing') world.setAimGuide(null);
   // The spin/power gauges belong only over the live aiming phase.
   if (metersEl && screen !== 'playing') metersEl.hidden = true;
   // The throw light belongs only over the live game; show it on entry and keep it
