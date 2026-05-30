@@ -62,23 +62,73 @@ describe('reset phase ordering', () => {
   });
 });
 
-describe('reset target selection (REQ-019, REQ-021)', () => {
-  it('between-balls carries only the fallen pins; standing pins are never moved', () => {
+describe('reset target selection (REQ-009, REQ-019, REQ-021)', () => {
+  const allTen = Array.from({ length: 10 }, (_, i) => i);
+
+  it('between-balls reels the WHOLE rack up: every pin is carried, not just the fallen ones', () => {
     const rc = new ResetCycle(cfg);
     const fallen = [0, 3, 7];
     rc.start('between-balls', fallen, homeSpots, settledSpots);
-    expect([...rc.targets].sort((a, b) => a - b)).toEqual(fallen);
+    // The recall-all motion: all ten pins are reeled up, not only the fallen ones.
+    expect([...rc.targets].sort((a, b) => a - b)).toEqual(allTen);
     const touched = new Set<number>();
     for (let i = 0; i < rc.totalFrames; i += 1) {
       for (const target of rc.step()) touched.add(target.pinIndex);
     }
-    expect([...touched].sort((a, b) => a - b)).toEqual(fallen);
+    expect([...touched].sort((a, b) => a - b)).toEqual(allTen);
   });
 
-  it('rerack carries all ten pins', () => {
+  it('between-balls lands the STANDING pins home and holds the FALLEN pins aloft', () => {
+    const rc = new ResetCycle(cfg);
+    const fallen = [0, 3, 7];
+    const standing = allTen.filter((i) => !fallen.includes(i));
+    rc.start('between-balls', fallen, homeSpots, settledSpots);
+    expect([...rc.landedTargets].sort((a, b) => a - b)).toEqual(standing);
+    expect([...rc.heldAloftTargets].sort((a, b) => a - b)).toEqual(fallen);
+
+    // Drive to the final step and inspect each pin's end target. Standing pins
+    // land on their home spot at deck height; fallen pins stay aloft at liftPinY.
+    let last = rc.step();
+    while (rc.isRunning) last = rc.step();
+    const at = (pin: number) => last.find((t) => t.pinIndex === pin)!;
+    for (const i of standing) {
+      expect(at(i).x).toBe(homeSpots[i].x);
+      expect(at(i).z).toBe(homeSpots[i].z);
+      expect(at(i).y).toBe(restY);
+    }
+    for (const i of fallen) {
+      expect(at(i).x).toBeCloseTo(settledSpots[i].x, 6);
+      expect(at(i).z).toBeCloseTo(settledSpots[i].z, 6);
+      expect(at(i).y).toBeCloseTo(cfg.liftPinY, 6);
+    }
+  });
+
+  it('rerack reels all ten and lands all ten home (none held aloft)', () => {
     const rc = new ResetCycle(cfg);
     rc.start('rerack', [], homeSpots, settledSpots);
     expect(rc.targets.length).toBe(10);
+    expect([...rc.landedTargets].sort((a, b) => a - b)).toEqual(allTen);
+    expect(rc.heldAloftTargets.length).toBe(0);
+  });
+
+  it('a fallen pin lifts with the rack before holding aloft (observable rise then hold)', () => {
+    const rc = new ResetCycle(cfg);
+    const fallen = [4];
+    rc.start('between-balls', fallen, homeSpots, settledSpots);
+    const pin = 4;
+    const at = (arr: ReturnType<ResetCycle['step']>) => arr.find((t) => t.pinIndex === pin)!;
+    // Settle-hold: on the deck.
+    expect(at(rc.step()).y).toBeCloseTo(restY, 6);
+    // Mid-lift: risen off the deck.
+    stepN(rc, RESET.settleHoldFrames + Math.floor(RESET.liftFrames / 2));
+    expect(at(rc.step()).y).toBeGreaterThan(restY);
+    // Through reposition and lower it stays aloft over its settled spot, never set
+    // back down (REQ-009 cleared out of play).
+    stepN(rc, RESET.liftFrames);
+    const repos = at(rc.step());
+    expect(repos.y).toBeCloseTo(cfg.liftPinY, 6);
+    expect(repos.x).toBeCloseTo(settledSpots[pin].x, 6);
+    while (rc.isRunning) rc.step();
   });
 });
 

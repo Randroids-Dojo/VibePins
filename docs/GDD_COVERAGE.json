@@ -283,11 +283,12 @@
     },
     {
       "id": "REQ-019",
-      "requirement": "Between balls only fallen pins are lifted; on a full re-rack all ten are lifted",
+      "requirement": "Between balls the whole rack is reeled up (recall-all) when pins were knocked down, then standing pins are re-spotted and fallen pins stay aloft; on a full re-rack all ten are lifted and set home",
       "gddRef": "docs/gdd/03-string-pinsetter.html#reset-cycle",
       "status": "done",
       "implementationRefs": [
         "src/reset.ts",
+        "src/main.ts",
         "src/pins.ts"
       ],
       "testRefs": [
@@ -313,11 +314,12 @@
     },
     {
       "id": "REQ-021",
-      "requirement": "Standing pins are respotted exactly where they came to rest, even if nudged off the home spot",
+      "requirement": "Between balls the standing pins are re-spotted onto their home spots (a nudged-but-standing pin returns to its home spot) while fallen pins stay reeled up and aloft",
       "gddRef": "docs/gdd/03-string-pinsetter.html#respot",
       "status": "done",
       "implementationRefs": [
         "src/reset.ts",
+        "src/main.ts",
         "src/pins.ts"
       ],
       "testRefs": [
