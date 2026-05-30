@@ -4,6 +4,7 @@ import {
   canThrow,
   lineupMarkerOffset,
   lineupFractionFromOffset,
+  shotMetersVisibility,
   type BallPath,
   type CameraPose,
   type ShotCameraConfig,
@@ -190,6 +191,40 @@ describe('line-up indicator geometry (REQ-033 step 1)', () => {
       const offset = lineupMarkerOffset(f, W, INSET);
       expect(lineupFractionFromOffset(offset, W, INSET)).toBeCloseTo(f, 6);
     }
+  });
+});
+
+describe('shotMetersVisibility (playtest bug 6: hide gauges during loading)', () => {
+  it('hides both gauges during the loading walk-up even while aiming', () => {
+    for (const phase of ['pickup', 'walkup'] as const) {
+      const v = shotMetersVisibility(true, phase, false);
+      expect(v.showSpin).toBe(false);
+      expect(v.showPower).toBe(false);
+    }
+  });
+
+  it('hides both gauges during the line-up step (the indicator shows instead)', () => {
+    const v = shotMetersVisibility(true, 'align', false);
+    expect(v.showSpin).toBe(false);
+    expect(v.showPower).toBe(false);
+  });
+
+  it('shows the spin gauge once locked before the power step', () => {
+    const v = shotMetersVisibility(true, 'locked', false);
+    expect(v.showSpin).toBe(true);
+    expect(v.showPower).toBe(false);
+  });
+
+  it('swaps to the power gauge once the power meter sweeps', () => {
+    const v = shotMetersVisibility(true, 'locked', true);
+    expect(v.showSpin).toBe(false);
+    expect(v.showPower).toBe(true);
+  });
+
+  it('hides both gauges outside the aiming phase', () => {
+    const v = shotMetersVisibility(false, 'locked', false);
+    expect(v.showSpin).toBe(false);
+    expect(v.showPower).toBe(false);
   });
 });
 

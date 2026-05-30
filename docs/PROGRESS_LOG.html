@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="hide-meters-during-loading" data-date="2026-05-29">
+    <h3>Hide the spin/power gauges during the loading walk-up (playtest bug 6)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/hide-meters-loading</code></dd>
+      <dt>PR</dt><dd>#TBD</dd>
+      <dt>Changed</dt><dd>The spin gauge appeared during the between-ball loading/reset animation: the shot phase is set to <code>aiming</code> at the start of <code>beginShot</code> while the ball is still loading at the return and the bowler walks up, and the old inline visibility check (<code>aiming &amp;&amp; !isAligning &amp;&amp; !powerSweeping</code>) was true through <code>pickup</code> / <code>walkup</code>, so a meter sat on screen with nothing to time. <code>src/camera.ts</code> gained a pure <code>shotMetersVisibility(aiming, cameraPhase, powerSweeping)</code> returning <code>showSpin</code> / <code>showPower</code>: both false unless aiming and the camera is <code>locked</code>, then spin until the power meter sweeps and power after. The gauges are now off during loading and during the <code>align</code> line-up step (the line-up indicator owns that step). <code>src/main.ts</code> <code>renderMeters</code> drives visibility from that helper.</dd>
+      <dt>Verification</dt><dd>em-dash grep clean on changed files; <code>git diff --check</code> clean; <code>tsc --noEmit</code> clean; full vitest 559/559; <code>vite build</code> succeeds. New tests in <code>tests/camera.test.ts</code> assert both gauges hidden during <code>pickup</code> / <code>walkup</code> and <code>align</code>, spin shown when locked before power, power shown once the power meter sweeps, and nothing shown outside aiming.</dd>
+      <dt>Assumptions</dt><dd>"Time to aim" means once the line is locked (the timed spin/power steps), matching the existing flow where the spin meter starts on lock. The line-up step shows its own indicator, not a gauge, so it is excluded too.</dd>
+      <dt>GDD coverage</dt><dd>REQ-038 build-log entry appended (08-controls).</dd>
+      <dt>Followups</dt><dd>None.</dd>
+    </dl>
+  </article>
+
   <article data-slice="fix-between-balls-reset-and-second-ball" data-date="2026-05-29">
     <h3>Fix the between-balls reset, second-ball throw, and string recall motion</h3>
     <dl>

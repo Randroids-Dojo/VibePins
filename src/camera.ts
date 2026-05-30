@@ -16,6 +16,37 @@ export function canThrow(phase: ShotPhase, holding: boolean): boolean {
   return phase === 'locked' && holding;
 }
 
+// Which spin/power gauge (if any) the HUD should show this frame. Pure, so the
+// show/hide decision is testable without the DOM (RULE 10).
+//
+// The gauges belong only to the timed steps of the throw, which run once the
+// line is locked. While the ball loads at the return and the bowler walks up
+// (camera 'pickup' / 'walkup') and while the player is still shifting the line
+// ('align', which shows the line-up indicator instead), neither gauge shows,
+// even though the shot phase is already 'aiming'. This is playtest bug 6: the
+// meters must appear only when it is time to aim, not during the loading walk-up
+// or the line-up step.
+//
+// Once locked: show the spin gauge while the spin meter sweeps or holds before
+// the power step, then swap to the power gauge once the power meter sweeps.
+export interface MetersVisibility {
+  readonly showSpin: boolean;
+  readonly showPower: boolean;
+}
+
+export function shotMetersVisibility(
+  aiming: boolean,
+  cameraPhase: ShotPhase,
+  powerSweeping: boolean,
+): MetersVisibility {
+  // Only after the line is locked do the timed spin/power steps run. This keeps
+  // the gauges off the screen during the loading walk-up and the line-up step.
+  const ready = aiming && cameraPhase === 'locked';
+  const showPower = ready && powerSweeping;
+  const showSpin = ready && !powerSweeping;
+  return { showSpin, showPower };
+}
+
 // Line-up indicator geometry (REQ-033 step 1). The marker slides across the
 // rail span of the track (the track minus a rail inset on each end). These two
 // pure maps convert between the normalized [-1, +1] stance fraction and a pixel
