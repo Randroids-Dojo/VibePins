@@ -25,7 +25,7 @@ import { FoulDetector } from './foul.js';
 import { GutterDetector } from './gutter.js';
 import { Screens, type Screen } from './screens.js';
 import { Settings } from './settings.js';
-import { Leaderboard } from './leaderboard.js';
+import { Leaderboard, renderBoardRows, type BoardType } from './leaderboard.js';
 import { Tutorial } from './tutorial.js';
 import { AudioEngine } from './audio.js';
 import { VictoryRoutine } from './victory.js';
@@ -45,8 +45,19 @@ const summaryScoreEl = document.getElementById('summary-score');
 const menuPlayBtn = document.getElementById('menu-play');
 const menuAudioBtn = document.getElementById('menu-audio');
 const menuTutorialBtn = document.getElementById('menu-tutorial');
+const menuLeaderboardBtn = document.getElementById('menu-leaderboard');
 const summaryAgainBtn = document.getElementById('summary-again');
 const summaryMenuBtn = document.getElementById('summary-menu');
+const summaryLeaderboardBtn = document.getElementById('summary-leaderboard');
+
+// Leaderboard standings board overlay (REQ-060/061/063). Opened from the menu
+// or the summary, with an all-time/daily tab pair, and a Back button that
+// returns to whichever screen opened it.
+const boardEl = document.getElementById('board');
+const boardListEl = document.getElementById('board-list');
+const boardTabAllTimeBtn = document.getElementById('board-tab-alltime');
+const boardTabDailyBtn = document.getElementById('board-tab-daily');
+const boardBackBtn = document.getElementById('board-back');
 
 // Leaderboard score submission on the summary screen (REQ-057): the name field,
 // submit form/button, and the status line that reports the server rank or error.
@@ -146,6 +157,11 @@ const leaderboard = new Leaderboard();
 // Whether the current summary's score has already been submitted, so the player
 // cannot double-post the same game.
 let scoreSubmitted = false;
+
+// Leaderboard standings board (REQ-060/061/063): the active tab and the screen
+// to return to when the board's Back button is pressed (menu or summary).
+let boardTab: BoardType = 'alltime';
+let boardReturnVisible: 'menu' | 'summary' = 'menu';
 
 // First-run control tutorial (REQ-047). Armed only when the player has not seen
 // it before; it advances through the three throw steps as the player confirms
@@ -392,6 +408,9 @@ function showScreen(screen: Screen): void {
   const isSummary = screen === 'summary';
   if (menuEl) menuEl.hidden = !isMenu;
   if (summaryEl) summaryEl.hidden = !isSummary;
+  // The standings board is a sub-view of the menu/summary; a screen transition
+  // always closes it so it never lingers over the wrong screen or the live game.
+  if (boardEl) boardEl.hidden = true;
   // The coach only belongs over the live game; hide it on the menu and summary.
   if (tutorialEl && screen !== 'playing') tutorialEl.hidden = true;
   // The line-up track likewise belongs only over the live align phase.
@@ -479,6 +498,70 @@ async function submitScore(): Promise<void> {
     setSubmitStatus(leaderboard.error ?? 'Could not submit score', 'error');
   }
 }
+
+// Render the standings list for the active tab from the leaderboard's cached
+// entries and load state. Called after a fetch resolves and on every tab flip
+// so the visible rows always match the chosen board (RULE 10 observable render).
+function renderBoard(): void {
+  if (!boardListEl) return;
+  const entries = boardTab === 'daily' ? leaderboard.dailyEntries : leaderboard.allTimeEntries;
+  boardListEl.innerHTML = renderBoardRows(entries, {
+    loading: leaderboard.boardLoading,
+    error: leaderboard.boardError,
+  });
+}
+
+// Reflect the active tab on the two tab buttons (label state + accessible
+// pressed state, RULE 10) and re-render the rows for that tab.
+function syncBoardTabs(): void {
+  boardTabAllTimeBtn?.setAttribute('aria-pressed', String(boardTab === 'alltime'));
+  boardTabDailyBtn?.setAttribute('aria-pressed', String(boardTab === 'daily'));
+  renderBoard();
+}
+
+// Open the standings board over the current screen. Remember which screen to
+// return to, show the overlay, render the current (cached) state immediately so
+// there is no blank flash, then fetch both boards and re-render when they land.
+// A failed load is non-fatal: renderBoard shows the cached rows or an error.
+function openBoard(): void {
+  boardReturnVisible = screens.screen === 'summary' ? 'summary' : 'menu';
+  boardTab = 'alltime';
+  if (boardEl) boardEl.hidden = false;
+  syncBoardTabs();
+  void leaderboard.fetchBoth(20).then(renderBoard);
+}
+
+// Close the board overlay and return to the screen that opened it. The board is
+// a sub-view, not a screen state, so this just toggles overlay visibility.
+function closeBoard(): void {
+  if (boardEl) boardEl.hidden = true;
+  if (menuEl) menuEl.hidden = boardReturnVisible !== 'menu';
+  if (summaryEl) summaryEl.hidden = boardReturnVisible !== 'summary';
+}
+
+menuLeaderboardBtn?.addEventListener('click', () => {
+  wakeAudio();
+  audio.playClick();
+  openBoard();
+});
+summaryLeaderboardBtn?.addEventListener('click', () => {
+  audio.playClick();
+  openBoard();
+});
+boardTabAllTimeBtn?.addEventListener('click', () => {
+  audio.playClick();
+  boardTab = 'alltime';
+  syncBoardTabs();
+});
+boardTabDailyBtn?.addEventListener('click', () => {
+  audio.playClick();
+  boardTab = 'daily';
+  syncBoardTabs();
+});
+boardBackBtn?.addEventListener('click', () => {
+  audio.playClick();
+  closeBoard();
+});
 
 summarySubmitForm?.addEventListener('submit', (event) => {
   event.preventDefault();
