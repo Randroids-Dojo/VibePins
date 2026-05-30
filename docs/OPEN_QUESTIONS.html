@@ -173,6 +173,22 @@
 <aside id="resolved">
   <h2>Resolved</h2>
 
+  <section data-q="Q-022" data-status="resolved">
+    <h3>Q-022: Where the bowler's gaze anchors when stepping to align</h3>
+    <dl>
+      <dt>Context</dt><dd>A product-owner playtest note said moving the line-up slider did not move the first-person camera. The stance already shifted the camera, but it slid the eye and the look-at by the same lateral amount (a parallel slide), so the far down-lane target barely reframed and stepping read as no movement. Fixing it to translate only the eye raises the question of where the look-at should anchor while the bowler steps.</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li>Anchor the look-at on the existing centred down-lane aim point (<code>LANE.cameraLookAt</code>, head spot x = 0): stepping left/right swings the gaze across the lane toward the centre of the deck, so the pin deck visibly reframes and the bowler always sights the head spot.</li>
+          <li>Anchor the look-at on the chosen stance's own aim x (track the line-up offset down-lane): the gaze points where the ball will be aimed, which can read as less of a reframe at small offsets.</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>A. The centred anchor gives the clearest visible reframe from the bowler POV (proven by the monotonic eye-translation test) and keeps one source of truth with the existing lane look-at, no new config. The launch aim is owned separately by <code>baseAimLateralSpeed</code>, so the gaze and the physics aim stay decoupled and unchanged.</dd>
+      <dt>Status</dt><dd>resolved</dd>
+      <dt>Resolution</dt><dd>A, shipped in the lineup-slider-steps-the-bowler slice. <code>src/camera.ts</code> <code>shiftX</code> translates only the eye in x and leaves the look-at on the centred down-lane anchor.</dd>
+    </dl>
+  </section>
+
   <section data-q="Q-018" data-status="resolved">
     <h3>Q-018: Between-balls string motion, lift fallen vs recall all</h3>
     <dl>
