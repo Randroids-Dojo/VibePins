@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { LANE, GROUP, PIN_PHYSICS, THROW_LIGHT_3D, MATERIALS } from '../src/config.js';
+import { LANE, GROUP, PIN_PHYSICS, THROW_LIGHT_3D, MATERIALS, SHOT_CAMERA } from '../src/config.js';
 
 describe('LANE config', () => {
   it('places the head spot down-lane from the foul line', () => {
@@ -32,6 +32,14 @@ describe('LANE config', () => {
 
   it('pulls bodies downward', () => {
     expect(LANE.gravity).toBeLessThan(0);
+  });
+
+  it('keeps the max line-up sidestep on the lane bed (the ball never starts in the gutter)', () => {
+    // The sidestep (SHOT_CAMERA.alignLimit) shifts the ball start laterally by up
+    // to alignLimit. At the extreme the ball centre is alignLimit from centre, and
+    // the whole ball (radius) must stay inside the lane half-width, or an extreme
+    // stance would launch into the gutter. Guards the widened sidestep travel.
+    expect(SHOT_CAMERA.alignLimit + LANE.ballRadius).toBeLessThan(LANE.width / 2);
   });
 });
 

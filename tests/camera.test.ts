@@ -75,7 +75,7 @@ describe('ShotCamera alignment', () => {
     return sc;
   };
 
-  it('steps the eye laterally with the stance while the look-at stays anchored down-lane', () => {
+  it('sidesteps the bowler laterally: eye and look-at translate together by the same x, with no pivot', () => {
     const sc = aligned();
     expect(sc.isAligning).toBe(true);
     sc.nudgeAlign(0.5); // beyond the 0.3 limit
@@ -85,11 +85,16 @@ describe('ShotCamera alignment', () => {
     expect(f.pose.pos.x).toBeCloseTo(linePose.pos.x + 0.3, 6);
     expect(f.pose.pos.y).toBe(linePose.pos.y);
     expect(f.pose.pos.z).toBe(linePose.pos.z);
-    // The look-at stays anchored on the down-lane aim point so the gaze swings
-    // across the lane and the framing visibly changes from the bowler POV.
-    expect(f.pose.lookAt.x).toBe(linePose.lookAt.x);
+    // The look-at translates by the SAME x as the eye, so the view direction stays
+    // parallel down-lane (a true sidestep). There is no pivot: the gaze does not
+    // swing across the lane.
+    expect(f.pose.lookAt.x).toBeCloseTo(linePose.lookAt.x + 0.3, 6);
     expect(f.pose.lookAt.y).toBe(linePose.lookAt.y);
     expect(f.pose.lookAt.z).toBe(linePose.lookAt.z);
+    // The view direction (look-at minus eye) is identical to the centred pose's:
+    // no rotation, only translation.
+    expect(f.pose.lookAt.x - f.pose.pos.x).toBeCloseTo(linePose.lookAt.x - linePose.pos.x, 6);
+    expect(f.pose.lookAt.z - f.pose.pos.z).toBeCloseTo(linePose.lookAt.z - linePose.pos.z, 6);
     // The held ball still shifts with the stance (it is carried in the hands).
     expect(f.ballPos.x).toBeCloseTo(ball.ready.x + 0.3, 6);
     expect(f.ballPos.y).toBe(ball.ready.y);
@@ -99,21 +104,28 @@ describe('ShotCamera alignment', () => {
     expect(sc.alignment).toBeCloseTo(-0.3, 6);
   });
 
-  it('translates the eye monotonically across stance values (observable camera motion)', () => {
+  it('translates the eye monotonically across stance values, with the look-at tracking in parallel (sidestep, no pivot)', () => {
     const left = aligned();
     left.setAlignFraction(-1);
     const right = aligned();
     right.setAlignFraction(1);
     const centre = aligned();
     centre.setAlignFraction(0);
-    const lx = left.update(0).pose.pos.x;
-    const cx = centre.update(0).pose.pos.x;
-    const rx = right.update(0).pose.pos.x;
+    const lp = left.update(0).pose;
+    const cp = centre.update(0).pose;
+    const rp = right.update(0).pose;
     // Stepping right moves the eye right, stepping left moves it left, relative
     // to the centred stance: the camera physically translates with the slider.
-    expect(lx).toBeLessThan(cx);
-    expect(cx).toBeLessThan(rx);
-    expect(rx - lx).toBeCloseTo(2 * cfg.alignLimit, 6);
+    expect(lp.pos.x).toBeLessThan(cp.pos.x);
+    expect(cp.pos.x).toBeLessThan(rp.pos.x);
+    expect(rp.pos.x - lp.pos.x).toBeCloseTo(2 * cfg.alignLimit, 6);
+    // The look-at translates by exactly the same amount as the eye at every stance:
+    // the gaze stays parallel down-lane and never pivots (a true sidestep).
+    expect(rp.lookAt.x - lp.lookAt.x).toBeCloseTo(2 * cfg.alignLimit, 6);
+    for (const p of [lp, cp, rp]) {
+      // View direction (look-at minus eye) is constant across all stances.
+      expect(p.lookAt.x - p.pos.x).toBeCloseTo(linePose.lookAt.x - linePose.pos.x, 6);
+    }
   });
 
   it('sets the stance from a normalized track fraction, clamped to [-1, +1]', () => {

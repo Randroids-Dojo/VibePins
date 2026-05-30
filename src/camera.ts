@@ -121,15 +121,19 @@ const lerpPose = (a: CameraPose, b: CameraPose, t: number): CameraPose => ({
   fov: lerp(a.fov, b.fov, t),
 });
 
-// Step the bowler laterally into the chosen stance: translate the camera eye in
-// x by dx while keeping the look-at anchored on the down-lane aim point. Because
-// the eye slides but the target down-lane stays fixed, the gaze swings across the
-// lane and the pin deck visibly reframes from the bowler POV. (A naive parallel
-// slide that moved the far look-at by the same dx would barely change the framing
-// over the ~20 m sight line, so the step would read as no movement.)
+// Step the bowler laterally into the chosen stance: a true lateral sidestep. The
+// camera eye AND the look-at both translate in x by dx, so the view direction
+// stays parallel down-lane and the bowler simply steps sideways while looking
+// straight ahead. There is NO pivot/rotation of the gaze. (A prior version moved
+// only the eye and anchored the look-at on a fixed centred down-lane point, which
+// swung the gaze and read as the whole lane rotating, the worse of the two reads,
+// playtest bug 2.) The parallel step reads as movement because the near-field
+// rail, gutters, ball return, and lane edges shift visibly with the eye; the
+// step magnitude (SHOT_CAMERA.alignLimit) is tuned so that sidestep is clearly
+// visible rather than imperceptible over the long sight line.
 const shiftX = (pose: CameraPose, dx: number): CameraPose => ({
   pos: { x: pose.pos.x + dx, y: pose.pos.y, z: pose.pos.z },
-  lookAt: { x: pose.lookAt.x, y: pose.lookAt.y, z: pose.lookAt.z },
+  lookAt: { x: pose.lookAt.x + dx, y: pose.lookAt.y, z: pose.lookAt.z },
   fov: pose.fov,
 });
 
