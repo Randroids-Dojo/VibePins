@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="reduce-hud-text-throw-light" data-date="2026-05-30">
+    <h3>Reduce in-game HUD text and add a red/green throw light (playtest item 8)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/20260530-023811-throw-light</code></dd>
+      <dt>PR</dt><dd>#TBD</dd>
+      <dt>Changed</dt><dd>The product owner found too much status text on screen. The verbose in-game status line is gone: no "Frame N - Ball N - Aim, spin, power", "Rolling...", "Foul! Over the line.", "Gutter ball.", "Counting pins...", or game-over sentence. A new Pins Mechanical style throw light (<code>#throw-light</code> in <code>index.html</code>: a round lamp in a riveted metal housing with a GO / WAIT plate word, red and green lamp states with a glow) is now the single persistent in-game cue, with the split-flap scoreboard the source of truth for frame / ball / score. Added a pure <code>throwLightFor(phase)</code> to <code>src/shotLoop.ts</code> that returns <code>'go'</code> only in the aiming phase and <code>'wait'</code> for every machine-owned phase (watching / settling / resetting / over); the same RED state reads "not your turn" in an async match, so the rule is one consistent thing across solo and match. <code>src/main.ts</code> <code>renderThrowLight</code> drives the lamp on every phase transition: it sets <code>data-light</code>, the <code>role=status</code> <code>aria-label</code> ("Ready to throw" / "Wait"), and the visible GO / WAIT word, so the state is never colour-only. <code>setStatus</code> now hides the line when empty and is used only for the transient async-match frame-submit prompt; <code>showScreen</code> shows / hides the light with the playing screen and clears the status line off-screen; the summary overlay carries the final score. Throw flow and gameplay are unchanged: this is a HUD presentation slice.</dd>
+      <dt>Verification</dt><dd>em-dash / en-dash grep clean on changed files; <code>git diff --check</code> clean; <code>tsc --noEmit</code> clean; full vitest 584/584 (added <code>tests/shotLoop.test.ts</code> cases: the light is GREEN only in the aiming phase, RED for watching / settling / resetting / over, and exactly one phase maps to GREEN across the whole phase set); <code>vite build</code> succeeds; verified live in Chrome that both lamp states render (red WAIT during the loading walk-up / reset cycle, green Go with the "Ready to throw" aria-label when ready to throw) and that the scoreboard plus the light carry the state with no status sentence. <code>.env.local</code> not staged.</dd>
+      <dt>Assumptions</dt><dd>GREEN exactly when the player can throw (the aiming phase), RED for every machine-owned phase and when it is not the player's turn, one consistent rule across solo and match (RULE 7). The first-run tutorial coach stays (it is the only on-screen prompt with no other affordance) and one transient status line remains for the async-match submit; everything else is the light plus the scoreboard. Documented in <code>docs/OPEN_QUESTIONS.html</code> Q-025.</dd>
+      <dt>GDD coverage</dt><dd><code>docs/gdd/08-controls.html</code>: new <code>#hud-throw-light</code> spec section plus a build log entry; <code>docs/gdd/04-look-and-feel.html</code>: build log entry (the "keep on-screen text minimal" UI direction). <code>docs/GDD_COVERAGE.json</code> REQ-038 note and refs extended (stays <code>done</code>).</dd>
+      <dt>Followups</dt><dd>None.</dd>
+    </dl>
+  </article>
+
   <article data-slice="duckpin-lathe-mesh" data-date="2026-05-30">
     <h3>Model the pins as duckpins with a lathe silhouette (playtest polish)</h3>
     <dl>

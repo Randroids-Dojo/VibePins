@@ -17,7 +17,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { Game, type BallResult } from '../src/game.js';
-import { rackActionFor, phaseAfterRecord } from '../src/shotLoop.js';
+import { rackActionFor, phaseAfterRecord, throwLightFor, type ShotPhase } from '../src/shotLoop.js';
 
 // Record a ball and return both the Game result and the derived rack action, the
 // exact pair the live loop computes per settled ball.
@@ -160,5 +160,24 @@ describe('shot loop: tenth-frame bonus deck clears re-rack (REQ-007)', () => {
     const b3 = play(game, 1); // open tenth, game over
     expect(b3.result.outcome).toBe('game-over');
     expect(b3.action).toBe('none');
+  });
+});
+
+describe('throw light: green only when ready to throw', () => {
+  it('is GREEN in the aiming phase, the one phase a throw is possible', () => {
+    expect(throwLightFor('aiming')).toBe('go');
+  });
+
+  it('is RED for every machine-owned phase (watching / settling / resetting / over)', () => {
+    const waitPhases: ShotPhase[] = ['watching', 'settling', 'resetting', 'over'];
+    for (const phase of waitPhases) {
+      expect(throwLightFor(phase)).toBe('wait');
+    }
+  });
+
+  it('maps exactly one phase to GREEN across the whole phase set', () => {
+    const allPhases: ShotPhase[] = ['aiming', 'watching', 'settling', 'resetting', 'over'];
+    const greens = allPhases.filter((p) => throwLightFor(p) === 'go');
+    expect(greens).toEqual(['aiming']);
   });
 });

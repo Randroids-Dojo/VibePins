@@ -69,3 +69,23 @@ export type ShotPhase = 'aiming' | 'watching' | 'settling' | 'resetting' | 'over
 export function phaseAfterRecord(action: RackAction): ShotPhase {
   return action === 'none' ? 'over' : 'resetting';
 }
+
+// The throw light's two states, a Pins Mechanical style traffic lamp that
+// replaces the verbose on-screen status text (the scoreboard already carries the
+// frame / ball / score, so the HUD does not need a sentence for it). The light is
+// the single at-a-glance "is it my turn to throw" cue:
+//   'go'   GREEN: the player may aim, set spin and power, and throw. The only
+//          phase where a throw is possible is 'aiming'.
+//   'wait' RED: the machine owns the lane. The ball is rolling, the rack is
+//          settling, the pinsetter is resetting, or the game is over. The player
+//          waits. This is also the state when it is not the player's turn at all
+//          (an async-match line waiting on the opponent), surfaced the same way so
+//          the rule is one consistent thing across solo and match (RULE 7).
+export type ThrowLightState = 'go' | 'wait';
+
+// Map a shot phase to the throw light. GREEN exactly when the player can throw
+// (the aiming phase); RED for every machine-owned phase. Pure so the mapping is
+// unit-tested directly: green only when ready to throw, red otherwise.
+export function throwLightFor(phase: ShotPhase): ThrowLightState {
+  return phase === 'aiming' ? 'go' : 'wait';
+}
