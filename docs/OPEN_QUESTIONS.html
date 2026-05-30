@@ -38,6 +38,21 @@
 <main id="open">
   <h2>Open</h2>
 
+  <section data-q="Q-024" data-status="open">
+    <h3>Q-024: Duckpin silhouette proportions and the cord-anchor neck</h3>
+    <dl>
+      <dt>Context</dt><dd>Modeling the pin mesh as a duckpin (lathe geometry in <code>src/pins.ts</code>) needs a silhouette profile, but the GDD gives no canonical CAD dimensions, only "squat, belly-heavy, painted wood, often a red neck band". The mesh also has to keep the cord visibly leaving a narrow neck where the rope joint already anchors (<code>TETHER.neckLocalY</code> = <code>pinHeight * 0.3</code> above centre).</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li>Hand-tuned silhouette pinned to the existing tuning: belly width = the existing <code>pinBellyRadius</code> (so the visual widest point equals the collider radius), fat belly at about a third of the height, a neck pinch just below the existing cord anchor, a small foot and small crown. Do not move the cord anchor or the collider.</li>
+          <li>Re-derive pin proportions from a real duckpin spec sheet and re-tune <code>pinBellyRadius</code> / <code>pinHeight</code> / the cord anchor to match exactly.</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>A. This is a visual-mesh playtest-polish slice; the scatter/cord/detection physics is already tuned around the current <code>pinBellyRadius</code>, <code>pinHeight</code>, mass, and cord anchor, so changing those would risk the REQ-030 scatter and REQ-014 cord feel for a cosmetic gain. Pinning the silhouette to the existing dimensions gives the duckpin read with zero physics change. The product owner will re-playtest the look.</dd>
+      <dt>Status</dt><dd>open</dd>
+    </dl>
+  </section>
+
   <section data-q="Q-023" data-status="open">
     <h3>Q-023: HUD mobile breakpoint and power-gauge end-label text</h3>
     <dl>

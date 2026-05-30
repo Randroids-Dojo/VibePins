@@ -22,6 +22,41 @@ import type { ResetTarget, ReelTarget } from './reset.js';
 
 const UPRIGHT = { x: 0, y: 0, z: 0, w: 1 };
 
+// Duckpin silhouette as normalized control points, base to top. Each point is
+// (fraction of pin height from the base, radius as a fraction of the belly
+// radius). A duckpin is short and squat: a small flat foot, a fat belly low in
+// the body, a pinched-in neck above it, then a small rounded crown. This reads
+// clearly as a duckpin rather than the tall taper of a tenpin (GDD REQ-026,
+// look-and-feel: squat, belly-heavy pins). The neck pinch sits just below the
+// cord anchor (TETHER.neckLocalY is pinHeight * 0.3 above centre, i.e. 0.8 of
+// the height from the base), so the cord visibly leaves the narrow neck.
+const DUCKPIN_SILHOUETTE: ReadonlyArray<readonly [number, number]> = [
+  [0.0, 0.0],   // closed base centre, so the lathe caps the foot
+  [0.0, 0.52],  // flat foot rim
+  [0.05, 0.62], // base fillet
+  [0.18, 0.86], // belly rising
+  [0.34, 1.0],  // widest point: the fat belly, low in the body
+  [0.5, 0.92],  // belly falling away
+  [0.66, 0.6],  // shoulder pulling in
+  [0.78, 0.43], // neck: the narrow waist below the crown
+  [0.88, 0.52], // crown flaring back out
+  [0.96, 0.46], // rounded top shoulder
+  [1.0, 0.0],   // closed crown centre, so the lathe caps the top
+];
+
+// Build the LatheGeometry profile for a duckpin of the given height and belly
+// radius. Returns points in the mesh's local frame: y runs from -height/2 (the
+// base) to +height/2 (the top), x is the radius at that height. Pure and
+// Three-only so the silhouette can be unit tested without the renderer.
+export function duckpinProfilePoints(
+  height: number,
+  bellyRadius: number,
+): THREE.Vector2[] {
+  return DUCKPIN_SILHOUETTE.map(
+    ([t, r]) => new THREE.Vector2(r * bellyRadius, (t - 0.5) * height),
+  );
+}
+
 // Down-lane distance between triangle rows. The pins are on a triangular grid
 // with `pinSpacing` between neighbours, so the row-to-row gap is the triangle
 // height for that spacing.
@@ -109,17 +144,19 @@ interface Pin {
 
 export class PinSet {
   private readonly pins: Pin[] = [];
-  private readonly geometry: THREE.CylinderGeometry;
+  private readonly geometry: THREE.LatheGeometry;
   private readonly material: THREE.MeshStandardMaterial;
   private readonly cordMaterial: THREE.LineBasicMaterial;
 
   constructor(private readonly world: World3D) {
-    // Squat ivory duckpin: a single shared geometry/material across the rack.
-    this.geometry = new THREE.CylinderGeometry(
-      LANE.pinBellyRadius,
-      LANE.pinBellyRadius,
-      LANE.pinHeight,
-      20,
+    // Squat ivory duckpin: a single shared lathe geometry across the rack,
+    // revolved from the duckpin silhouette (fat low belly pinching to a neck and
+    // a small crown) so the pins read as duckpins, not plain cylinders. The
+    // collider stays a simple belly-radius cylinder (below): this is the visual
+    // mesh only, so the tuned scatter/cord/detection physics is untouched.
+    this.geometry = new THREE.LatheGeometry(
+      duckpinProfilePoints(LANE.pinHeight, LANE.pinBellyRadius),
+      24,
     );
     this.material = new THREE.MeshStandardMaterial({
       color: 0xeae2d0,

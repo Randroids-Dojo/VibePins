@@ -146,6 +146,16 @@
     </dl>
   </section>
 
+  <section data-f="F-015" data-priority="polish">
+    <h3>F-015: Painted-wood duckpin material and red neck band</h3>
+    <dl>
+      <dt>Context</dt><dd>The pin mesh now has the duckpin silhouette (lathe geometry in <code>src/pins.ts</code>), but the surface is still the flat ivory <code>MeshStandardMaterial</code>. The look-and-feel spec calls for painted-wood duckpins, often with a red neck band (<a href="gdd/04-look-and-feel.html#materials">look-and-feel, materials</a>). A neck band would sit at the pinched neck the silhouette already defines (just below <code>TETHER.neckLocalY</code>).</dd>
+      <dt>Blocker</dt><dd>none; the mesh and the neck location already exist.</dd>
+      <dt>Unblock condition</dt><dd>ready now. Add the painted-wood look (and a red neck band, e.g. a second material group on the lathe or a thin ring mesh) without changing the collider or physics, and keep it in the shared geometry/material so the whole rack stays one draw.</dd>
+      <dt>PR / Dot reference</dt><dd>(not started)</dd>
+    </dl>
+  </section>
+
   <section data-f="F-003" data-priority="polish">
     <h3>F-003: Code-split the production bundle</h3>
     <dl>
