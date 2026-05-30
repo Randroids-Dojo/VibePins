@@ -75,13 +75,15 @@ export const LANE = {
   // gutters are smaller than tenpin: a shallow channel runs along each side of
   // the bed, its floor recessed below floorY so a ball that drifts off the lane
   // drops in and is carried down toward the pit rather than rolling off the
-  // side into the void. An inner lip rises just above the bed so the ball does
-  // not climb back out onto the lane; an outer wall keeps it from escaping
-  // sideways. The pit sits behind the pin deck: a recessed floor with a back
-  // wall that stops a ball clearing the rack so it comes to rest down-lane
+  // side into the void. The bed's own edge is the gutter mouth (the bed slab is
+  // thick, so a ball that has dropped into the recessed channel cannot climb
+  // back onto the lane); an outer wall keeps it from escaping sideways. There is
+  // no raised inner lip over the bed: a lip above the bed surface would sit on
+  // the playable edge and act as a rail that launches an edge-drifting ball and
+  // blocks gutter entry. The pit sits behind the pin deck: a recessed floor with
+  // a back wall that stops a ball clearing the rack so it comes to rest down-lane
   // instead of falling forever (the ball-roll smoke previously fell into nothing).
   gutterDepth: 0.09, //   how far the gutter floor sits below the lane bed top
-  gutterLipHeight: 0.03, // inner lip above the bed, to keep a gutter ball in
   gutterWallHeight: 0.18, // outer side-wall height above the bed
   pitDepth: 0.25, //      how far the pit floor sits below the lane bed top
   pitLength: 1.4, //      pit extent behind the back of the pin deck (-z)
@@ -705,10 +707,18 @@ const LANE_RUN_FRONT_Z = 0;
 const LANE_RUN_CENTER_Z = (LANE_RUN_FRONT_Z + LANE_RUN_BACK_Z) / 2;
 const LANE_RUN_HALF_Z = (LANE_RUN_FRONT_Z - LANE_RUN_BACK_Z) / 2;
 
-// One gutter channel beside the lane, on the given side (-1 left, +1 right). The
-// floor is a thin slab recessed below the bed; an inner lip and an outer wall
-// box it so a ball drops in, stays in, and is carried down toward the pit.
-function gutterParts(side: -1 | 1): { floor: Box; innerLip: Box; outerWall: Box } {
+// One gutter channel beside the lane, on the given side (-1 left, +1 right). A
+// real gutter is just a recessed trough alongside the bed: the floor is a thin
+// slab dropped below the bed, and an outer wall closes the far side so a ball
+// cannot escape sideways. The inner side of the channel is the lane bed's own
+// edge: the bed slab is 0.1m thick, so a ball that has dropped into the recessed
+// channel sits below bed level and the bed's edge face keeps it from climbing
+// back onto the lane. There is deliberately NO raised inner lip over the bed: a
+// lip that rose above the bed surface (the previous geometry) sat on the outer
+// strip of the playable bed and acted as a continuous rail, launching a ball that
+// drifted to the edge into the air and blocking any ball from leaking into the
+// gutter at all. Without it the bed edge IS the gutter mouth, as on a real lane.
+function gutterParts(side: -1 | 1): { floor: Box; outerWall: Box } {
   const channelOuterX = LANE.width / 2 + LANE.gutterWidth;
   const channelCenterX = side * (LANE.width / 2 + LANE.gutterWidth / 2);
   const floorTopY = LANE.floorY - LANE.gutterDepth;
@@ -718,16 +728,6 @@ function gutterParts(side: -1 | 1): { floor: Box; innerLip: Box; outerWall: Box 
     floor: {
       center: { x: channelCenterX, y: floorTopY - slab, z: LANE_RUN_CENTER_Z },
       half: { x: LANE.gutterWidth / 2, y: slab, z: LANE_RUN_HALF_Z },
-    },
-    // Inner lip: a thin wall between the bed edge and the channel, rising just
-    // above the bed so a gutter ball cannot climb back onto the lane.
-    innerLip: {
-      center: {
-        x: side * (LANE.width / 2 - slab),
-        y: LANE.floorY + LANE.gutterLipHeight / 2,
-        z: LANE_RUN_CENTER_Z,
-      },
-      half: { x: slab, y: LANE.gutterLipHeight / 2, z: LANE_RUN_HALF_Z },
     },
     // Outer wall: closes the far side of the channel so the ball cannot escape.
     outerWall: {
@@ -741,11 +741,11 @@ function gutterParts(side: -1 | 1): { floor: Box; innerLip: Box; outerWall: Box 
   };
 }
 
-// Both gutter channels (left then right), each a floor + inner lip + outer wall.
+// Both gutter channels (left then right), each a recessed floor + outer wall.
 export function gutterBoxes(): Box[] {
   return ([-1, 1] as const).flatMap((side) => {
     const parts = gutterParts(side);
-    return [parts.floor, parts.innerLip, parts.outerWall];
+    return [parts.floor, parts.outerWall];
   });
 }
 

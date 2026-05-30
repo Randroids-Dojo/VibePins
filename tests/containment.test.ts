@@ -15,8 +15,8 @@ const backZ = (b: Box): number => b.center.z - b.half.z; //  toward the pit
 describe('gutter geometry (REQ-031)', () => {
   const boxes = gutterBoxes();
 
-  it('builds two channels (floor, inner lip, outer wall each)', () => {
-    expect(boxes.length).toBe(6);
+  it('builds two channels (a recessed floor and an outer wall each)', () => {
+    expect(boxes.length).toBe(4);
   });
 
   it('places one channel on each side, outside the bed', () => {
@@ -27,6 +27,20 @@ describe('gutter geometry (REQ-031)', () => {
     for (const b of boxes) {
       // Every gutter part sits at or beyond the bed edge, never over the bed.
       expect(Math.abs(b.center.x) + b.half.x).toBeGreaterThan(LANE.width / 2 - 1e-9);
+    }
+  });
+
+  it('never rises above the bed surface over the playable bed (no edge rail)', () => {
+    // A gutter part that both overlapped the bed in x AND rose above floorY would
+    // form a raised rail along the lane edge: the bug that launched an edge ball
+    // into the air and blocked gutter entry. Guard that none does. Parts may rise
+    // above the bed only when they sit fully outside the bed edge (the outer wall).
+    for (const b of boxes) {
+      const innerX = Math.abs(b.center.x) - b.half.x;
+      const overlapsBed = innerX < LANE.width / 2 - 1e-9;
+      if (overlapsBed) {
+        expect(top(b)).toBeLessThanOrEqual(LANE.floorY + 1e-9);
+      }
     }
   });
 
