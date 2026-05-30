@@ -526,6 +526,12 @@ function syncBoardTabs(): void {
 function openBoard(): void {
   boardReturnVisible = screens.screen === 'summary' ? 'summary' : 'menu';
   boardTab = 'alltime';
+  // Hide the originating overlay so the standings dialog is the only modal
+  // surface: both are full-screen .vp-overlay at the same z-index, so leaving
+  // the opener visible would bleed its background through and keep its buttons
+  // in the tab order behind the dialog (RULE 10 modal isolation).
+  if (menuEl) menuEl.hidden = true;
+  if (summaryEl) summaryEl.hidden = true;
   if (boardEl) boardEl.hidden = false;
   syncBoardTabs();
   void leaderboard.fetchBoth(20).then(renderBoard);
@@ -638,8 +644,13 @@ window.addEventListener('keydown', (event) => {
       break;
     case 'Enter':
     case 'Space':
-      event.preventDefault();
-      confirm();
+      // Only the live game consumes a confirm, so only suppress the default
+      // (page scroll on Space) while playing. On the menu/summary/board overlays
+      // the keypress must still activate the focused button (RULE 10).
+      if (screens.screen === 'playing') {
+        event.preventDefault();
+        confirm();
+      }
       break;
     default:
       break;
