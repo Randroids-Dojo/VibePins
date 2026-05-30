@@ -7,17 +7,19 @@
 // live in the pure src/match.ts model; this file only routes, validates the wire
 // boundary, and reads/writes Redis.
 //
-// This slice ships create / join / resume and the persisted match data model.
-// Turn-order enforcement (REQ-049), per-ball submission and server scoring
-// (REQ-053), the handoff and waiting UI (REQ-050/051), completion locking
-// (REQ-056), and posting a finished line to the leaderboard (REQ-058) are deferred
-// to follow-on slices and tracked as dots.
+// This route ships create / join / resume, the persisted match data model, and
+// turn submission (PATCH): turn-order enforcement and out-of-turn rejection
+// (REQ-049), server-authoritative duckpin scoring of each frame (REQ-053), and
+// locking the match to `complete` once every seat finishes ten frames (REQ-056).
+// The handoff and waiting UI (REQ-050/051) and posting a finished line to the
+// leaderboard (REQ-058) remain follow-on slices tracked as dots.
 
 import { Redis } from '@upstash/redis';
 import {
   createMatch,
   joinMatch,
   seatForSecret,
+  submitTurn,
   toPublicMatch,
   MATCH_TTL_SECONDS,
   type MatchState,
@@ -54,7 +56,7 @@ function redis(): Redis {
 
 function setCors(res: MatchResponse): void {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Match-Secret');
 }
 
@@ -171,6 +173,41 @@ async function handlePost(req: MatchRequest, res: MatchResponse): Promise<MatchR
   return handleCreate(req, res);
 }
 
+// PATCH ?id=...: submit the current player's completed frame (REQ-049/053). The
+// seat secret rides the X-Match-Secret header; the body carries the frame number
+// and the frame's ball pinfalls. All turn-order and scoring authority lives in
+// the pure model, so this only loads, applies, and persists.
+async function handleSubmit(req: MatchRequest, res: MatchResponse): Promise<MatchResponse> {
+  const id = firstParam(req.query.id) ?? (() => {
+    const body = (req.body ?? {}) as { id?: unknown };
+    return typeof body.id === 'string' ? body.id : undefined;
+  })();
+  if (!id) {
+    return res.status(400).json({ error: 'id is required' });
+  }
+  const body = (req.body ?? {}) as { frame?: unknown; balls?: unknown };
+  const frame = Number(body.frame);
+  if (!Number.isInteger(frame)) {
+    return res.status(400).json({ error: 'frame is required' });
+  }
+  const state = await loadMatch(id);
+  if (!state) {
+    return res.status(404).json({ error: 'match not found' });
+  }
+  const result = submitTurn(state, {
+    secret: seatSecret(req),
+    frame,
+    balls: Array.isArray(body.balls) ? (body.balls as number[]) : [],
+  });
+  if (!result.ok) {
+    return res.status(result.status).json({ error: result.error ?? 'cannot submit turn' });
+  }
+  await saveMatch(state);
+  // The caller re-renders from the authoritative public view (status, whose turn,
+  // every seat's scored line).
+  return res.status(200).json({ match: toPublicMatch(state) });
+}
+
 export default async function handler(req: MatchRequest, res: MatchResponse): Promise<MatchResponse> {
   setCors(res);
   if (req.method === 'OPTIONS') {
@@ -179,6 +216,7 @@ export default async function handler(req: MatchRequest, res: MatchResponse): Pr
   try {
     if (req.method === 'GET') return await handleGet(req, res);
     if (req.method === 'POST') return await handlePost(req, res);
+    if (req.method === 'PATCH') return await handleSubmit(req, res);
     return res.status(405).json({ error: 'Method not allowed' });
   } catch (err) {
     // Never leak the error detail (could contain connection strings): log only the

@@ -200,6 +200,103 @@ describe('GET resume', () => {
   });
 });
 
+interface PublicMatchBody {
+  match: { status: string; currentSeat: number; currentFrame: number; seats: { frames: number[][] }[] };
+}
+
+// Create a match and join the second seat so it is active, returning both secrets.
+async function makeActiveMatch(): Promise<{ id: string; s1: string; s2: string }> {
+  const createRes = makeRes();
+  await handler({ method: 'POST', query: {}, body: { name: 'Ann' } }, createRes);
+  const created = createRes.body as CreateBody;
+  const joinRes = makeRes();
+  await handler({ method: 'POST', query: { id: created.match.id }, body: { name: 'Bob' } }, joinRes);
+  return { id: created.match.id, s1: created.secret, s2: (joinRes.body as CreateBody).secret };
+}
+
+describe('PATCH submit turn', () => {
+  it('accepts the on-clock seat, scores the frame, and advances the turn', async () => {
+    const { id, s1 } = await makeActiveMatch();
+    const res = makeRes();
+    await handler(
+      { method: 'PATCH', query: { id }, headers: { 'x-match-secret': s1 }, body: { frame: 1, balls: [3, 4, 0] } },
+      res,
+    );
+    expect(res.statusCode).toBe(200);
+    const body = res.body as PublicMatchBody;
+    expect(body.match.seats[0].frames).toEqual([[3, 4, 0]]);
+    expect(body.match.currentSeat).toBe(2);
+    // The public view never carries secrets.
+    expect(JSON.stringify(body.match)).not.toContain(s1);
+  });
+
+  it('rejects an out-of-turn submission with 403', async () => {
+    const { id, s2 } = await makeActiveMatch();
+    const res = makeRes();
+    await handler(
+      { method: 'PATCH', query: { id }, headers: { 'x-match-secret': s2 }, body: { frame: 1, balls: [3, 4, 0] } },
+      res,
+    );
+    expect(res.statusCode).toBe(403);
+  });
+
+  it('rejects a stranger with no seat secret with 403', async () => {
+    const { id } = await makeActiveMatch();
+    const res = makeRes();
+    await handler({ method: 'PATCH', query: { id }, body: { frame: 1, balls: [3, 4, 0] } }, res);
+    expect(res.statusCode).toBe(403);
+  });
+
+  it('rejects an illegal frame with 409', async () => {
+    const { id, s1 } = await makeActiveMatch();
+    const res = makeRes();
+    await handler(
+      { method: 'PATCH', query: { id }, headers: { 'x-match-secret': s1 }, body: { frame: 1, balls: [6, 6, 0] } },
+      res,
+    );
+    expect(res.statusCode).toBe(409);
+  });
+
+  it('400s without an id', async () => {
+    const res = makeRes();
+    await handler({ method: 'PATCH', query: {}, body: { frame: 1, balls: [3, 4, 0] } }, res);
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('400s without a frame number', async () => {
+    const { id, s1 } = await makeActiveMatch();
+    const res = makeRes();
+    await handler({ method: 'PATCH', query: { id }, headers: { 'x-match-secret': s1 }, body: { balls: [3, 4, 0] } }, res);
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('404s submitting to an unknown match', async () => {
+    const res = makeRes();
+    await handler(
+      { method: 'PATCH', query: { id: 'nope' }, headers: { 'x-match-secret': 'x' }, body: { frame: 1, balls: [3, 4, 0] } },
+      res,
+    );
+    expect(res.statusCode).toBe(404);
+  });
+
+  it('plays a full two-seat match to completion', async () => {
+    const { id, s1, s2 } = await makeActiveMatch();
+    let last = makeRes();
+    for (let f = 1; f <= 10; f += 1) {
+      await handler(
+        { method: 'PATCH', query: { id }, headers: { 'x-match-secret': s1 }, body: { frame: f, balls: [3, 4, 0] } },
+        makeRes(),
+      );
+      last = makeRes();
+      await handler(
+        { method: 'PATCH', query: { id }, headers: { 'x-match-secret': s2 }, body: { frame: f, balls: [3, 4, 0] } },
+        last,
+      );
+    }
+    expect((last.body as PublicMatchBody).match.status).toBe('complete');
+  });
+});
+
 describe('unsupported methods and errors', () => {
   it('returns 405 for anything else', async () => {
     const res = makeRes();

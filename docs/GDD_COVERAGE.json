@@ -764,10 +764,17 @@
       "id": "REQ-049",
       "requirement": "Turn order is frame-by-frame and the server enforces whose turn it is, rejecting out-of-turn submissions",
       "gddRef": "docs/gdd/05-async-multiplayer.html#turn-handoff",
-      "status": "not_started",
-      "implementationRefs": [],
-      "testRefs": [],
-      "followupRefs": []
+      "status": "done",
+      "implementationRefs": [
+        "api/match.ts",
+        "src/match.ts"
+      ],
+      "testRefs": [
+        "tests/match.test.ts",
+        "tests/match.api.test.ts"
+      ],
+      "followupRefs": [],
+      "note": "submitTurn (src/match.ts) is the single authority for turn order. A submission must come from the seat the per-seat secret owns, that seat must equal currentSeat, and the submitted frame must equal currentFrame, else it is rejected (403 not-your-turn / no-seat, 409 wrong-frame). Turn order is frame-by-frame: every seat bowls the current frame before currentFrame advances and currentSeat resets to 1. Exposed over PATCH /api/match (api/match.ts), secret via the X-Match-Secret header."
     },
     {
       "id": "REQ-050",
@@ -808,10 +815,17 @@
       "id": "REQ-053",
       "requirement": "Bowling client computes physics and submits per-ball pin-fall; server validates and computes the authoritative score",
       "gddRef": "docs/gdd/05-async-multiplayer.html#authority",
-      "status": "not_started",
-      "implementationRefs": [],
-      "testRefs": [],
-      "followupRefs": []
+      "status": "partial",
+      "implementationRefs": [
+        "api/match.ts",
+        "src/match.ts"
+      ],
+      "testRefs": [
+        "tests/match.test.ts",
+        "tests/match.api.test.ts"
+      ],
+      "followupRefs": [],
+      "note": "Server authority shipped: a turn submission carries the frame's pin-fall (the balls array), and submitTurn (src/match.ts) re-validates the seat's whole line with the shared scoreGame engine (src/scoring.ts), rejecting incomplete frames, over-rack counts, and illegal ball values. The server, not the client, owns the scored line. The bowling-client wiring that derives the per-ball pin-fall from the Rapier sim and PATCHes it is the follow-on handoff-UI slice (REQ-050/051)."
     },
     {
       "id": "REQ-054",
@@ -851,10 +865,17 @@
       "id": "REQ-056",
       "requirement": "On completion the match locks and shows final standings",
       "gddRef": "docs/gdd/05-async-multiplayer.html#lifecycle",
-      "status": "not_started",
-      "implementationRefs": [],
-      "testRefs": [],
-      "followupRefs": []
+      "status": "partial",
+      "implementationRefs": [
+        "api/match.ts",
+        "src/match.ts"
+      ],
+      "testRefs": [
+        "tests/match.test.ts",
+        "tests/match.api.test.ts"
+      ],
+      "followupRefs": [],
+      "note": "Locking shipped: once every seat has a full, scoreGame-complete ten-frame line, submitTurn flips status to complete and any further submission is rejected (matches the join guard). The final-standings ranking and its UI are the follow-on slice."
     },
     {
       "id": "REQ-057",
