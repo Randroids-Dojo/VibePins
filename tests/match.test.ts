@@ -6,6 +6,7 @@ import {
   joinMatch,
   seatForSecret,
   submitTurn,
+  computeStandings,
   toPublicMatch,
   clampSeatCount,
   sanitizeName,
@@ -253,6 +254,66 @@ describe('submitTurn completion locking (REQ-056)', () => {
     const r = submitTurn(m, { secret: 's1', frame: 1, balls: [3, 4, 0] });
     expect(r.ok).toBe(false);
     expect(r.error).toMatch(/complete/);
+  });
+});
+
+describe('computeStandings (REQ-056 final standings)', () => {
+  // Play out a full two-seat match where each seat bowls the same flat line every
+  // frame, so the two totals differ only by the per-frame pin count.
+  function playOut(seat1: number[], seat2: number[]): MatchState {
+    const m = activeTwoSeat();
+    for (let f = 1; f <= 10; f += 1) {
+      const tenth = f === 10;
+      submitTurn(m, { secret: 's1', frame: f, balls: tenth ? [...seat1] : seat1.slice(0, 3) });
+      submitTurn(m, { secret: 's2', frame: f, balls: tenth ? [...seat2] : seat2.slice(0, 3) });
+    }
+    return m;
+  }
+
+  it('ranks the higher authoritative total first', () => {
+    // Seat 1 bowls 5,4 every frame (open), seat 2 bowls 3,4 every frame.
+    const m = playOut([5, 4, 0], [3, 4, 0]);
+    expect(m.status).toBe('complete');
+    const standings = computeStandings(m);
+    expect(standings.map((s) => s.seat)).toEqual([1, 2]);
+    expect(standings[0].rank).toBe(1);
+    expect(standings[1].rank).toBe(2);
+    expect(standings[0].score).toBeGreaterThan(standings[1].score);
+    expect(standings.every((s) => s.complete)).toBe(true);
+  });
+
+  it('uses the engine score, not any claimed total, and names each seat', () => {
+    const m = playOut([5, 4, 0], [3, 4, 0]);
+    const standings = computeStandings(m);
+    expect(standings[0].name).toBe('A');
+    expect(standings[1].name).toBe('B');
+    // 9 open frames of 9 each, plus a 9-pin tenth: 90 total per the duckpin engine.
+    expect(standings[0].score).toBe(90);
+    expect(standings[1].score).toBe(70);
+  });
+
+  it('shares a rank on an exact tie, the standard-competition way', () => {
+    const m = playOut([3, 4, 0], [3, 4, 0]);
+    const standings = computeStandings(m);
+    expect(standings[0].score).toBe(standings[1].score);
+    expect(standings[0].rank).toBe(1);
+    expect(standings[1].rank).toBe(1);
+  });
+
+  it('scores an unfinished seat as zero and marks it incomplete', () => {
+    const m = activeTwoSeat();
+    submitTurn(m, { secret: 's1', frame: 1, balls: [3, 4, 0] });
+    const standings = computeStandings(m);
+    const seat2 = standings.find((s) => s.seat === 2);
+    expect(seat2?.score).toBe(0);
+    expect(seat2?.complete).toBe(false);
+  });
+
+  it('does not mutate the match', () => {
+    const m = playOut([5, 4, 0], [3, 4, 0]);
+    const before = JSON.stringify(m);
+    computeStandings(m);
+    expect(JSON.stringify(m)).toBe(before);
   });
 });
 

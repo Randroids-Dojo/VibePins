@@ -264,6 +264,53 @@ export function submitTurn(
   return { ok: true, status: 200 };
 }
 
+// One row of a match's final standings (REQ-056). The seat's authoritative total
+// is the duckpin score the shared engine computed from that seat's recorded line,
+// so a standings row never trusts a client-claimed number. `rank` is 1-based and
+// shared on a tie (two seats on the same total both rank #1, the next seat #3).
+// `complete` is whether that seat's line is a full, scoreGame-complete ten frames;
+// it is false only when standings are read before the match locks.
+export interface Standing {
+  readonly seat: number;
+  readonly name: string;
+  readonly score: number;
+  readonly complete: boolean;
+  readonly rank: number;
+}
+
+// Rank every seat by its authoritative duckpin total, highest first (REQ-056
+// final standings). Pure: it re-scores each seat's recorded line with the shared
+// engine (the same authority submitTurn used to accept the frames) and never reads
+// a claimed score. An incomplete line scores 0 and sorts last among equal-or-lower
+// totals; this matters only when standings are read before the match locks, which
+// the UI does not do (it shows standings on `complete`). Ties share a rank, the
+// standard-competition way (1, 1, 3). Seat order breaks an exact tie so the result
+// is deterministic. Returns a fresh array; does not mutate the match.
+export function computeStandings(match: MatchState | PublicMatch): Standing[] {
+  const scored = match.seats.map((seat) => {
+    const result = scoreGame(seat.frames);
+    return {
+      seat: seat.seat,
+      name: seat.name,
+      score: result.finalScore ?? 0,
+      complete: result.complete,
+    };
+  });
+  // Highest score first; an exact tie keeps the lower seat number ahead so the
+  // order is stable and deterministic across calls.
+  scored.sort((a, b) => b.score - a.score || a.seat - b.seat);
+  let lastScore = Number.NaN;
+  let lastRank = 0;
+  return scored.map((row, index) => {
+    // Standard competition ranking: equal scores share a rank, the next distinct
+    // score skips to its absolute position (1, 1, 3).
+    const rank = row.score === lastScore ? lastRank : index + 1;
+    lastScore = row.score;
+    lastRank = rank;
+    return { ...row, rank };
+  });
+}
+
 // The secret-free view safe to return to any device (GDD: a per-seat secret is
 // never exposed in the public match view). Used by create/join/resume responses.
 export function toPublicMatch(match: MatchState): PublicMatch {

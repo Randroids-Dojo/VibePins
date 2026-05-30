@@ -16,10 +16,11 @@
 // the UI without crashing the game loop. This module holds no UI; rendering the
 // your-turn / waiting states and the handoff link is a follow-on slice (REQ-050/051).
 
-import type { PublicMatch } from './match.js';
+import { computeStandings, type PublicMatch, type Standing } from './match.js';
 import type { MatchCredential, Settings } from './settings.js';
 
-export type { PublicMatch, PublicSeat } from './match.js';
+export type { PublicMatch, PublicSeat, Standing } from './match.js';
+export { computeStandings } from './match.js';
 
 const API_BASE = '/api/match';
 
@@ -57,6 +58,46 @@ export interface MatchResult {
 
 function failure(error: string): MatchResult {
   return { ok: false, error, match: null, mySeat: null };
+}
+
+// Build the final-standings plate's inner HTML for a finished match (REQ-056).
+// Pure (match in, string out) so the shell can drop it into the standings list
+// element and a test can assert the rendered rows without a DOM (RULE 10 observable
+// render). Reuses the leaderboard board-row classes so the standings read in the
+// same electromechanical scoreboard language. `mySeat` marks this device's own row.
+// Names are HTML-escaped because they come from other players. The winner row (rank
+// 1) is tagged so the shell can call it out.
+export function renderStandingsRows(match: PublicMatch | null, mySeat: number | null): string {
+  if (!match) return '';
+  const standings: Standing[] = computeStandings(match);
+  return standings
+    .map((row) => {
+      const you = mySeat != null && row.seat === mySeat;
+      return (
+        `<div class="vp-board-row" data-rank="${row.rank}"` +
+        (row.rank === 1 ? ' data-winner="true"' : '') +
+        (you ? ' data-you="true"' : '') +
+        '>' +
+        `<span class="vp-board-rank">#${row.rank}</span>` +
+        `<span class="vp-board-name">${escapeHtml(row.name)}</span>` +
+        `<span class="vp-board-score">${row.score}</span>` +
+        '</div>'
+      );
+    })
+    .join('');
+}
+
+// Escape the five HTML-significant characters so a player-supplied name cannot
+// inject markup when dropped into innerHTML (same render-boundary escape as
+// src/leaderboard.ts). The server already strips most punctuation, but this is the
+// rendering boundary so it escapes regardless.
+function escapeHtml(text: string): string {
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 export class MatchClient {
