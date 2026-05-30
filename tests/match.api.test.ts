@@ -211,6 +211,8 @@ async function makeActiveMatch(): Promise<{ id: string; s1: string; s2: string }
   const created = createRes.body as CreateBody;
   const joinRes = makeRes();
   await handler({ method: 'POST', query: { id: created.match.id }, body: { name: 'Bob' } }, joinRes);
+  // Fail fast if setup regressed, so submission failures are not masked.
+  expect(joinRes.statusCode).toBe(200);
   return { id: created.match.id, s1: created.secret, s2: (joinRes.body as CreateBody).secret };
 }
 
@@ -228,6 +230,17 @@ describe('PATCH submit turn', () => {
     expect(body.match.currentSeat).toBe(2);
     // The public view never carries secrets.
     expect(JSON.stringify(body.match)).not.toContain(s1);
+  });
+
+  it('accepts the match id from the request body too', async () => {
+    const { id, s1 } = await makeActiveMatch();
+    const res = makeRes();
+    await handler(
+      { method: 'PATCH', query: {}, headers: { 'x-match-secret': s1 }, body: { id, frame: 1, balls: [3, 4, 0] } },
+      res,
+    );
+    expect(res.statusCode).toBe(200);
+    expect((res.body as PublicMatchBody).match.seats[0].frames).toEqual([[3, 4, 0]]);
   });
 
   it('rejects an out-of-turn submission with 403', async () => {
