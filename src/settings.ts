@@ -30,6 +30,11 @@ export interface SettingsState {
   // Whether the procedural audio engine is allowed to make sound. Defaults on;
   // the player can mute from the menu. Persisted across sessions.
   audioEnabled: boolean;
+  // Whether the camera chases the ball down the lane during the watching phase
+  // (REQ-033 follow-cam polish). Defaults off so the standard fixed bowler view
+  // is the baseline; the player opts in from the menu. Only affects the watching
+  // phase: aiming/spin/power and the settle/reset beat keep the normal pose.
+  ballCam: boolean;
   // Whether the player has seen the first-run control tutorial (REQ-047).
   // Defaults false so a brand-new player gets the coach on their first game;
   // set true after the first throw so it never nags again. Replayable from the
@@ -51,6 +56,7 @@ export interface SettingsState {
 
 const DEFAULTS: SettingsState = {
   audioEnabled: true,
+  ballCam: false,
   tutorialSeen: false,
   playerName: '',
   matchCredentials: {},
@@ -73,6 +79,7 @@ function parse(raw: string | null): SettingsState {
     const data = JSON.parse(raw) as Partial<Record<keyof SettingsState, unknown>>;
     return {
       audioEnabled: typeof data.audioEnabled === 'boolean' ? data.audioEnabled : DEFAULTS.audioEnabled,
+      ballCam: typeof data.ballCam === 'boolean' ? data.ballCam : DEFAULTS.ballCam,
       tutorialSeen: typeof data.tutorialSeen === 'boolean' ? data.tutorialSeen : DEFAULTS.tutorialSeen,
       playerName: typeof data.playerName === 'string' ? data.playerName : DEFAULTS.playerName,
       matchCredentials: parseMatchCredentials(data.matchCredentials),
@@ -146,6 +153,24 @@ export class Settings {
   // Set the audio-enable flag explicitly and persist.
   setAudioEnabled(enabled: boolean): void {
     this.state = { ...this.state, audioEnabled: enabled };
+    this.save();
+  }
+
+  get ballCam(): boolean {
+    return this.state.ballCam;
+  }
+
+  // Flip the ball-cam flag, persist, and return the new value so a caller can
+  // update the toggle's label/aria-pressed in one step (mirrors toggleAudio).
+  toggleBallCam(): boolean {
+    this.state = { ...this.state, ballCam: !this.state.ballCam };
+    this.save();
+    return this.state.ballCam;
+  }
+
+  // Set the ball-cam flag explicitly and persist.
+  setBallCam(enabled: boolean): void {
+    this.state = { ...this.state, ballCam: enabled };
     this.save();
   }
 

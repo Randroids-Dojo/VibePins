@@ -36,6 +36,7 @@ describe('Settings: persisted audio-enable toggle (REQ-046)', () => {
     expect(storage.store[KEY]).toBe(
       JSON.stringify({
         audioEnabled: false,
+        ballCam: false,
         tutorialSeen: false,
         playerName: '',
         matchCredentials: {},
@@ -109,6 +110,7 @@ describe('Settings: persisted tutorial-seen flag (REQ-047)', () => {
     expect(storage.store[KEY]).toBe(
       JSON.stringify({
         audioEnabled: true,
+        ballCam: false,
         tutorialSeen: true,
         playerName: '',
         matchCredentials: {},
@@ -244,5 +246,51 @@ describe('Settings: posted-to-board guard for finished matches (REQ-058)', () =>
     // Duplicates collapse and non-strings drop.
     settings.markMatchPostedToBoard('m2');
     expect(settings.hasPostedMatchToBoard('m2')).toBe(true);
+  });
+});
+
+describe('Settings: persisted ball-cam toggle (REQ-033 follow-cam polish)', () => {
+  it('defaults ball cam off when storage is empty', () => {
+    expect(new Settings(fakeStorage()).ballCam).toBe(false);
+  });
+
+  it('toggling ball cam flips the value and reports the new state', () => {
+    const settings = new Settings(fakeStorage());
+    expect(settings.toggleBallCam()).toBe(true);
+    expect(settings.ballCam).toBe(true);
+    expect(settings.toggleBallCam()).toBe(false);
+    expect(settings.ballCam).toBe(false);
+  });
+
+  it('persists the toggle to storage', () => {
+    const storage = fakeStorage();
+    new Settings(storage).toggleBallCam();
+    expect(JSON.parse(storage.store[KEY]).ballCam).toBe(true);
+  });
+
+  it('reloads a persisted value across instances (survives a session)', () => {
+    const storage = fakeStorage();
+    new Settings(storage).setBallCam(true);
+    expect(new Settings(storage).ballCam).toBe(true);
+  });
+
+  it('setBallCam writes the explicit value', () => {
+    const settings = new Settings(fakeStorage());
+    settings.setBallCam(true);
+    expect(settings.ballCam).toBe(true);
+    settings.setBallCam(false);
+    expect(settings.ballCam).toBe(false);
+  });
+
+  it('ignores a malformed ballCam value and falls back to the default', () => {
+    const settings = new Settings(fakeStorage({ [KEY]: JSON.stringify({ ballCam: 'yes' }) }));
+    expect(settings.ballCam).toBe(false);
+  });
+
+  it('leaves audio independent of ball cam', () => {
+    const settings = new Settings(fakeStorage());
+    settings.toggleBallCam();
+    expect(settings.ballCam).toBe(true);
+    expect(settings.audioEnabled).toBe(true);
   });
 });

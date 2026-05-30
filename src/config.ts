@@ -168,6 +168,18 @@ export const SHOT_CAMERA = {
 
   // Max lateral stance shift (metres) while aligning at the line.
   alignLimit: 0.34,
+
+  // Optional ball-cam chase view (REQ-033 polish, persisted setting default off).
+  // When on, the watching phase rides behind and above the rolling ball, looking
+  // down-lane ahead of it. The eye sits 1.3 m behind (toward the bowler, +z) and
+  // 0.9 m above the ball, with the look-at anchored 4 m ahead (toward the pins) at
+  // mid-pin height so the deck stays framed as the ball nears it. A slightly wider
+  // fov than the locked shooting view gives the chase a sense of speed.
+  chaseBehind: 1.3,
+  chaseHeight: 0.9,
+  chaseAhead: 4.0,
+  chaseLookHeight: 0.4,
+  chaseFov: 40,
 } as const;
 
 // Spin/angle meter (GDD 08-controls, REQ-034 step 2, REQ-036 release). A cursor

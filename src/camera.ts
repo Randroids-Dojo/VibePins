@@ -133,6 +133,86 @@ const shiftX = (pose: CameraPose, dx: number): CameraPose => ({
   fov: pose.fov,
 });
 
+// Ball-cam chase pose (optional follow-cam, REQ-033 polish). When the player has
+// the Ball Cam setting on, the watching-phase camera tracks the thrown ball down
+// the lane instead of holding the fixed bowler view. This pure helper produces the
+// pose for a given ball position: the eye sits behind the ball (toward the bowler,
+// +z) and above it, and the look-at is anchored down-lane ahead of the ball
+// (toward the pins, -z), so the camera reads as a chase cam riding behind the roll.
+// Pure and unit-testable: as the ball's z decreases (rolls toward the pins) the
+// camera's z decreases with it, which is the observable tracking the test asserts.
+export interface ChaseCamConfig {
+  // How far behind the ball (toward the bowler, +z) the eye sits, in metres.
+  readonly behind: number;
+  // How high above the ball the eye sits, in metres.
+  readonly height: number;
+  // How far ahead of the ball (toward the pins, -z) the look-at is anchored.
+  readonly ahead: number;
+  // Height of the look-at point above the lane bed, in metres.
+  readonly lookHeight: number;
+  // Field of view for the chase view.
+  readonly fov: number;
+}
+
+export function chaseCamPose(ballPos: Vec3, cfg: ChaseCamConfig): CameraPose {
+  return {
+    pos: { x: ballPos.x, y: ballPos.y + cfg.height, z: ballPos.z + cfg.behind },
+    lookAt: { x: ballPos.x, y: cfg.lookHeight, z: ballPos.z - cfg.ahead },
+    fov: cfg.fov,
+  };
+}
+
+// Frame-rate-independent damping toward a target: at rate r and step dt the gap
+// shrinks by 1 - e^(-r*dt), so the easing is smooth and stable regardless of frame
+// timing (RULE 10 smooth, not jarring). Exported so the follow stepper and any
+// caller share one easing rule.
+export function dampTo(current: number, target: number, rate: number, dt: number): number {
+  return current + (target - current) * (1 - Math.exp(-rate * dt));
+}
+
+const dampPose = (current: CameraPose, target: CameraPose, rate: number, dt: number): CameraPose => ({
+  pos: {
+    x: dampTo(current.pos.x, target.pos.x, rate, dt),
+    y: dampTo(current.pos.y, target.pos.y, rate, dt),
+    z: dampTo(current.pos.z, target.pos.z, rate, dt),
+  },
+  lookAt: {
+    x: dampTo(current.lookAt.x, target.lookAt.x, rate, dt),
+    y: dampTo(current.lookAt.y, target.lookAt.y, rate, dt),
+    z: dampTo(current.lookAt.z, target.lookAt.z, rate, dt),
+  },
+  fov: dampTo(current.fov, target.fov, rate, dt),
+});
+
+// The damped ball-cam follower (REQ-033 polish). Each watching frame it eases the
+// held pose toward the chase target for the live ball position, so the camera
+// rides behind the rolling ball and tracks it down the lane. The first frame after
+// a reset seeds directly on the target (framed on the ball, no snap-in from a stale
+// pose); reset() drops the held pose so the next shot re-seeds. Pure: no Three.js,
+// no clock, fully unit-testable for the observable over-time tracking (RULE 10).
+export class ChaseCam {
+  private pose: CameraPose | null = null;
+
+  constructor(
+    private readonly cfg: ChaseCamConfig,
+    private readonly rate: number,
+  ) {}
+
+  // Forget the current follow so the next step re-seeds on the ball. Called when
+  // the ball resolves and the watching phase ends.
+  reset(): void {
+    this.pose = null;
+  }
+
+  // Ease the follow toward the chase target for the ball position and return the
+  // pose to apply this frame.
+  step(ballPos: Vec3, dt: number): CameraPose {
+    const target = chaseCamPose(ballPos, this.cfg);
+    this.pose = this.pose ? dampPose(this.pose, target, this.rate, dt) : target;
+    return this.pose;
+  }
+}
+
 export class ShotCamera {
   private phase: ShotPhase = 'locked';
   private elapsed = 0;
