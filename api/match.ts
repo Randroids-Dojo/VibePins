@@ -15,6 +15,7 @@
 // leaderboard (REQ-058) remain follow-on slices tracked as dots.
 
 import { Redis } from '@upstash/redis';
+import { matchCreateSchema, matchJoinSchema, matchSubmitSchema, parse } from './schemas.js';
 import {
   createMatch,
   joinMatch,
@@ -108,7 +109,14 @@ async function saveMatch(state: MatchState): Promise<void> {
 // POST with no id: create a match. The creator claims seat 1 and gets their
 // per-seat secret back so this device can resume the seat (GDD create flow).
 async function handleCreate(req: MatchRequest, res: MatchResponse): Promise<MatchResponse> {
-  const body = (req.body ?? {}) as { name?: unknown; seatCount?: unknown };
+  // zod validates the body shape and bounds (name optional string, seatCount an
+  // integer in [MIN_SEATS, MAX_SEATS]); clampSeatCount in the pure model still
+  // applies the final clamp, so behaviour is unchanged for in-range input.
+  const parsed = parse(matchCreateSchema, req.body ?? {});
+  if (!parsed.ok) {
+    return res.status(400).json({ error: parsed.error });
+  }
+  const body = parsed.data;
   const id = globalThis.crypto.randomUUID();
   const creatorSecret = newSecret();
   const state = createMatch({
@@ -128,7 +136,13 @@ async function handleCreate(req: MatchRequest, res: MatchResponse): Promise<Matc
 
 // POST with an id: join the match by claiming the next open seat (GDD join flow).
 async function handleJoin(req: MatchRequest, id: string, res: MatchResponse): Promise<MatchResponse> {
-  const body = (req.body ?? {}) as { name?: unknown };
+  // zod validates the join body shape (id/name optional strings); the id used to
+  // route here was already resolved by the caller from query-or-body.
+  const parsed = parse(matchJoinSchema, req.body ?? {});
+  if (!parsed.ok) {
+    return res.status(400).json({ error: parsed.error });
+  }
+  const body = parsed.data;
   const state = await loadMatch(id);
   if (!state) {
     return res.status(404).json({ error: 'match not found' });
@@ -185,19 +199,24 @@ async function handleSubmit(req: MatchRequest, res: MatchResponse): Promise<Matc
   if (!id) {
     return res.status(400).json({ error: 'id is required' });
   }
-  const body = (req.body ?? {}) as { frame?: unknown; balls?: unknown };
-  const frame = Number(body.frame);
-  if (!Number.isInteger(frame)) {
-    return res.status(400).json({ error: 'frame is required' });
+  // zod validates the submit body shape and bounds (frame an integer in [1,10],
+  // balls a 1..3 array of pinfalls in [0,10]). The pure submitTurn keeps every
+  // authority: turn order, the frame matching currentFrame, and duckpin legality
+  // via scoreGame (REQ-049, REQ-053). A malformed or out-of-range body is
+  // rejected here before any of that runs.
+  const parsed = parse(matchSubmitSchema, req.body ?? {});
+  if (!parsed.ok) {
+    return res.status(400).json({ error: parsed.error });
   }
+  const body = parsed.data;
   const state = await loadMatch(id);
   if (!state) {
     return res.status(404).json({ error: 'match not found' });
   }
   const result = submitTurn(state, {
     secret: seatSecret(req),
-    frame,
-    balls: Array.isArray(body.balls) ? (body.balls as number[]) : [],
+    frame: body.frame,
+    balls: body.balls,
   });
   if (!result.ok) {
     return res.status(result.status).json({ error: result.error ?? 'cannot submit turn' });

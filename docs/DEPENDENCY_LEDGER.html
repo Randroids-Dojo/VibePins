@@ -109,6 +109,26 @@
       </dd>
     </dl>
   </article>
+
+  <article data-dep="zod">
+    <h3><code>zod</code></h3>
+    <dl>
+      <dt>Name</dt><dd><code>zod</code> (TypeScript-first schema validation for the serverless API wire boundary)</dd>
+      <dt>Why watched</dt><dd>backend infrastructure: it validates every request body and query param in <code>api/leaderboard.ts</code> and <code>api/match.ts</code> (REQ-064). A validation behaviour change is a request-acceptance change. Same major as the sibling project Hoops.</dd>
+      <dt>Source</dt><dd><a href="https://www.npmjs.com/package/zod">npm: zod</a> and the <a href="https://github.com/colinhacks/zod/releases">zod releases</a></dd>
+      <dt>Pin format</dt><dd>npm caret (<code>^4.4.3</code>): server-only, non-physics, low blast radius, so a minor bump is acceptable in range.</dd>
+      <dt>Currently pinned</dt><dd><code>^4.4.3</code> (installed 2026-05-29 in the installed 2026-05-29 in PR #46; resolved 4.4.3; matches the sibling Hoops major)</dd>
+      <dt>Detect-new</dt><dd><code>npm view zod version</code></dd>
+      <dt>Migration notes</dt>
+      <dd>
+        <ul>
+          <li>zod lives only in the serverless <code>api/</code> path (via <code>api/schemas.ts</code>); it must not be imported from <code>src/</code> or it would bloat the Vite client bundle. Re-verify after a bump that <code>dist/</code> contains no zod.</li>
+          <li>zod 4 changed some error-formatting APIs from zod 3 (<code>error.issues</code> shape, <code>z.coerce</code>); the shared <code>parse</code> helper reads <code>error.issues[0]</code>, so re-check that path on a major bump.</li>
+          <li>Schemas encode the same clamps the routes previously hand-checked (pin range, frame count, seat range); a schema change is a contract change, so re-run the route-handler rejection tests after any bump.</li>
+        </ul>
+      </dd>
+    </dl>
+  </article>
 </section>
 
 <section id="upgrade-procedure">
