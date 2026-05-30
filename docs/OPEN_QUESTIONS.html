@@ -38,6 +38,23 @@
 <main id="open">
   <h2>Open</h2>
 
+  <section data-q="Q-025" data-status="open">
+    <h3>Q-025: Throw-light states and what transient text survives the HUD-text cut</h3>
+    <dl>
+      <dt>Context</dt><dd>Playtest item 8: too much status text on screen. The split-flap scoreboard already shows frame / ball / score, so the verbose status sentence ("Frame N", "Foul!", "Gutter ball.", "Counting pins...", "Rolling...", game-over) was removed in favour of a Pins Mechanical style red/green throw light. Two decisions: (1) exactly which shot phases the light reads GREEN vs RED, and the rule for an async-match turn; (2) what brief on-screen text, if any, survives.</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li>GREEN exactly when the player can throw (the aiming phase), RED for every machine-owned phase (watching / settling / resetting / over). The same RED reads "not your turn" in a match, so the rule is one consistent thing across solo and match. Keep only the first-run tutorial coach (the one prompt with no other affordance) and a single transient async-match submit line; everything else (frame / ball / score, final score) is carried by the scoreboard and the summary overlay.</li>
+          <li>Add intermediate light states or colours (e.g. amber while settling/resetting) so the player can tell the sub-phases apart.</li>
+          <li>Keep a one-line transient cue for dead balls (foul / gutter) so the player learns why a ball scored zero, alongside the light.</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>A. A two-state lamp is the Pins Mechanical reference and the simplest consistent rule (RULE 7): the only thing the player needs to know at a glance is "can I throw now". The scoreboard already shows the zero ball, and the dead-ball audio cue plays, so a foul / gutter sentence is redundant text the product owner asked to cut. Amber sub-states reintroduce the verbosity the slice removes. The light exposes <code>role=status</code> with "Ready to throw" / "Wait" plus a visible GO / WAIT word so it is not colour-only (RULE 10). The product owner will re-playtest the reduced HUD.</dd>
+      <dt>Status</dt><dd>open</dd>
+      <dt>Resolution</dt><dd>(shipped under Recommended default A in the reduce-hud-text / throw-light slice; left open for dev override after the HUD re-playtest)</dd>
+    </dl>
+  </section>
+
   <section data-q="Q-024" data-status="open">
     <h3>Q-024: Duckpin silhouette proportions and the cord-anchor neck</h3>
     <dl>

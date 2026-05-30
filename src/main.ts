@@ -24,7 +24,7 @@ import { ShotWatcher } from './shot.js';
 import { FoulDetector } from './foul.js';
 import { GutterDetector } from './gutter.js';
 import { Screens, type Screen } from './screens.js';
-import { rackActionFor, phaseAfterRecord } from './shotLoop.js';
+import { rackActionFor, phaseAfterRecord, throwLightFor, type ThrowLightState } from './shotLoop.js';
 import { Settings } from './settings.js';
 import { Leaderboard, renderBoardRows, renderContextRows, type BoardType } from './leaderboard.js';
 import { MatchClient } from './matchClient.js';
@@ -50,6 +50,11 @@ if (!canvas) {
 }
 const scoreboardEl = document.getElementById('scoreboard');
 const statusEl = document.getElementById('status');
+// The red/green throw light and its visible word label. The light replaces the
+// verbose in-game status text: the scoreboard carries frame/ball/score, and this
+// lamp is the at-a-glance "is it my turn to throw" cue (REQ-038, look-and-feel).
+const throwLightEl = document.getElementById('throw-light');
+const throwLightLabelEl = document.getElementById('throw-light-label');
 
 // App-shell overlays (REQ-045). The menu and summary screens gate the live game.
 const menuEl = document.getElementById('menu');
@@ -265,8 +270,26 @@ let prevResetPhase: ResetPhase = 'idle';
 
 const ALIGN_STEP = 0.04;
 
+// The status line now carries only essential one-off prompts (game over, match
+// submit). It is hidden whenever there is nothing transient to say, so the HUD
+// stays quiet and the throw light plus scoreboard carry the live state.
 function setStatus(text: string): void {
-  if (statusEl) statusEl.textContent = text;
+  if (!statusEl) return;
+  statusEl.textContent = text;
+  statusEl.hidden = text.length === 0;
+}
+
+// Drive the red/green throw light from the current shot phase. GREEN ('go') only
+// in the aiming phase (the player may throw); RED ('wait') for every machine-owned
+// phase. The accessible label and visible word change with it so the state is not
+// colour-only (RULE 10). Hidden outside live play (set by showScreen).
+function renderThrowLight(): void {
+  if (!throwLightEl) return;
+  const state: ThrowLightState = throwLightFor(phase);
+  const label = state === 'go' ? 'Ready to throw' : 'Wait';
+  throwLightEl.dataset.light = state;
+  throwLightEl.setAttribute('aria-label', label);
+  if (throwLightLabelEl) throwLightLabelEl.textContent = state === 'go' ? 'Go' : 'Wait';
 }
 
 function renderScore(): void {
@@ -359,11 +382,10 @@ function beginShot(): void {
   shotCamera.start();
   standingBeforeBall = countStandingPins();
   phase = 'aiming';
-  setStatus(shotStatus());
-}
-
-function shotStatus(): string {
-  return `Frame ${game.currentFrame + 1} - Ball ${game.currentBall} - Aim, spin, power. Space/click to confirm.`;
+  // The scoreboard carries frame / ball / score and the throw light goes green;
+  // no verbose status sentence (REQ-038, look-and-feel reduced-text HUD). The
+  // first-run tutorial coach still names the aim/spin/power steps.
+  renderThrowLight();
 }
 
 function countStandingPins(): number {
@@ -410,6 +432,8 @@ function startReset(mode: ResetMode): void {
   // rack thunking home (REQ-043).
   audio.playStringReset();
   phase = 'resetting';
+  // Pinsetter owns the deck: keep the light red through the reset cycle.
+  renderThrowLight();
 }
 
 // The throw: release the ball with the captured spin and power, then start
@@ -427,7 +451,8 @@ function throwBall(): void {
   foulDetector.begin();
   gutterDetector.begin();
   phase = 'watching';
-  setStatus('Rolling...');
+  // The lane is now the machine's: light goes red, no "Rolling..." sentence.
+  renderThrowLight();
 }
 
 function confirm(): void {
@@ -557,10 +582,14 @@ function showScreen(screen: Screen): void {
   if (lineupEl && screen !== 'playing') lineupEl.hidden = true;
   // The spin/power gauges belong only over the live aiming phase.
   if (metersEl && screen !== 'playing') metersEl.hidden = true;
-  if (isMenu) {
-    syncAudioToggle();
-    setStatus('');
+  // The throw light belongs only over the live game; show it on entry and keep it
+  // in sync with the current phase, hide it on every other screen.
+  if (throwLightEl) {
+    throwLightEl.hidden = screen !== 'playing';
+    if (screen === 'playing') renderThrowLight();
   }
+  if (screen !== 'playing') setStatus('');
+  if (isMenu) syncAudioToggle();
 }
 
 screens.onChange((screen, previous) => {
@@ -1259,19 +1288,23 @@ function stepShotLoop(dt: number): void {
     renderMeters();
   } else if (phase === 'watching') {
     const k = ball.kinematics();
-    // Flag an over-the-line release the moment the ball crosses the foul line
+    // Track an over-the-line release the moment the ball crosses the foul line
     // while live (REQ-032). The throw still plays out; the foul is applied when
     // the ball resolves so the dead ball scores zero regardless of any pinfall.
-    if (foulDetector.step(k.z)) setStatus('Foul! Over the line.');
-    // Flag a gutter ball the moment it leaves the lane bed sideways (REQ-031).
+    // No status sentence: the light is red (machine's turn) and the scoreboard
+    // shows the zero ball once it records.
+    foulDetector.step(k.z);
+    // Track a gutter ball the moment it leaves the lane bed sideways (REQ-031).
     // Like a foul it is a dead ball: the throw plays out and scores zero pinfall
-    // when it resolves. A foul takes priority in the status copy if both trip.
-    if (gutterDetector.step(k.x) && !foulDetector.fouled) setStatus('Gutter ball.');
+    // when it resolves.
+    gutterDetector.step(k.x);
     if (shotWatcher.step(k.speed, k.z)) {
       // The ball has resolved; begin settling the rack before counting.
       settle.reset();
       phase = 'settling';
-      if (!foulDetector.fouled && !gutterDetector.guttered) setStatus('Counting pins...');
+      // Still the machine's turn (watching -> settling are both red); refresh in
+      // case any external state nudged the light.
+      renderThrowLight();
     }
   } else if (phase === 'settling') {
     const result = settle.step(pins.pinStates());
@@ -1380,7 +1413,8 @@ function recordSettledBall(standingNow: number): void {
     phase = phaseAfterRecord(action);
     const summary = game.summary();
     const finalScore = summary?.finalScore ?? 0;
-    setStatus(`Game over. Final score ${finalScore}.`);
+    // The summary overlay carries the final score (set below); no separate
+    // game-over status sentence on the live HUD (reduced-text HUD).
     if (summaryScoreEl) summaryScoreEl.textContent = String(finalScore);
     // Prime the leaderboard submit form for this fresh result (REQ-057).
     primeSubmitForm();
