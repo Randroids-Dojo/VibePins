@@ -172,10 +172,22 @@ describe('GET resume', () => {
     await handler({ method: 'POST', query: {}, body: { name: 'Ann' } }, createRes);
     const created = createRes.body as CreateBody;
 
+    mockExpire.mockClear();
     const withSecret = makeRes();
     await handler({ method: 'GET', query: { id: created.match.id, secret: created.secret } }, withSecret);
     expect(withSecret.statusCode).toBe(200);
     expect((withSecret.body as { mySeat: number }).mySeat).toBe(1);
+    // A read refreshes the match TTL so an actively-played game never ages out.
+    expect(mockExpire).toHaveBeenCalled();
+
+    // The secret is also accepted via the X-Match-Secret header (preferred over
+    // the query string so it stays out of URLs).
+    const viaHeader = makeRes();
+    await handler(
+      { method: 'GET', query: { id: created.match.id }, headers: { 'x-match-secret': created.secret } },
+      viaHeader,
+    );
+    expect((viaHeader.body as { mySeat: number }).mySeat).toBe(1);
 
     // A fresh recipient (no secret yet) sees the public view but owns no seat.
     const noSecret = makeRes();

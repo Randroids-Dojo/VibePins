@@ -28,6 +28,7 @@ import {
 interface MatchRequest {
   method?: string;
   query: Record<string, string | string[] | undefined>;
+  headers?: Record<string, string | string[] | undefined>;
   body?: unknown;
 }
 interface MatchResponse {
@@ -59,6 +60,14 @@ function setCors(res: MatchResponse): void {
 
 function firstParam(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
+}
+
+// Read the caller's per-seat secret. Prefer the X-Match-Secret header so the
+// secret stays out of URLs (browser history, proxy/CDN logs, referrers); fall
+// back to the query param for clients that cannot set a header.
+function seatSecret(req: MatchRequest): string | undefined {
+  const header = req.headers ? firstParam(req.headers['x-match-secret']) : undefined;
+  return header ?? firstParam(req.query.secret);
 }
 
 function matchKey(id: string): string {
@@ -147,8 +156,7 @@ async function handleGet(req: MatchRequest, res: MatchResponse): Promise<MatchRe
   if (!state) {
     return res.status(404).json({ error: 'match not found' });
   }
-  const secret = firstParam(req.query.secret);
-  const mySeat = seatForSecret(state, secret);
+  const mySeat = seatForSecret(state, seatSecret(req));
   return res.status(200).json({ match: toPublicMatch(state), mySeat });
 }
 
@@ -173,8 +181,10 @@ export default async function handler(req: MatchRequest, res: MatchResponse): Pr
     if (req.method === 'POST') return await handlePost(req, res);
     return res.status(405).json({ error: 'Method not allowed' });
   } catch (err) {
-    // Never leak the error detail (could contain connection strings).
-    console.error('Match error:', err);
+    // Never leak the error detail (could contain connection strings): log only the
+    // message, never the full error object.
+    const message = err instanceof Error ? err.message : 'unknown';
+    console.error('Match error:', message);
     return res.status(500).json({ error: 'Internal server error' });
   }
 }

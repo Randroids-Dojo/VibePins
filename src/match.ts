@@ -177,7 +177,9 @@ export function toPublicMatch(match: MatchState): PublicMatch {
       seat: s.seat,
       name: s.name,
       claimed: s.claimed,
-      frames: s.frames,
+      // Detached copy: mutating the public view must never reach the authoritative
+      // in-memory match state.
+      frames: s.frames.map((frame) => [...frame]),
     })),
     currentSeat: match.currentSeat,
     currentFrame: match.currentFrame,

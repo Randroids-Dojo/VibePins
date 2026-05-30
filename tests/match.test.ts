@@ -113,6 +113,15 @@ describe('toPublicMatch', () => {
     expect(pub.seats[0]).not.toHaveProperty('secret');
     expect(pub.seats[0]).toMatchObject({ seat: 1, name: 'A', claimed: true });
   });
+
+  it('returns detached frames so mutating the public view never reaches state', () => {
+    const m = createMatch({ id: 'm', creatorName: 'A', creatorSecret: 's', seatCount: 2 });
+    m.seats[0].frames = [[3, 4, 0]];
+    const pub = toPublicMatch(m);
+    pub.seats[0].frames[0].push(99);
+    pub.seats[0].frames.push([1, 2, 3]);
+    expect(m.seats[0].frames).toEqual([[3, 4, 0]]);
+  });
 });
 
 describe('constants', () => {
