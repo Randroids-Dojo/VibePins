@@ -38,6 +38,21 @@
 <main id="open">
   <h2>Open</h2>
 
+  <section data-q="Q-032" data-status="open">
+    <h3>Q-032: Pin body damping vs collider reshape to settle a tethered toppled pin</h3>
+    <dl>
+      <dt>Context</dt><dd>Playtest bug 4: after a reset, one pin kept swinging and never settled. Root cause (found with a deterministic real-Rapier 60fps test): a pin collider is a plain cylinder, so a knocked-down pin lying on its side is a perfect roller, and with its neck still on its cord the cord's restoring pull plus the belly contact drive a tetherball-style limit cycle. The pin spins about its long axis indefinitely and never reaches the at-rest thresholds. The cord is the driver (the same toppled pin with no cord decays to rest), so damping must be large enough to win against the cord pumping the spin.</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li>Modest body damping on the pins (<code>pinLinearDamping</code> 0.4, <code>pinAngularDamping</code> 6.0), modelling the energy a real duckpin (belly plus a flat foot, not a true cylinder) sheds into the deck. Smallest change; a topple lasts well under a second so the per-step decay barely touches the lively topple/scatter.</li>
+          <li>Reshape the pin collider away from a plain cylinder (a compound belly + foot, or a capsule) so it is no longer a perfect roller. More physically faithful but a much larger change that re-tunes the whole scatter / cord / detection physics.</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>A. Damping is the smallest change that reliably settles a tethered toppled pin, and the scatter smoke (which builds its own undamped rack) confirms the duckpin spray is unaffected. Shipped under A. Revisit B only if a later playtest shows the damping deadening the topple feel.</dd>
+      <dt>Owner</dt><dd>Playtest gate (Q-010).</dd>
+    </dl>
+  </section>
+
   <section data-q="Q-031" data-status="open">
     <h3>Q-031: Curved chrome ball-return track shape (one bend vs serpentine)</h3>
     <dl>

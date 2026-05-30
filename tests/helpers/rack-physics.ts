@@ -25,7 +25,14 @@ export interface RackPin {
 export function addRack(world: RAPIER.World): RackPin[] {
   const mass = pinMassProperties();
   return pinRackPositions().map((spot) => {
-    const body = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(spot.x, spot.y, spot.z));
+    const body = world.createRigidBody(
+      RAPIER.RigidBodyDesc.dynamic()
+        .setTranslation(spot.x, spot.y, spot.z)
+        // Match PinSet: modest damping so a tethered, knocked-down pin settles
+        // instead of pumping a limit cycle on its cord.
+        .setLinearDamping(LANE.pinLinearDamping)
+        .setAngularDamping(LANE.pinAngularDamping),
+    );
     world.createCollider(
       RAPIER.ColliderDesc.cylinder(LANE.pinHeight / 2, LANE.pinBellyRadius)
         .setMassProperties(mass.mass, mass.centerOfMass, mass.principalAngularInertia, IDENTITY)

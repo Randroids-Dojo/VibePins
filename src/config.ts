@@ -56,6 +56,23 @@ export const LANE = {
   pinBellyRadius: 0.0476,
   pinMass: 0.4,
 
+  // Pin body damping. A pin collider is a plain cylinder, so a knocked-down pin
+  // lying on its side is a perfect roller: with its neck still on its cord, the
+  // cord's restoring pull plus the belly contact can drive a tetherball-style
+  // limit cycle, leaving the pin spinning about its long axis indefinitely (it
+  // never settles, so it keeps swinging on screen after the shot, playtest bug 4).
+  // A real duckpin (belly + flat foot, not a true cylinder) sheds that residual
+  // spin into the deck. Modest body damping models that energy loss so a flung,
+  // tethered pin comes to rest within the settle window instead of pumping forever.
+  // The angular term is the one that breaks the limit cycle (it is cord-driven, so
+  // it needs more than the gentle ball value); the linear term keeps a slow on-deck
+  // drift from creeping. Tuned to the smallest values that reliably settle a
+  // hard-flung tethered pin (tests/reset-settle.smoke.test.ts) while leaving the
+  // lively topple/scatter (a topple lasts well under a second, so the per-step
+  // decay barely touches it; tests/scatter.smoke.test.ts stays green).
+  pinLinearDamping: 0.4,
+  pinAngularDamping: 6.0,
+
   // Standard 10-pin triangle spacing, centre-to-centre (GDD REQ-027).
   pinSpacing: 0.3048,
 
