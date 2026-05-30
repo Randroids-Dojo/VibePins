@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="match-final-standings-ranking" data-date="2026-05-29">
+    <h3>Async Multiplayer: Final-Standings Ranking and Render Helper (REQ-056)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/20260529-211500-match-final-standings</code></dd>
+      <dt>PR</dt><dd>#41</dd>
+      <dt>Changed</dt><dd>The final-standings ranking for a completed match (REQ-056), building on the completion locking that already shipped. Added <code>computeStandings</code> to the pure match model (<code>src/match.ts</code>): it re-scores every seat's recorded line with the shared <code>scoreGame</code> engine (the same authority <code>submitTurn</code> used to accept the frames), so a standings row never trusts a client-claimed total. It sorts highest-first with a deterministic seat-number tiebreak and assigns standard-competition ranks, so an exact tie shares a rank (1, 1, 3). It accepts a <code>MatchState</code> or a <code>PublicMatch</code> and never mutates the input. Added <code>renderStandingsRows</code> to the client module (<code>src/matchClient.ts</code>): a pure (match in, string out) helper that renders the ranked rows in the same leaderboard board-row language, tags the rank-1 winner row with <code>data-winner</code>, marks this device's own seat with <code>data-you</code>, and HTML-escapes player names at the render boundary. Re-exported <code>computeStandings</code> and the <code>Standing</code> type through the client module so the shell can read standings from its held match view.</dd>
+      <dt>Verification</dt><dd>em-dash grep (U+2014/U+2013) clean on changed files; <code>git diff --check</code> clean; <code>npx tsc --noEmit</code> clean; <code>npx vitest run</code> 472/472 passing (5 new in <code>tests/match.test.ts</code>: rank order by engine total, engine-not-claimed totals with named seats, tie sharing, incomplete-line scores zero and is marked incomplete, no-mutation; 4 new in <code>tests/matchClient.test.ts</code>: ranked rows highest-first with winner tag, own-row marking via <code>data-you</code>, name escaping at the render boundary, empty string for a null match); <code>npx vite build</code> succeeds. <code>.env.local</code> not staged. Dependency Upgrade Gate: watched pins (three 0.184.0, @dimforge/rapier3d-compat 0.19.3, @upstash/redis ^1.38.0) unchanged in <code>package.json</code>; no bump due this slice.</dd>
+      <dt>Assumptions</dt><dd>This slice ships the pure ranking plus its render helper only, no shell wiring. Dropping the standings plate into an on-screen completion overlay lands with the handoff/your-turn UI (REQ-050/051), which owns the multiplayer screen surface, so this stays PR-sized and fully testable without a DOM. An incomplete line scores 0 and sorts last among equal-or-lower totals; the UI shows standings only on a <code>complete</code> match so this affects only early reads. Ties use standard-competition ranking (shared rank, next distinct score skips) as the simplest consistent default for casual friends play.</dd>
+      <dt>GDD coverage</dt><dd>REQ-056 stays <code>partial</code> (locking and ranking shipped; the on-screen standings display lands with REQ-050/051). <code>src/matchClient.ts</code> and <code>tests/matchClient.test.ts</code> appended to its refs. Build log appended to <code>docs/gdd/05-async-multiplayer.html</code>.</dd>
+      <dt>Followups</dt><dd>None new. Remaining match dots: handoff link plus your-turn/waiting overlay that wires <code>MatchClient</code> into the shell, derives pin-fall from the sim, and shows the completion standings plate (REQ-050/051), and posting a finished match line to the leaderboard (REQ-058).</dd>
+    </dl>
+  </article>
+
   <article data-slice="match-client-wiring" data-date="2026-05-29">
     <h3>Async Multiplayer: Client Match Module (Create/Join/Resume + Per-Frame Submission) (REQ-053/055/052)</h3>
     <dl>

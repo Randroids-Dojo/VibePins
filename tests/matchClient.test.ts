@@ -5,7 +5,7 @@
 // the non-fatal failure modes.
 
 import { describe, it, expect, vi } from 'vitest';
-import { MatchClient, type FetchLike } from '../src/matchClient.js';
+import { MatchClient, renderStandingsRows, type FetchLike } from '../src/matchClient.js';
 import { Settings, type StorageLike } from '../src/settings.js';
 import type { PublicMatch } from '../src/match.js';
 
@@ -231,5 +231,65 @@ describe('MatchClient turn-state helpers (REQ-051)', () => {
     const client = new MatchClient(new Settings(memoryStorage()));
     expect(client.isMyTurn).toBe(false);
     expect(client.currentPlayerName).toBe('');
+  });
+});
+
+describe('renderStandingsRows (REQ-056)', () => {
+  // A full ten-frame flat-open line: nine frames of [first, second, 0] plus a
+  // three-ball tenth, so scoreGame reports it complete.
+  function line(first: number, second: number): number[][] {
+    const frames: number[][] = [];
+    for (let f = 0; f < 9; f += 1) frames.push([first, second, 0]);
+    frames.push([first, second, 0]);
+    return frames;
+  }
+
+  function completed(over: Partial<PublicMatch> = {}): PublicMatch {
+    return publicMatch({
+      status: 'complete',
+      seats: [
+        { seat: 1, name: 'Ann', claimed: true, frames: line(5, 4) },
+        { seat: 2, name: 'Bo', claimed: true, frames: line(3, 4) },
+      ],
+      currentSeat: 1,
+      currentFrame: 10,
+      ...over,
+    });
+  }
+
+  it('renders a ranked row per seat, highest authoritative score first', () => {
+    const html = renderStandingsRows(completed(), null);
+    const ranks = [...html.matchAll(/data-rank="(\d+)"/g)].map((m) => m[1]);
+    expect(ranks).toEqual(['1', '2']);
+    // Ann (5,4 = 90) outranks Bo (3,4 = 70); winner row is tagged.
+    expect(html.indexOf('Ann')).toBeLessThan(html.indexOf('Bo'));
+    expect(html).toContain('data-winner="true"');
+    expect(html).toContain('>90<');
+    expect(html).toContain('>70<');
+  });
+
+  it('marks this device own row', () => {
+    const html = renderStandingsRows(completed(), 2);
+    // The data-you row is the one carrying Bo (seat 2).
+    const youRow = html.split('vp-board-row').find((chunk) => chunk.includes('data-you="true"'));
+    expect(youRow).toContain('Bo');
+  });
+
+  it('escapes player names at the render boundary', () => {
+    const html = renderStandingsRows(
+      completed({
+        seats: [
+          { seat: 1, name: '<img>', claimed: true, frames: line(5, 4) },
+          { seat: 2, name: 'Bo', claimed: true, frames: line(3, 4) },
+        ],
+      }),
+      null,
+    );
+    expect(html).toContain('&lt;img&gt;');
+    expect(html).not.toContain('<img>');
+  });
+
+  it('renders nothing without a match', () => {
+    expect(renderStandingsRows(null, null)).toBe('');
   });
 });
