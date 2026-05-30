@@ -33,6 +33,19 @@ export const LANE = {
   // (a polished ball skids then rolls and barely bounces).
   ballSpawnZ: -0.15,
   ballLaunchSpeed: 8.0,
+  // Launch forward-roll (topspin) as a fraction of pure rolling-without-slip
+  // (omega_x = v / r). A real ball skids before it rolls, and at the pocket it
+  // is still carrying skid, not perfect roll. Launching at full rolling-without-
+  // slip topspin made the ball CLIMB the head pin on contact (the topspin grips
+  // the pin's side and rides up it), popping the ball ~0.8m into the air so it
+  // sailed over the rack and only the front pin fell (playtest bug 4). At half
+  // topspin the ball drives THROUGH the head pin low (peak height ~0.5m) and
+  // carries into the row behind, scattering the pack, while the down-lane roll is
+  // visually unchanged (the ball is on the bed either way and bed friction is low
+  // enough that the exact launch spin barely affects the visible roll). REQ-030's
+  // squat low-energy pins still keep full strikes rare (a dead-straight ball never
+  // strikes). See OPEN_QUESTIONS Q-029.
+  ballLaunchTopspin: 0.5,
   ballFriction: 0.25,
   ballRestitution: 0.1,
   ballLinearDamping: 0.05,

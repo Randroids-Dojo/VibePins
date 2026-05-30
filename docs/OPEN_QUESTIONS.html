@@ -38,6 +38,23 @@
 <main id="open">
   <h2>Open</h2>
 
+  <section data-q="Q-029" data-status="open">
+    <h3>Q-029: Ball launch topspin (carry-through vs strike rarity)</h3>
+    <dl>
+      <dt>Context</dt><dd>Playtest bug 4: on a decent pocket hit the ball stopped dead at the head pin and only the front pin fell, instead of carrying through into the pins behind. The real-physics root cause was the launch forward roll: <code>Ball.launch()</code> set a full rolling-without-slip topspin (<code>omega_x = v / r</code>). When that topspinning ball met the head pin it gripped the pin's side and CLIMBED it, popping the ball roughly 0.8m into the air so it sailed over the whole rack and clipped only a pin or two on the way down. Friction, restitution, ball mass, and pin mass were all swept in real Rapier and none fixed the pop-up; the topspin was the dominant driver. Reducing it lets the ball drive THROUGH the pocket low (peak height roughly 0.5m) and carry into the row behind. A real ball also still carries skid at the pocket rather than perfect roll, so a fraction of pure roll is the physical reading. Open tunable: the launch topspin fraction <code>LANE.ballLaunchTopspin</code>. <code>PIN_PHYSICS</code> (friction 0.55, restitution 0) and the belly-heavy mass are deliberately UNCHANGED so the carefully tuned REQ-030 scatter material stands.</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li><code>ballLaunchTopspin = 0.5</code> (half of pure rolling-without-slip). Real-Rapier sweep across representative pocket throws: the ball drives low through the head pin (over-deck peak roughly 0.5m, well under pin-fly-over height) and carries into a pin behind on a healthy majority of throws, while a dead-centre straight ball still never strikes and no representative pocket throw clears the whole rack. The visible down-lane roll is essentially unchanged (the ball is on the bed either way and bed friction is low enough that the exact launch spin barely moves the visible roll).</li>
+          <li>Keep full topspin (1.0): the over-damped behaviour the playtest rejected (the ball flies over the rack, only the front pin falls).</li>
+          <li>Drop topspin further toward 0: the ball drives through even lower but a straight ball then stalls and topples only the head pin, losing carry.</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>A. <code>ballLaunchTopspin = 0.5</code>. It is the simplest single-tunable fix (RULE 7), it leaves the REQ-030 scatter material untouched, it reliably carries a good pocket hit past the head pin into the pack, and it keeps duckpin strikes hard (no straight strike, no representative pocket strike). Verified by <code>tests/carry-through.smoke.test.ts</code>, which fails against option B and passes under A. First-pass value; the product owner can re-playtest and nudge it.</dd>
+      <dt>Status</dt><dd>open</dd>
+      <dt>Resolution</dt><dd>(shipped under Recommended default A in the ball carry-through slice; left open for dev override after the re-playtest)</dd>
+    </dl>
+  </section>
+
   <section data-q="Q-028" data-status="open">
     <h3>Q-028: Pin-table centering-cone geometry and the cone seat tolerance</h3>
     <dl>

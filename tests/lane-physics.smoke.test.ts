@@ -84,7 +84,10 @@ function addBall(world: RAPIER.World, startX = 0): RAPIER.RigidBody {
 
 function launch(body: RAPIER.RigidBody, vel: { x: number; y: number; z: number }): void {
   body.setLinvel(vel, true);
-  body.setAngvel({ x: vel.z / LANE.ballRadius, y: 0, z: 0 }, true);
+  // Mirror Ball.launch(): the forward roll is LANE.ballLaunchTopspin of pure
+  // rolling-without-slip, so the smoke reflects the real shot (full topspin made
+  // the ball climb the head pin and fly over the rack; see carry-through.smoke).
+  body.setAngvel({ x: (vel.z / LANE.ballRadius) * LANE.ballLaunchTopspin, y: 0, z: 0 }, true);
 }
 
 function addTetheredRack(world: RAPIER.World): RAPIER.RigidBody[] {
