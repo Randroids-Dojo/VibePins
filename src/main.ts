@@ -16,7 +16,7 @@ import { PinSet, pinRackPositions } from './pins.js';
 import { Ball, ballSpawnPosition } from './ball.js';
 import { detectPins, isRackSnagged, SettleWindow } from './detection.js';
 import { ResetCycle, type ResetMode, type ResetPhase } from './reset.js';
-import { ShotCamera, canThrow, lineupMarkerOffset, lineupFractionFromOffset, shotMetersVisibility } from './camera.js';
+import { ShotCamera, ChaseCam, canThrow, lineupMarkerOffset, lineupFractionFromOffset, shotMetersVisibility } from './camera.js';
 import { SweepMeter, meterBandSpan } from './meter.js';
 import { Game } from './game.js';
 import { Scoreboard } from './scoreboard.js';
@@ -63,6 +63,7 @@ const summaryScoreEl = document.getElementById('summary-score');
 const menuPlayBtn = document.getElementById('menu-play');
 const menuMatchBtn = document.getElementById('menu-match');
 const menuAudioBtn = document.getElementById('menu-audio');
+const menuBallCamBtn = document.getElementById('menu-ballcam');
 const menuTutorialBtn = document.getElementById('menu-tutorial');
 const menuLeaderboardBtn = document.getElementById('menu-leaderboard');
 const summaryAgainBtn = document.getElementById('summary-again');
@@ -269,6 +270,23 @@ let clearedPins = new Set<number>();
 let prevResetPhase: ResetPhase = 'idle';
 
 const ALIGN_STEP = 0.04;
+
+// Ball-cam chase follower (REQ-033 polish). When the persisted Ball Cam setting is
+// on, the watching phase rides behind the rolling ball instead of holding the fixed
+// bowler view, easing the pose toward the chase target each frame so the follow is
+// smooth, not jarring. The pure stepper lives in src/camera; main only feeds it the
+// live ball position and applies the returned pose. reset() between shots makes the
+// next follow re-seed framed on the ball.
+const chaseCam = new ChaseCam(
+  {
+    behind: SHOT_CAMERA.chaseBehind,
+    height: SHOT_CAMERA.chaseHeight,
+    ahead: SHOT_CAMERA.chaseAhead,
+    lookHeight: SHOT_CAMERA.chaseLookHeight,
+    fov: SHOT_CAMERA.chaseFov,
+  },
+  6,
+);
 
 // The status line now carries only essential one-off prompts (game over, match
 // submit). It is hidden whenever there is nothing transient to say, so the HUD
@@ -561,6 +579,14 @@ function syncAudioToggle(): void {
   menuAudioBtn.textContent = `Audio: ${on ? 'On' : 'Off'}`;
 }
 
+// Reflect the ball-cam setting on the menu toggle (label + accessible state).
+function syncBallCamToggle(): void {
+  if (!menuBallCamBtn) return;
+  const on = settings.ballCam;
+  menuBallCamBtn.setAttribute('aria-pressed', String(on));
+  menuBallCamBtn.textContent = `Ball Cam: ${on ? 'On' : 'Off'}`;
+}
+
 // The single shell view layer: show exactly one overlay per screen and (un)pause
 // the status line. The live game owns the canvas; menu/summary cover it.
 function showScreen(screen: Screen): void {
@@ -589,7 +615,10 @@ function showScreen(screen: Screen): void {
     if (screen === 'playing') renderThrowLight();
   }
   if (screen !== 'playing') setStatus('');
-  if (isMenu) syncAudioToggle();
+  if (isMenu) {
+    syncAudioToggle();
+    syncBallCamToggle();
+  }
 }
 
 screens.onChange((screen, previous) => {
@@ -1101,6 +1130,14 @@ menuAudioBtn?.addEventListener('click', () => {
   syncAudioToggle();
   if (on) audio.playClick();
 });
+menuBallCamBtn?.addEventListener('click', () => {
+  // Flip and persist the chase-cam preference; the watching phase reads it live,
+  // so no further wiring is needed. A click cue confirms the toggle.
+  wakeAudio();
+  settings.toggleBallCam();
+  syncBallCamToggle();
+  audio.playClick();
+});
 
 // Line-up track drag (REQ-033 step 1, REQ-037 touch/mouse). A pointerdown on the
 // track captures the pointer and steers the lateral aim with each move until
@@ -1288,6 +1325,16 @@ function stepShotLoop(dt: number): void {
     renderMeters();
   } else if (phase === 'watching') {
     const k = ball.kinematics();
+    // Ball Cam (REQ-033 polish): when the setting is on, ride a damped chase cam
+    // behind the rolling ball down the lane instead of holding the fixed bowler
+    // view. Only the watching phase follows; aiming and the settle/reset beat keep
+    // the normal pose, and a strike shake (which seeds shakeBase from the camera
+    // position during settle/reset) is untouched. The ball rolls on the bed, so
+    // its height is the lane-bed radius; x and z come from the live body.
+    if (settings.ballCam) {
+      const pose = chaseCam.step({ x: k.x, y: LANE.floorY + LANE.ballRadius, z: k.z }, dt);
+      applyCameraPose(pose);
+    }
     // Track an over-the-line release the moment the ball crosses the foul line
     // while live (REQ-032). The throw still plays out; the foul is applied when
     // the ball resolves so the dead ball scores zero regardless of any pinfall.
@@ -1299,7 +1346,13 @@ function stepShotLoop(dt: number): void {
     // when it resolves.
     gutterDetector.step(k.x);
     if (shotWatcher.step(k.speed, k.z)) {
-      // The ball has resolved; begin settling the rack before counting.
+      // The ball has resolved; begin settling the rack before counting. If the
+      // chase cam was following, return the camera to the normal locked shooting
+      // view for the settle/reset beat (a strike shake seeds shakeBase from the
+      // camera position here, so it must be the bowler pose, not down-lane). Drop
+      // the chase pose so the next shot re-seeds the follow from scratch.
+      if (settings.ballCam) applyCameraPose(shotCamera.update(0).pose);
+      chaseCam.reset();
       settle.reset();
       phase = 'settling';
       // Still the machine's turn (watching -> settling are both red); refresh in

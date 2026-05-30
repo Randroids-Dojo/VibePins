@@ -5,8 +5,11 @@ import {
   lineupMarkerOffset,
   lineupFractionFromOffset,
   shotMetersVisibility,
+  chaseCamPose,
+  ChaseCam,
   type BallPath,
   type CameraPose,
+  type ChaseCamConfig,
   type ShotCameraConfig,
 } from '../src/camera.js';
 
@@ -255,5 +258,110 @@ describe('canThrow guard', () => {
     expect(canThrow('align', true)).toBe(false);
     expect(canThrow('pickup', true)).toBe(false);
     expect(canThrow('walkup', true)).toBe(false);
+  });
+});
+
+describe('chaseCamPose ball-cam follow (REQ-033 polish)', () => {
+  const cfg: ChaseCamConfig = { behind: 1.3, height: 0.9, ahead: 4, lookHeight: 0.4, fov: 40 };
+
+  it('sits behind and above the ball, looking down-lane ahead of it', () => {
+    const pose = chaseCamPose({ x: 0, y: 0.06, z: -5 }, cfg);
+    // Eye is behind the ball (toward the bowler, +z) and above it.
+    expect(pose.pos.z).toBeGreaterThan(-5);
+    expect(pose.pos.z).toBeCloseTo(-5 + cfg.behind);
+    expect(pose.pos.y).toBeCloseTo(0.06 + cfg.height);
+    // Look-at is ahead of the ball, toward the pins (more negative z).
+    expect(pose.lookAt.z).toBeLessThan(-5);
+    expect(pose.lookAt.z).toBeCloseTo(-5 - cfg.ahead);
+    expect(pose.lookAt.y).toBeCloseTo(cfg.lookHeight);
+    expect(pose.fov).toBe(cfg.fov);
+  });
+
+  it('tracks the ball down-lane: as the ball z decreases, the camera z decreases with it', () => {
+    // The lane runs from the bowler (z positive) toward the pins (z ~ -18). A ball
+    // rolling down-lane has a decreasing z over time; the chase camera must follow.
+    const zs = [0, -3, -6, -10, -15];
+    const camZs = zs.map((z) => chaseCamPose({ x: 0, y: 0.06, z }, cfg).pos.z);
+    for (let i = 1; i < camZs.length; i++) {
+      expect(camZs[i]).toBeLessThan(camZs[i - 1]);
+    }
+  });
+
+  it('follows lateral ball drift (a hooking ball pulls the camera sideways)', () => {
+    const left = chaseCamPose({ x: -0.3, y: 0.06, z: -8 }, cfg);
+    const right = chaseCamPose({ x: 0.3, y: 0.06, z: -8 }, cfg);
+    expect(left.pos.x).toBeCloseTo(-0.3);
+    expect(right.pos.x).toBeCloseTo(0.3);
+    expect(left.lookAt.x).toBeCloseTo(-0.3);
+    expect(right.lookAt.x).toBeCloseTo(0.3);
+  });
+
+  it('is pure: same ball position yields the same pose', () => {
+    const a = chaseCamPose({ x: 0.1, y: 0.06, z: -7 }, cfg);
+    const b = chaseCamPose({ x: 0.1, y: 0.06, z: -7 }, cfg);
+    expect(a).toEqual(b);
+  });
+});
+
+describe('ChaseCam damped ball-cam follow (REQ-033 polish, RULE 10 observable)', () => {
+  const cfg: ChaseCamConfig = { behind: 1.3, height: 0.9, ahead: 4, lookHeight: 0.4, fov: 40 };
+  const rate = 6;
+  const dt = 1 / 60;
+
+  it('seeds framed exactly on the ball on the first step (no snap-in from a stale pose)', () => {
+    const cam = new ChaseCam(cfg, rate);
+    const first = cam.step({ x: 0, y: 0.06, z: 0 }, dt);
+    expect(first).toEqual(chaseCamPose({ x: 0, y: 0.06, z: 0 }, cfg));
+  });
+
+  it('tracks the ball down-lane over time: the camera z follows the ball z downward', () => {
+    // A ball rolling down-lane reports a steadily decreasing z. Stepping the
+    // follower over that sequence, the camera z must decrease too: it tracks.
+    const cam = new ChaseCam(cfg, rate);
+    let z = 0;
+    let prevCamZ = cam.step({ x: 0, y: 0.06, z }, dt).pos.z; // seed
+    const camZs: number[] = [prevCamZ];
+    for (let i = 0; i < 120; i++) {
+      z -= 0.12; // ball advances toward the pins each frame
+      const camZ = cam.step({ x: 0, y: 0.06, z }, dt).pos.z;
+      expect(camZ).toBeLessThan(prevCamZ); // strictly tracking down-lane
+      prevCamZ = camZ;
+      camZs.push(camZ);
+    }
+    // Over the run the camera has travelled a long way down-lane with the ball.
+    expect(camZs[camZs.length - 1]).toBeLessThan(-10);
+  });
+
+  it('eases smoothly rather than snapping: one step closes only part of the gap', () => {
+    const cam = new ChaseCam(cfg, rate);
+    cam.step({ x: 0, y: 0.06, z: 0 }, dt); // seed at z=0 (camera z = behind)
+    const target = chaseCamPose({ x: 0, y: 0.06, z: -10 }, cfg).pos.z;
+    const after = cam.step({ x: 0, y: 0.06, z: -10 }, dt).pos.z;
+    // The single small step moves toward the target but does not reach it.
+    expect(after).toBeLessThan(cfg.behind); // moved down-lane
+    expect(after).toBeGreaterThan(target); // but not all the way (eased)
+  });
+
+  it('re-seeds after reset so a new shot starts framed on the ball, not the last pose', () => {
+    const cam = new ChaseCam(cfg, rate);
+    // Follow a ball well down-lane.
+    for (let z = 0; z >= -12; z -= 0.5) cam.step({ x: 0, y: 0.06, z }, dt);
+    cam.reset();
+    // Next shot: a fresh ball back at the foul line seeds exactly on it.
+    const reseeded = cam.step({ x: 0, y: 0.06, z: 0 }, dt);
+    expect(reseeded).toEqual(chaseCamPose({ x: 0, y: 0.06, z: 0 }, cfg));
+  });
+
+  it('follows lateral drift over time (a hooking ball pulls the camera sideways)', () => {
+    const cam = new ChaseCam(cfg, rate);
+    cam.step({ x: 0, y: 0.06, z: 0 }, dt); // seed centred
+    let prevX = 0;
+    for (let i = 0; i < 60; i++) {
+      const x = -0.01 * (i + 1); // ball drifts left each frame
+      const camX = cam.step({ x, y: 0.06, z: -i * 0.1 }, dt).pos.x;
+      expect(camX).toBeLessThanOrEqual(prevX + 1e-9); // camera trails leftward
+      prevX = camX;
+    }
+    expect(prevX).toBeLessThan(0);
   });
 });
