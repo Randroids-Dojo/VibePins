@@ -18,8 +18,16 @@
        board snaps a new digit over. The flip is suppressed for users who ask to
        reduce motion (handled in src/scoreboard.ts and the media query below). */
     #scoreboard {
+      /* Card geometry lives in custom properties so the whole split-flap board
+         scales down on narrow phones (the @media block below) while staying
+         proportional. All ten frames must stay visible at phone widths (REQ-012,
+         REQ-042). */
+      --flap-w: 14px; --flap-h: 20px; --flap-font: 15px;
+      --ball-font: 13px; --cum-w: 30px;
+      --frame-gap: 3px; --ball-gap: 2px; --frame-min: 40px;
+      --frame-pad-x: 3px; --frame-pad-y: 3px;
       position: fixed; top: 0; left: 0; right: 0;
-      display: flex; justify-content: center; gap: 3px;
+      display: flex; justify-content: center; gap: var(--frame-gap);
       padding: 7px 8px 9px;
       font: 700 13px/1.2 ui-monospace, "SFMono-Regular", Menlo, monospace;
       color: #f4ecd6;
@@ -28,46 +36,60 @@
       box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.04), 0 2px 8px rgba(0, 0, 0, 0.55);
       pointer-events: none; user-select: none;
     }
+    /* Phone widths: shrink the cards, gaps, and frame box so all ten frames fit
+       a 360-414px viewport without horizontal clipping. Desktop keeps the
+       defaults above. */
+    @media (max-width: 480px) {
+      #scoreboard {
+        --flap-w: 7px; --flap-h: 15px; --flap-font: 10px;
+        --ball-font: 8px; --cum-w: 20px;
+        --frame-gap: 1px; --ball-gap: 1px; --frame-min: 0px;
+        --frame-pad-x: 1px; --frame-pad-y: 2px;
+        padding: 5px 3px 7px;
+      }
+    }
     .vp-frame {
       display: flex; flex-direction: column; align-items: stretch; gap: 2px;
-      padding: 3px 3px 2px;
+      padding: var(--frame-pad-y) var(--frame-pad-x);
       background: linear-gradient(#26221a, #15120d);
       border: 1px solid #3a3326; border-radius: 3px;
       box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
-      min-width: 40px;
+      min-width: var(--frame-min);
     }
     .vp-frame-num {
       text-align: center; font-size: 9px; letter-spacing: 0.08em; color: #b9923c;
     }
-    .vp-balls { display: flex; gap: 2px; }
+    .vp-balls { display: flex; gap: var(--ball-gap); justify-content: center; }
     /* A single split-flap card. Each leaf renders the full glyph at the card's
        full height but is clipped to its half (overflow: hidden), so the top leaf
        shows the glyph's upper half and the bottom leaf the lower half. The seam
        between them is the hinge line of a split-flap board. */
     .vp-flap {
       position: relative; display: inline-block;
-      width: 14px; height: 20px; border-radius: 2px;
+      width: var(--flap-w); height: var(--flap-h); border-radius: 2px;
       background: #0a0907; border: 1px solid #000;
       box-shadow: inset 0 0 3px rgba(0, 0, 0, 0.8);
       color: #ffcf7a; perspective: 80px;
     }
     .vp-flap-leaf {
-      position: absolute; left: 0; right: 0; height: 10px; overflow: hidden;
+      position: absolute; left: 0; right: 0; height: calc(var(--flap-h) / 2); overflow: hidden;
       background: linear-gradient(#26231b, #16140f);
-      text-align: center; font-size: 15px; font-weight: 700;
+      text-align: center; font-size: var(--flap-font); font-weight: 700;
     }
-    /* Both leaves lay the glyph out across the full 20px card height, then clip:
-       the top leaf is anchored at the card top, the bottom leaf at the card
-       bottom, so each shows the matching half of the same glyph. */
+    /* Both leaves lay the glyph out across the full card height, then clip: the
+       top leaf is anchored at the card top, the bottom leaf at the card bottom,
+       so each shows the matching half of the same glyph. */
     .vp-flap-top {
-      top: 0; line-height: 20px; border-bottom: 1px solid #000;
+      top: 0; line-height: var(--flap-h); border-bottom: 1px solid #000;
     }
     .vp-flap-bottom {
       bottom: 0; line-height: 0;
     }
     .vp-cumulative { display: flex; justify-content: center; }
-    .vp-cumulative .vp-flap { width: 18px; color: #f4ecd6; }
-    .vp-ball .vp-flap-leaf { font-size: 13px; }
+    /* Wide enough to show a three-digit running total (up to 300) without
+       clipping the digits inside the single card. */
+    .vp-cumulative .vp-flap { width: var(--cum-w); color: #f4ecd6; }
+    .vp-ball .vp-flap-leaf { font-size: var(--ball-font); }
 
     /* The flip: the top leaf folds down over the hinge and back. Short and
        mechanical so the board snaps a new glyph rather than eases. */
@@ -198,7 +220,7 @@
       position: relative; height: 26px; display: flex; align-items: center;
     }
     .vp-gauge-rail {
-      position: absolute; left: 20px; right: 20px; height: 8px; border-radius: 4px;
+      position: absolute; left: 38px; right: 38px; height: 8px; border-radius: 4px;
       background: linear-gradient(#15140f, #0a0907);
       border: 1px solid #3a3326;
       box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.7);
@@ -212,10 +234,13 @@
       background: linear-gradient(#3fae5a, #2a7d40);
       box-shadow: 0 0 6px rgba(74, 200, 110, 0.5);
     }
+    /* End labels sit in the 38px gutter on each side of the rail. z-index keeps
+       them above the rail, band, and needle so the parked needle never clips a
+       label (REQ-038; the left SLOW label was being covered by the rail). */
     .vp-gauge-end {
-      position: absolute; top: 50%; transform: translateY(-50%);
+      position: absolute; top: 50%; transform: translateY(-50%); z-index: 2;
       font: 700 11px/1 ui-monospace, "SFMono-Regular", Menlo, monospace;
-      color: #b9a87a; letter-spacing: 0.08em;
+      color: #b9a87a; letter-spacing: 0.08em; white-space: nowrap;
     }
     .vp-gauge-end.vp-lo { left: 0; }
     .vp-gauge-end.vp-hi { right: 0; }

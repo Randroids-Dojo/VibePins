@@ -136,7 +136,7 @@ const LINEUP_RAIL_INSET = 20;
 // The rail inset (px) on each end of a gauge track, matching .vp-gauge-rail's
 // left/right in index.html. The needle and the sweet-spot band both span the
 // rail only, so a [-1, +1] cursor maps across the rail span (REQ-038).
-const GAUGE_RAIL_INSET = 20;
+const GAUGE_RAIL_INSET = 38;
 
 const world = await createWorld3D(canvas);
 const pins = new PinSet(world);

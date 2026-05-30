@@ -38,6 +38,23 @@
 <main id="open">
   <h2>Open</h2>
 
+  <section data-q="Q-023" data-status="open">
+    <h3>Q-023: HUD mobile breakpoint and power-gauge end-label text</h3>
+    <dl>
+      <dt>Context</dt><dd>Fixing the two HUD layout playtest bugs needed two small decisions. (1) The scoreboard had to shrink on phones so all ten frames stay visible; this needs a breakpoint at which the compact split-flap sizing kicks in. (2) The power gauge's two end labels both read SLOW in the markup, while the gauge meaning runs slow to fast; the cut-off bug was only about the left label being clipped, not the label wording.</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li>Breakpoint <code>max-width: 480px</code> for the compact scoreboard (covers common phones 360-414px, leaves tablets and desktop on the default sizing); leave the power gauge end labels as the existing SLOW / SLOW text and fix only the clipping.</li>
+          <li>A different breakpoint (e.g. 420px or a container-query / fluid <code>clamp</code> approach).</li>
+          <li>Also change the high-end power label from SLOW to FAST as a wording fix.</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>A. 480px is the conventional phone-to-tablet line and the compact sizing fits the board to about 345px of content at a 360px viewport (verified by headless screenshots). The label wording is out of scope for these clipping-only dots, so the SLOW / SLOW text is left untouched; if the wording is actually wrong it should be its own slice. The product owner will re-playtest the HUD.</dd>
+      <dt>Status</dt><dd>open</dd>
+      <dt>Resolution</dt><dd>(filled in once dev confirms or overrides after the HUD re-playtest)</dd>
+    </dl>
+  </section>
+
   <section data-q="Q-021" data-status="open">
     <h3>Q-021: Cord-tension lift and genuine-snag shake tunables (supersedes Q-020)</h3>
     <dl>
