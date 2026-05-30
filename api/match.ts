@@ -55,7 +55,7 @@ function redis(): Redis {
 function setCors(res: MatchResponse): void {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Match-Secret');
 }
 
 function firstParam(value: string | string[] | undefined): string | undefined {

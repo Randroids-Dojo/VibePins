@@ -83,6 +83,9 @@ describe('CORS preflight', () => {
     expect(res.statusCode).toBe(200);
     expect(res.ended).toBe(true);
     expect(res.headers['Access-Control-Allow-Origin']).toBe('*');
+    // The seat secret may ride the X-Match-Secret header, so preflight must allow
+    // it or browser requests that set it fail before reaching the handler.
+    expect(res.headers['Access-Control-Allow-Headers']).toContain('X-Match-Secret');
   });
 });
 
