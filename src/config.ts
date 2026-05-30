@@ -254,9 +254,12 @@ export const SHOT_CAMERA = {
   // stays parallel down-lane with no pivot, playtest bug 2). A parallel step over
   // the long sight line is only perceptible through near-field parallax (the rail,
   // gutters, ball return, lane edges), so the travel is widened from the old 0.34
-  // to 0.55 m per side (a ~1.1 m sidestep end to end) so the reposition clearly
-  // reads as the bowler stepping sideways while staying over the lane bed.
-  alignLimit: 0.55,
+  // to 0.42 m per side (a ~0.84 m sidestep end to end) so the reposition clearly
+  // reads as the bowler stepping sideways. The cap keeps the ball fully on the bed
+  // at the extreme stance: lane half-width is width / 2 = 0.533 m and the ball
+  // radius is 0.0635 m, so the ball centre must stay inside 0.533 - 0.0635 = 0.47 m;
+  // 0.42 leaves ~0.05 m of margin so an extreme stance never starts in the gutter.
+  alignLimit: 0.42,
 
   // Optional ball-cam chase view (REQ-033 polish, persisted setting default off).
   // When on, the watching phase rides behind and above the rolling ball, looking
