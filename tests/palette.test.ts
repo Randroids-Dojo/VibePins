@@ -20,9 +20,11 @@ const entries = Object.entries(MATERIALS) as [string, SurfaceMaterial][];
 // surfaces: a traffic signal reads as a signal precisely because it is saturated
 // green and red, the universal go/stop cue (the physical lane-end lamp at a Pins
 // Mechanical lane). The warm-metal palette invariant governs the scene's set
-// dressing, not this functional indicator, so the green lens is exempt from the
-// red >= blue warmth rule. The housing and the dark (unlit) lenses stay in the
-// warm palette; only the lit signal lenses are exempt.
+// dressing, not this functional indicator, so all four signal lens materials are
+// exempt from the red >= blue warmth rule: the green lit lens is green-of-red by
+// design, and both dark (unlit) lenses carry a faint green / red tint so the lens
+// still reads as the right colour up close, which the green one fails the rule
+// too. The housing stays in the warm palette.
 const SIGNAL_LENS = new Set(['signalGoLit', 'signalWaitLit', 'signalGoDark', 'signalWaitDark']);
 const warmEntries = entries.filter(([name]) => !SIGNAL_LENS.has(name));
 

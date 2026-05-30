@@ -289,10 +289,10 @@
 <aside id="resolved">
   <h2>Resolved</h2>
 
-  <section data-q="Q-023" data-status="resolved">
-    <h3>Q-023: Do the go/stop signal lenses follow the warm-metal palette invariant?</h3>
+  <section data-q="Q-030" data-status="resolved">
+    <h3>Q-030: Do the go/stop signal lenses follow the warm-metal palette invariant?</h3>
     <dl>
-      <dt>Context</dt><dd>Moving the throw light into the 3D scene (playtest bug 1) adds green and red lens materials to <code>MATERIALS</code>. The palette test (REQ-041) enforces that every surface is warm (red channel >= blue channel). A green "go" lens is blue-of-red by nature, so it fails that invariant. The light is a functional go/stop signal, not venue set dressing.</dd>
+      <dt>Context</dt><dd>Moving the throw light into the 3D scene (playtest bug 1) adds green and red lens materials to <code>MATERIALS</code>. The palette test (REQ-041) enforces that every surface is warm (red channel &gt;= blue channel). A green "go" lens is blue-of-red by nature, so it fails that invariant. The light is a functional go/stop signal, not venue set dressing.</dd>
       <dt>Options</dt><dd>
         <ol type="A">
           <li>Exempt the functional signal lens materials from the warm-palette invariant. A traffic signal reads as a signal precisely because it is saturated green / red, the universal go/stop cue. The housing and the unlit (dark) lenses stay warm; only the lit lenses are exempt.</li>

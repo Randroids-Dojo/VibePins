@@ -54,7 +54,6 @@ const statusEl = document.getElementById('status');
 // verbose in-game status text: the scoreboard carries frame/ball/score, and this
 // lamp is the at-a-glance "is it my turn to throw" cue (REQ-038, look-and-feel).
 const throwLightEl = document.getElementById('throw-light');
-const throwLightLabelEl = document.getElementById('throw-light-label');
 
 // App-shell overlays (REQ-045). The menu and summary screens gate the live game.
 const menuEl = document.getElementById('menu');
@@ -323,9 +322,8 @@ function renderThrowLight(): void {
   world.setThrowLight(state);
   if (!throwLightEl) return;
   const label = state === 'go' ? 'Ready to throw' : 'Wait';
-  throwLightEl.dataset.light = state;
   throwLightEl.setAttribute('aria-label', label);
-  if (throwLightLabelEl) throwLightLabelEl.textContent = state === 'go' ? 'Go' : 'Wait';
+  throwLightEl.textContent = label;
 }
 
 function renderScore(): void {
