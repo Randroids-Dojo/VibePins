@@ -33,7 +33,9 @@ describe('Settings: persisted audio-enable toggle (REQ-046)', () => {
     const storage = fakeStorage();
     const settings = new Settings(storage);
     settings.toggleAudio();
-    expect(storage.store[KEY]).toBe(JSON.stringify({ audioEnabled: false, tutorialSeen: false, playerName: '' }));
+    expect(storage.store[KEY]).toBe(
+      JSON.stringify({ audioEnabled: false, tutorialSeen: false, playerName: '', matchCredentials: {} }),
+    );
   });
 
   it('reloads a persisted value across instances (survives a session)', () => {
@@ -98,7 +100,9 @@ describe('Settings: persisted tutorial-seen flag (REQ-047)', () => {
     const storage = fakeStorage();
     const settings = new Settings(storage);
     settings.setTutorialSeen(true);
-    expect(storage.store[KEY]).toBe(JSON.stringify({ audioEnabled: true, tutorialSeen: true, playerName: '' }));
+    expect(storage.store[KEY]).toBe(
+      JSON.stringify({ audioEnabled: true, tutorialSeen: true, playerName: '', matchCredentials: {} }),
+    );
   });
 
   it('ignores a non-boolean tutorialSeen and keeps the default', () => {
@@ -144,5 +148,49 @@ describe('Settings: persisted leaderboard player name (REQ-057)', () => {
     expect(settings.audioEnabled).toBe(false);
     expect(settings.tutorialSeen).toBe(true);
     expect(settings.playerName).toBe('BOB');
+  });
+});
+
+describe('Settings: persisted per-match seat credentials (REQ-052)', () => {
+  it('returns null for a match this device has never claimed a seat in', () => {
+    expect(new Settings(fakeStorage()).matchCredential('m1')).toBeNull();
+  });
+
+  it('stores and reports a seat credential keyed by match id', () => {
+    const settings = new Settings(fakeStorage());
+    settings.setMatchCredential('m1', { seat: 2, secret: 'sek', name: 'Bo' });
+    expect(settings.matchCredential('m1')).toEqual({ seat: 2, secret: 'sek', name: 'Bo' });
+    expect(settings.matchCredential('other')).toBeNull();
+  });
+
+  it('persists credentials across instances so reopening resumes the seat', () => {
+    const storage = fakeStorage();
+    new Settings(storage).setMatchCredential('m1', { seat: 1, secret: 'sek-1', name: 'Ann' });
+    expect(new Settings(storage).matchCredential('m1')).toEqual({ seat: 1, secret: 'sek-1', name: 'Ann' });
+  });
+
+  it('keeps multiple match credentials side by side', () => {
+    const settings = new Settings(fakeStorage());
+    settings.setMatchCredential('m1', { seat: 1, secret: 'a', name: 'Ann' });
+    settings.setMatchCredential('m2', { seat: 2, secret: 'b', name: 'Bo' });
+    expect(settings.matchCredential('m1')?.seat).toBe(1);
+    expect(settings.matchCredential('m2')?.seat).toBe(2);
+  });
+
+  it('drops malformed credential entries from a hand-edited payload', () => {
+    const settings = new Settings(
+      fakeStorage({
+        [KEY]: JSON.stringify({
+          matchCredentials: {
+            good: { seat: 1, secret: 's', name: 'Ann' },
+            bad: { seat: 'one', secret: 's' },
+            alsoBad: 42,
+          },
+        }),
+      }),
+    );
+    expect(settings.matchCredential('good')).toEqual({ seat: 1, secret: 's', name: 'Ann' });
+    expect(settings.matchCredential('bad')).toBeNull();
+    expect(settings.matchCredential('alsoBad')).toBeNull();
   });
 });
