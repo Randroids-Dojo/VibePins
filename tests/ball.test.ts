@@ -1,6 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import { LANE, SPIN, POWER, AIM, SHOT_CAMERA } from '../src/config.js';
-import { ballSpawnPosition, ballLaunchVelocity, spinFraction, powerSpeed, baseAimLateralSpeed } from '../src/ball.js';
+import {
+  ballSpawnPosition,
+  ballLaunchVelocity,
+  spinFraction,
+  powerSpeed,
+  baseAimLateralSpeed,
+  aimGuideEndpoints,
+} from '../src/ball.js';
 
 describe('ballSpawnPosition', () => {
   const spawn = ballSpawnPosition();
@@ -226,6 +233,71 @@ describe('ballLaunchVelocity with base aim (REQ-033, REQ-036)', () => {
   it('leaves a centred stance with the spin-only lateral component', () => {
     expect(ballLaunchVelocity(0, undefined, 0).x).toBe(0);
     expect(ballLaunchVelocity(1, undefined, 0).x).toBeCloseTo(SPIN.maxLateralSpeed, 6);
+  });
+});
+
+describe('aimGuideEndpoints (REQ-033 line-up aim guide)', () => {
+  it('starts the guide at the release point shifted by the stance', () => {
+    const stance = 0.3;
+    const guide = aimGuideEndpoints(stance);
+    expect(guide.start.x).toBeCloseTo(LANE.headSpot.x + stance, 6);
+    expect(guide.start.z).toBeCloseTo(LANE.ballSpawnZ, 6);
+    expect(guide.start.y).toBe(LANE.floorY);
+  });
+
+  it('ends the guide at the base-aim target depth (the pin deck)', () => {
+    const guide = aimGuideEndpoints(0.2);
+    expect(guide.end.z).toBeCloseTo(AIM.targetZ, 6);
+    expect(guide.end.y).toBe(LANE.floorY);
+  });
+
+  it('tracks the stance: the start x moves one-for-one with the stance', () => {
+    const left = aimGuideEndpoints(-0.4).start.x;
+    const centre = aimGuideEndpoints(0).start.x;
+    const right = aimGuideEndpoints(0.4).start.x;
+    expect(centre).toBeCloseTo(LANE.headSpot.x, 6);
+    expect(right - centre).toBeCloseTo(0.4, 6);
+    expect(centre - left).toBeCloseTo(0.4, 6);
+  });
+
+  it('runs straight down-lane for a centred stance (start and end share x)', () => {
+    const guide = aimGuideEndpoints(0);
+    expect(guide.end.x).toBeCloseTo(guide.start.x, 6);
+  });
+
+  it('angles an off-centre guide back toward the pocket (the end is inboard of the start)', () => {
+    const right = aimGuideEndpoints(0.4);
+    // A right (+x) stance aims back toward centre, so the down-lane end sits left
+    // of (less than) the release point.
+    expect(right.end.x).toBeLessThan(right.start.x);
+    const left = aimGuideEndpoints(-0.4);
+    expect(left.end.x).toBeGreaterThan(left.start.x);
+  });
+
+  it('aims the guide end exactly at the launch base-aim heading (matches the physics)', () => {
+    // The guide slope is the base-aim x-velocity over the down-lane speed, so the
+    // end x is the start x plus that slope times the down-lane travel. This ties the
+    // visible guide to the same base aim ballLaunchVelocity resolves at launch.
+    const stance = 0.35;
+    const guide = aimGuideEndpoints(stance);
+    const v = ballLaunchVelocity(0, undefined, stance);
+    const travel = LANE.ballSpawnZ - AIM.targetZ; // positive
+    const expectedEndX = guide.start.x + (v.x / LANE.ballLaunchSpeed) * travel;
+    expect(guide.end.x).toBeCloseTo(expectedEndX, 6);
+  });
+
+  it('lands the end on the head spot at full aim strength (a centred attack)', () => {
+    // Independent of AIM.strength's tuned value: at strength 1 the base aim cancels
+    // the lateral start, so the guide end x reaches headSpot.x. We verify the slope
+    // identity holds by reconstructing the strength-1 end from the helper output.
+    const stance = 0.35;
+    const guide = aimGuideEndpoints(stance);
+    const travel = LANE.ballSpawnZ - AIM.targetZ;
+    const slope = (guide.end.x - guide.start.x) / travel;
+    // The realized correction is AIM.strength of the full (headSpot.x - startX)/travel.
+    const fullSlope = slope / AIM.strength;
+    const endAtFullStrength = guide.start.x + fullSlope * travel;
+    expect(endAtFullStrength).toBeCloseTo(LANE.headSpot.x, 6);
   });
 });
 

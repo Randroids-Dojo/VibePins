@@ -375,6 +375,29 @@ export const AIM = {
   strength: 0.7,
 } as const;
 
+// Line-up aim guide (GDD 08-controls REQ-033). A glowing chevron line drawn on
+// the lane bed from the release point at the chosen stance straight to the base-aim
+// target down-lane, shown only during the align step so the player can read where
+// the ball starts and which way it heads as they sidestep. It tracks the stance
+// every aiming frame (the start sits under the held ball, the end on the base-aim
+// target) and hides once the line is locked, so it never clutters the throw. The
+// endpoints come from the pure aimGuideEndpoints (src/ball.ts), which reuses the
+// launch base-aim so the guide matches the ball's real initial heading; this block
+// is the look only (a warm amber so the line reads as the machine's own guide rail
+// against the dark bed, lifted just above the surface to avoid z-fighting).
+export const AIM_GUIDE = {
+  // Glowing amber, in keeping with the machine's amber indicator lamps (REQ-041).
+  color: 0xffae3b,
+  // Line width on the bed (metres). A narrow ribbon so it reads as a guide rail.
+  width: 0.05,
+  // How far the ribbon floats above the bed so it sits over the inlay arrows
+  // without z-fighting the bed or the painted markers.
+  liftY: 0.012,
+  // Opacity of the translucent ribbon: bright enough to read down the long lane,
+  // soft enough not to hide the pins behind it.
+  opacity: 0.55,
+} as const;
+
 // Pin-to-pin contact material (GDD REQ-030, pillar 1: authentic duckpin, not
 // reskinned tenpin). Beyond the squat belly-heavy mass (REQ-026), the other
 // physical reason real strikes stay rare is how little energy a duckpin contact
