@@ -34,7 +34,13 @@ describe('Settings: persisted audio-enable toggle (REQ-046)', () => {
     const settings = new Settings(storage);
     settings.toggleAudio();
     expect(storage.store[KEY]).toBe(
-      JSON.stringify({ audioEnabled: false, tutorialSeen: false, playerName: '', matchCredentials: {} }),
+      JSON.stringify({
+        audioEnabled: false,
+        tutorialSeen: false,
+        playerName: '',
+        matchCredentials: {},
+        matchPostedToBoard: [],
+      }),
     );
   });
 
@@ -101,7 +107,13 @@ describe('Settings: persisted tutorial-seen flag (REQ-047)', () => {
     const settings = new Settings(storage);
     settings.setTutorialSeen(true);
     expect(storage.store[KEY]).toBe(
-      JSON.stringify({ audioEnabled: true, tutorialSeen: true, playerName: '', matchCredentials: {} }),
+      JSON.stringify({
+        audioEnabled: true,
+        tutorialSeen: true,
+        playerName: '',
+        matchCredentials: {},
+        matchPostedToBoard: [],
+      }),
     );
   });
 
@@ -192,5 +204,45 @@ describe('Settings: persisted per-match seat credentials (REQ-052)', () => {
     expect(settings.matchCredential('good')).toEqual({ seat: 1, secret: 's', name: 'Ann' });
     expect(settings.matchCredential('bad')).toBeNull();
     expect(settings.matchCredential('alsoBad')).toBeNull();
+  });
+});
+
+describe('Settings: posted-to-board guard for finished matches (REQ-058)', () => {
+  it('reports false for a match this device has never posted', () => {
+    expect(new Settings(fakeStorage()).hasPostedMatchToBoard('m1')).toBe(false);
+  });
+
+  it('marks a match posted and reports it, idempotently', () => {
+    const settings = new Settings(fakeStorage());
+    settings.markMatchPostedToBoard('m1');
+    settings.markMatchPostedToBoard('m1');
+    expect(settings.hasPostedMatchToBoard('m1')).toBe(true);
+    expect(settings.hasPostedMatchToBoard('m2')).toBe(false);
+  });
+
+  it('persists the posted flag across instances so a re-view cannot double-post', () => {
+    const storage = fakeStorage();
+    new Settings(storage).markMatchPostedToBoard('m1');
+    expect(new Settings(storage).hasPostedMatchToBoard('m1')).toBe(true);
+  });
+
+  it('unmarks a match so a failed post can retry on the next view', () => {
+    const settings = new Settings(fakeStorage());
+    settings.markMatchPostedToBoard('m1');
+    settings.unmarkMatchPostedToBoard('m1');
+    expect(settings.hasPostedMatchToBoard('m1')).toBe(false);
+    // Unmarking an absent id is a no-op.
+    settings.unmarkMatchPostedToBoard('never');
+    expect(settings.hasPostedMatchToBoard('never')).toBe(false);
+  });
+
+  it('drops malformed posted ids from a hand-edited payload', () => {
+    const settings = new Settings(
+      fakeStorage({ [KEY]: JSON.stringify({ matchPostedToBoard: ['m1', 42, '', 'm1', null] }) }),
+    );
+    expect(settings.hasPostedMatchToBoard('m1')).toBe(true);
+    // Duplicates collapse and non-strings drop.
+    settings.markMatchPostedToBoard('m2');
+    expect(settings.hasPostedMatchToBoard('m2')).toBe(true);
   });
 });

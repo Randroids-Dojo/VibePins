@@ -931,10 +931,11 @@
       "id": "REQ-058",
       "requirement": "A completed line in an async match is eligible to post to the global leaderboard",
       "gddRef": "docs/gdd/07-leaderboard.html#what-counts",
-      "status": "not_started",
-      "implementationRefs": [],
-      "testRefs": [],
-      "followupRefs": []
+      "status": "done",
+      "implementationRefs": ["src/leaderboard.ts", "src/settings.ts", "src/main.ts"],
+      "testRefs": ["tests/leaderboard.client.test.ts", "tests/settings.test.ts"],
+      "followupRefs": [],
+      "note": "On match completion the shell posts this device's own seat line to the global board (src/main.ts postMatchLineToBoard, called from renderMatch's complete branch). Default: only this device's seat posts, under the name it claimed the seat with, so each line lands once with no cross-device duplicates and never under a guessed name (Q-resolved in OPEN_QUESTIONS). Leaderboard.submitFrames (src/leaderboard.ts) posts a raw completed number[][] line with source=match; it re-scores locally only to confirm completeness and never sends a claimed total, so the server stays the sole ranking authority (REQ-059). Double-posting is blocked by a persisted guard: Settings.markMatchPostedToBoard / hasPostedMatchToBoard / unmarkMatchPostedToBoard (src/settings.ts) record the match id before the round trip and clear it on failure so a later view can retry. The complete view re-renders on every refresh, so the persisted flag is what keeps a re-view from re-posting."
     },
     {
       "id": "REQ-059",

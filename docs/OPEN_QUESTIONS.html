@@ -123,6 +123,23 @@
 <aside id="resolved">
   <h2>Resolved</h2>
 
+  <section data-q="Q-016" data-status="resolved">
+    <h3>Q-016: Which line(s) of a finished async match post to the global leaderboard</h3>
+    <dl>
+      <dt>Context</dt><dd>When an async match completes (REQ-058), each seat has a full ten-frame line. We must decide which line(s) feed the global all-time / daily board, and which device posts them, without double-posting or posting under a guessed name.</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li>Each device posts only its own seat's line, under the name it claimed the seat with.</li>
+          <li>One device (e.g. the device that bowled the final frame) posts every seat's line.</li>
+          <li>Only the winner's line posts.</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>A.</dd>
+      <dt>Status</dt><dd>resolved</dd>
+      <dt>Resolution</dt><dd>A. Each device posts only its own seat's line. Rationale: a device is authoritative for the name it claimed its seat with, so a line never lands under a guessed name; every seat's line posts exactly once across the participating devices (no cross-device duplicates); and a spectator with no seat posts nothing. The post is guarded by a persisted per-match flag (<code>src/settings.ts</code> <code>markMatchPostedToBoard</code> / <code>hasPostedMatchToBoard</code>) so re-viewing the finished match cannot re-post. The server re-scores authoritatively (REQ-059), so the client never sends a claimed total. See <a href="../docs/gdd/07-leaderboard.html#what-counts">leaderboard, what counts</a>.</dd>
+    </dl>
+  </section>
+
   <section data-q="Q-002" data-status="resolved">
     <h3>Q-002: Physics engine, Rapier vs cannon-es</h3>
     <dl>
