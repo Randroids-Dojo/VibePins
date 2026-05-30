@@ -288,6 +288,64 @@
     .vp-submit-status { margin: 0; min-height: 1.4em; font-size: 14px; color: #b9a87a; letter-spacing: 0.06em; }
     .vp-submit-status[data-state="ok"] { color: #8fd17a; }
     .vp-submit-status[data-state="error"] { color: #e08a6a; }
+
+    /* Leaderboard standings board (REQ-060/061/063). Reachable from the main
+       menu and the end-of-game summary. Rendered as the electromechanical
+       rolling-counter standings language from look-and-feel: a blackened-steel
+       plate of split-flap-style rows (rank, name, score), with an all-time /
+       daily tab pair. The overlay reuses the .vp-overlay z-index (above the
+       canvas and status line) so background controls cannot sit above it (RULE
+       10). */
+    .vp-board {
+      width: min(460px, 92vw);
+      display: flex; flex-direction: column; gap: 14px; align-items: center;
+    }
+    .vp-board-tabs { display: flex; gap: 8px; }
+    .vp-tab {
+      appearance: none; cursor: pointer;
+      padding: 8px 18px; font: 700 12px/1 ui-monospace, "SFMono-Regular", Menlo, monospace;
+      letter-spacing: 0.14em; text-transform: uppercase; color: #b9a87a;
+      background: #14161d; border: 1px solid #3c3f4a; border-radius: 4px;
+    }
+    .vp-tab[aria-pressed="true"] { color: #ffcf7a; border-color: #c8923c; background: #1d1a12; }
+    .vp-tab:focus-visible { outline: 2px solid #c8923c; outline-offset: 2px; }
+    /* The standings plate: a framed list of rows on blackened steel. */
+    .vp-board-list {
+      width: 100%; box-sizing: border-box;
+      display: flex; flex-direction: column; gap: 3px;
+      padding: 10px; border-radius: 6px;
+      background: linear-gradient(rgba(18, 16, 12, 0.96), rgba(9, 8, 6, 0.96));
+      border: 1px solid #6b5326;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 3px 10px rgba(0, 0, 0, 0.55);
+      max-height: min(52vh, 440px); overflow-y: auto;
+    }
+    /* One standings row: rank chip, name, score, laid out as a rolling-counter
+       card. The score sits on a recessed card like the scoreboard's totals. */
+    .vp-board-row {
+      display: grid; grid-template-columns: 2.6em 1fr auto; align-items: center; gap: 10px;
+      padding: 7px 10px; border-radius: 3px;
+      background: linear-gradient(#26221a, #15120d);
+      border: 1px solid #3a3326;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+      font: 700 15px/1.1 ui-monospace, "SFMono-Regular", Menlo, monospace;
+    }
+    .vp-board-rank { color: #b9923c; font-size: 13px; letter-spacing: 0.06em; }
+    .vp-board-name {
+      color: #f4ecd6; letter-spacing: 0.1em; text-transform: uppercase;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .vp-board-score {
+      color: #ffcf7a; font-size: 17px; letter-spacing: 0.04em;
+      padding: 2px 8px; border-radius: 3px;
+      background: #0a0907; border: 1px solid #000;
+      box-shadow: inset 0 0 3px rgba(0, 0, 0, 0.8);
+    }
+    /* Empty / loading / error states for the board, styled like a status line. */
+    .vp-board-message {
+      padding: 18px 10px; text-align: center; color: #b9a87a;
+      font: 600 14px/1.4 ui-monospace, "SFMono-Regular", Menlo, monospace; letter-spacing: 0.06em;
+    }
+    .vp-board-message[data-state="error"] { color: #e08a6a; }
   </style>
 </head>
 <body>
@@ -349,6 +407,7 @@
     <h1 id="menu-title" class="vp-title">VibePins</h1>
     <p class="vp-tagline">Duckpin bowling. Three balls a frame.</p>
     <button id="menu-play" class="vp-btn" type="button">Play</button>
+    <button id="menu-leaderboard" class="vp-toggle" type="button">Leaderboard</button>
     <button id="menu-audio" class="vp-toggle" type="button" aria-pressed="true">Audio: On</button>
     <button id="menu-tutorial" class="vp-toggle" type="button">How To Play</button>
   </div>
@@ -367,7 +426,25 @@
       <p id="summary-submit-status" class="vp-submit-status" aria-live="polite"></p>
     </form>
     <button id="summary-again" class="vp-btn" type="button">Play Again</button>
+    <button id="summary-leaderboard" class="vp-toggle" type="button">Leaderboard</button>
     <button id="summary-menu" class="vp-toggle" type="button">Main Menu</button>
+  </div>
+
+  <!-- Leaderboard standings board (REQ-060/061/063). Reachable from the main
+       menu and the end-of-game summary. The all-time/daily tabs flip the
+       rendered standings; src/main.ts fetches both boards on open and renders
+       rows into #board-list. Returning closes back to whichever screen opened
+       it. -->
+  <div id="board" class="vp-overlay" role="dialog" aria-modal="true" aria-labelledby="board-title" hidden>
+    <h2 id="board-title" class="vp-title">Standings</h2>
+    <div class="vp-board">
+      <div class="vp-board-tabs" role="group" aria-label="Leaderboard period">
+        <button id="board-tab-alltime" class="vp-tab" type="button" aria-pressed="true">All Time</button>
+        <button id="board-tab-daily" class="vp-tab" type="button" aria-pressed="false">Today</button>
+      </div>
+      <div id="board-list" class="vp-board-list" aria-live="polite"></div>
+    </div>
+    <button id="board-back" class="vp-btn" type="button">Back</button>
   </div>
 
   <script type="module" src="/src/main.ts"></script>

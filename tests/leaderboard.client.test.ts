@@ -3,7 +3,7 @@
 // completed game, the happy-path submit, and the non-fatal failure modes.
 
 import { describe, it, expect, vi } from 'vitest';
-import { Leaderboard, framesFromScore, type FetchLike } from '../src/leaderboard.js';
+import { Leaderboard, framesFromScore, renderBoardRows, type BoardEntry, type FetchLike } from '../src/leaderboard.js';
 import { scoreGame } from '../src/scoring.js';
 
 // A complete ten-frame game: nine open frames of [3,3,3] (9 points each) plus a
@@ -98,5 +98,111 @@ describe('Leaderboard.submitGame (REQ-057)', () => {
     expect(result).toBeNull();
     expect(board.error).toBe('Could not submit score');
     expect(board.loading).toBe(false);
+  });
+});
+
+const SAMPLE_ENTRIES: BoardEntry[] = [
+  { name: 'ACE', score: 120, date: '2026-05-29T00:00:00.000Z', source: 'solo' },
+  { name: 'BEE', score: 90, date: '2026-05-29T00:00:00.000Z', source: 'match' },
+];
+
+describe('Leaderboard.fetchBoard (REQ-060/061)', () => {
+  it('requests the typed board with a limit and stores the entries', async () => {
+    const fetchMock = vi.fn<FetchLike>(async () => jsonResponse({ type: 'alltime', entries: SAMPLE_ENTRIES }));
+    const board = new Leaderboard(fetchMock);
+    const entries = await board.fetchBoard('alltime', 20);
+
+    const [url] = fetchMock.mock.calls[0];
+    expect(url).toBe('/api/leaderboard?type=alltime&limit=20');
+    expect(entries).toEqual(SAMPLE_ENTRIES);
+    expect(board.allTimeEntries).toEqual(SAMPLE_ENTRIES);
+    expect(board.boardError).toBeNull();
+    expect(board.boardLoading).toBe(false);
+  });
+
+  it('stores daily entries on the daily slot, not the all-time slot', async () => {
+    const fetchMock = vi.fn<FetchLike>(async () => jsonResponse({ type: 'daily', entries: SAMPLE_ENTRIES }));
+    const board = new Leaderboard(fetchMock);
+    await board.fetchBoard('daily', 5);
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/leaderboard?type=daily&limit=5');
+    expect(board.dailyEntries).toEqual(SAMPLE_ENTRIES);
+    expect(board.allTimeEntries).toEqual([]);
+  });
+
+  it('keeps prior entries and sets an error on a non-ok response', async () => {
+    let ok = true;
+    const fetchMock = vi.fn<FetchLike>(async () =>
+      ok ? jsonResponse({ type: 'alltime', entries: SAMPLE_ENTRIES }) : jsonResponse({}, false, 500),
+    );
+    const board = new Leaderboard(fetchMock);
+    await board.fetchBoard('alltime');
+    ok = false;
+    await board.fetchBoard('alltime');
+    expect(board.allTimeEntries).toEqual(SAMPLE_ENTRIES);
+    expect(board.boardError).toBe('Could not load leaderboard');
+    expect(board.boardLoading).toBe(false);
+  });
+
+  it('sets an error and returns cached entries when fetch throws', async () => {
+    const fetchMock = vi.fn<FetchLike>(async () => {
+      throw new Error('offline');
+    });
+    const board = new Leaderboard(fetchMock);
+    const entries = await board.fetchBoard('daily');
+    expect(entries).toEqual([]);
+    expect(board.boardError).toBe('Could not load leaderboard');
+  });
+
+  it('fetchBoth loads both boards', async () => {
+    const fetchMock = vi.fn<FetchLike>(async (url) =>
+      jsonResponse({ type: url.includes('daily') ? 'daily' : 'alltime', entries: SAMPLE_ENTRIES }),
+    );
+    const board = new Leaderboard(fetchMock);
+    await board.fetchBoth(20);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(board.allTimeEntries).toEqual(SAMPLE_ENTRIES);
+    expect(board.dailyEntries).toEqual(SAMPLE_ENTRIES);
+  });
+});
+
+describe('renderBoardRows (REQ-063, RULE 10 observable render)', () => {
+  it('renders one ranked row per entry with name and score', () => {
+    const html = renderBoardRows(SAMPLE_ENTRIES, { loading: false, error: null });
+    expect((html.match(/vp-board-row/g) ?? []).length).toBe(2);
+    expect(html).toContain('data-rank="1"');
+    expect(html).toContain('#1');
+    expect(html).toContain('ACE');
+    expect(html).toContain('120');
+    expect(html).toContain('data-rank="2"');
+    expect(html).toContain('BEE');
+  });
+
+  it('shows a loading message when loading with no cached entries', () => {
+    const html = renderBoardRows([], { loading: true, error: null });
+    expect(html).toMatch(/loading/i);
+    expect(html).not.toContain('vp-board-row');
+  });
+
+  it('shows an error message when errored with no cached entries', () => {
+    const html = renderBoardRows([], { loading: false, error: 'Could not load leaderboard' });
+    expect(html).toContain('data-state="error"');
+    expect(html).toContain('Could not load leaderboard');
+  });
+
+  it('invites the first score when the board is empty', () => {
+    const html = renderBoardRows([], { loading: false, error: null });
+    expect(html).toMatch(/no scores yet/i);
+  });
+
+  it('still renders cached rows while a refresh is loading', () => {
+    const html = renderBoardRows(SAMPLE_ENTRIES, { loading: true, error: null });
+    expect((html.match(/vp-board-row/g) ?? []).length).toBe(2);
+  });
+
+  it('escapes HTML in player names so a name cannot inject markup', () => {
+    const evil: BoardEntry[] = [{ name: '<img src=x>', score: 50, date: '', source: 'solo' }];
+    const html = renderBoardRows(evil, { loading: false, error: null });
+    expect(html).not.toContain('<img src=x>');
+    expect(html).toContain('&lt;img');
   });
 });

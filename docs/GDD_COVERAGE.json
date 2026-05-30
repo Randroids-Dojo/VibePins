@@ -1,890 +1,944 @@
 {
- "_comment_1": "ATOMIC GRANULARITY ONLY. One row per requirement, not per chapter. A 14-day project should produce on the order of 100 rows. If your row count is implausibly low for project age, the loop will self-terminate before the product is good. This is the Flatline failure mode.",
- "_comment_2": "Allowed status values: not_started | partial | done | out_of_scope. Every row should carry implementationRefs and testRefs once status >= partial. followupRefs link to F-NNN entries in FOLLOWUPS.html.",
- "updatedAt": "2026-05-29T19:40",
- "rows": [
-  {
-   "id": "REQ-001",
-   "requirement": "A game is ten frames, played start to finish in the browser",
-   "gddRef": "docs/gdd/02-core-loop.html#loop",
-   "status": "done",
-   "implementationRefs": [
-    "src/scoring.ts",
-    "src/game.ts",
-    "src/main.ts"
-   ],
-   "testRefs": [
-    "tests/scoring.test.ts",
-    "tests/game.test.ts"
-   ],
-   "followupRefs": [
-    "F-008"
-   ]
-  },
-  {
-   "id": "REQ-002",
-   "requirement": "Each frame gives the player three balls to clear ten pins",
-   "gddRef": "docs/gdd/02-core-loop.html#ball-and-frame",
-   "status": "done",
-   "implementationRefs": [
-    "src/scoring.ts",
-    "src/game.ts",
-    "src/main.ts"
-   ],
-   "testRefs": [
-    "tests/scoring.test.ts",
-    "tests/game.test.ts"
-   ],
-   "followupRefs": [
-    "F-008"
-   ]
-  },
-  {
-   "id": "REQ-003",
-   "requirement": "Strike (all ten on first ball) scores 10 plus the next two balls",
-   "gddRef": "docs/gdd/02-core-loop.html#scoring-strike",
-   "status": "done",
-   "implementationRefs": [
-    "src/scoring.ts"
-   ],
-   "testRefs": [
-    "tests/scoring.test.ts"
-   ],
-   "followupRefs": []
-  },
-  {
-   "id": "REQ-004",
-   "requirement": "Spare (all ten in first two balls) scores 10 plus the next one ball",
-   "gddRef": "docs/gdd/02-core-loop.html#scoring-spare",
-   "status": "done",
-   "implementationRefs": [
-    "src/scoring.ts"
-   ],
-   "testRefs": [
-    "tests/scoring.test.ts"
-   ],
-   "followupRefs": []
-  },
-  {
-   "id": "REQ-005",
-   "requirement": "Clearing all ten on the third ball scores a flat 10 with no bonus (candlepin-style), not a spare",
-   "gddRef": "docs/gdd/02-core-loop.html#scoring-ten",
-   "status": "done",
-   "implementationRefs": [
-    "src/scoring.ts"
-   ],
-   "testRefs": [
-    "tests/scoring.test.ts"
-   ],
-   "followupRefs": []
-  },
-  {
-   "id": "REQ-006",
-   "requirement": "Open frame scores one point per pin knocked down across the three balls",
-   "gddRef": "docs/gdd/02-core-loop.html#scoring-open",
-   "status": "done",
-   "implementationRefs": [
-    "src/scoring.ts"
-   ],
-   "testRefs": [
-    "tests/scoring.test.ts"
-   ],
-   "followupRefs": []
-  },
-  {
-   "id": "REQ-007",
-   "requirement": "Tenth frame grants bonus balls (two for a strike, one for a spare, none for flat-ten/open)",
-   "gddRef": "docs/gdd/02-core-loop.html#tenth-frame",
-   "status": "done",
-   "implementationRefs": [
-    "src/scoring.ts"
-   ],
-   "testRefs": [
-    "tests/scoring.test.ts"
-   ],
-   "followupRefs": []
-  },
-  {
-   "id": "REQ-008",
-   "requirement": "Running cumulative score updates per ball and recomputes strike/spare bonuses retroactively",
-   "gddRef": "docs/gdd/02-core-loop.html#scoreboard",
-   "status": "done",
-   "implementationRefs": [
-    "src/scoring.ts"
-   ],
-   "testRefs": [
-    "tests/scoring.test.ts"
-   ],
-   "followupRefs": []
-  },
-  {
-   "id": "REQ-009",
-   "requirement": "Between balls in a frame, count fallen pins and leave standing pins in place for the next ball",
-   "gddRef": "docs/gdd/02-core-loop.html#pin-accounting",
-   "status": "done",
-   "implementationRefs": [
-    "src/game.ts",
-    "src/main.ts",
-    "src/shot.ts"
-   ],
-   "testRefs": [
-    "tests/game.test.ts",
-    "tests/shot.test.ts"
-   ],
-   "followupRefs": [
-    "F-008"
-   ]
-  },
-  {
-   "id": "REQ-010",
-   "requirement": "At frame end, perform a full re-rack of all ten pins",
-   "gddRef": "docs/gdd/02-core-loop.html#loop",
-   "status": "done",
-   "implementationRefs": [
-    "src/game.ts",
-    "src/main.ts",
-    "src/reset.ts"
-   ],
-   "testRefs": [
-    "tests/game.test.ts",
-    "tests/reset.test.ts"
-   ],
-   "followupRefs": [
-    "F-008"
-   ]
-  },
-  {
-   "id": "REQ-011",
-   "requirement": "After the tenth frame the game ends and shows a final score and summary",
-   "gddRef": "docs/gdd/02-core-loop.html#loop",
-   "status": "done",
-   "implementationRefs": [
-    "src/game.ts",
-    "src/main.ts"
-   ],
-   "testRefs": [
-    "tests/game.test.ts"
-   ],
-   "followupRefs": [
-    "F-008"
-   ]
-  },
-  {
-   "id": "REQ-012",
-   "requirement": "Scoreboard shows all ten frames, per-ball counts, and frame marks (strike, spare, flat ten, open)",
-   "gddRef": "docs/gdd/02-core-loop.html#scoreboard",
-   "status": "done",
-   "implementationRefs": [
-    "src/scoreboard.ts",
-    "src/main.ts",
-    "index.html"
-   ],
-   "testRefs": [
-    "tests/scoreboard.test.ts"
-   ],
-   "followupRefs": []
-  },
-  {
-   "id": "REQ-013",
-   "requirement": "Each pin is tethered at the neck by a cord to a fixed overhead anchor above its home spot",
-   "gddRef": "docs/gdd/03-string-pinsetter.html#tether",
-   "status": "done",
-   "implementationRefs": [
-    "src/pins.ts",
-    "src/config.ts"
-   ],
-   "testRefs": [
-    "tests/tether.test.ts",
-    "tests/tether.smoke.test.ts"
-   ],
-   "followupRefs": []
-  },
-  {
-   "id": "REQ-014",
-   "requirement": "Cords carry enough slack that pins fall, slide, and collide freely on ball impact",
-   "gddRef": "docs/gdd/03-string-pinsetter.html#free-fall",
-   "status": "partial",
-   "implementationRefs": [
-    "src/pins.ts",
-    "src/config.ts"
-   ],
-   "testRefs": [
-    "tests/tether.test.ts",
-    "tests/tether.smoke.test.ts"
-   ],
-   "followupRefs": []
-  },
-  {
-   "id": "REQ-015",
-   "requirement": "The tether is a length-limited rope/distance joint constraint in the physics engine",
-   "gddRef": "docs/gdd/03-string-pinsetter.html#tether",
-   "status": "done",
-   "implementationRefs": [
-    "src/pins.ts",
-    "src/config.ts"
-   ],
-   "testRefs": [
-    "tests/tether.test.ts",
-    "tests/tether.smoke.test.ts"
-   ],
-   "followupRefs": []
-  },
-  {
-   "id": "REQ-016",
-   "requirement": "A pin counts as standing only if upright within tolerance, at rest, and still on the deck footprint",
-   "gddRef": "docs/gdd/03-string-pinsetter.html#detection",
-   "status": "done",
-   "implementationRefs": [
-    "src/detection.ts",
-    "src/config.ts",
-    "src/pins.ts"
-   ],
-   "testRefs": [
-    "tests/detection.test.ts",
-    "tests/detection.smoke.test.ts"
-   ],
-   "followupRefs": []
-  },
-  {
-   "id": "REQ-017",
-   "requirement": "A settle window runs before counting so wobbling pins are not miscounted",
-   "gddRef": "docs/gdd/03-string-pinsetter.html#detection",
-   "status": "done",
-   "implementationRefs": [
-    "src/detection.ts",
-    "src/config.ts"
-   ],
-   "testRefs": [
-    "tests/detection.test.ts",
-    "tests/detection.smoke.test.ts"
-   ],
-   "followupRefs": []
-  },
-  {
-   "id": "REQ-018",
-   "requirement": "Reset cycle runs settle, lift fallen, reposition, lower and ready in roughly three to five seconds",
-   "gddRef": "docs/gdd/03-string-pinsetter.html#reset-cycle",
-   "status": "done",
-   "implementationRefs": [
-    "src/reset.ts",
-    "src/pins.ts",
-    "src/main.ts",
-    "src/config.ts"
-   ],
-   "testRefs": [
-    "tests/reset.test.ts",
-    "tests/reset.smoke.test.ts",
-    "tests/reset-cycle-timing.smoke.test.ts"
-   ],
-   "followupRefs": []
-  },
-  {
-   "id": "REQ-019",
-   "requirement": "Between balls only fallen pins are lifted; on a full re-rack all ten are lifted",
-   "gddRef": "docs/gdd/03-string-pinsetter.html#reset-cycle",
-   "status": "done",
-   "implementationRefs": [
-    "src/reset.ts",
-    "src/pins.ts"
-   ],
-   "testRefs": [
-    "tests/reset.test.ts",
-    "tests/reset.smoke.test.ts"
-   ],
-   "followupRefs": []
-  },
-  {
-   "id": "REQ-020",
-   "requirement": "No sweep mechanism: fallen pins are lifted out by their cords, never wiped off the deck",
-   "gddRef": "docs/gdd/03-string-pinsetter.html#non-goals",
-   "status": "done",
-   "implementationRefs": [
-    "src/reset.ts",
-    "src/pins.ts"
-   ],
-   "testRefs": [
-    "tests/reset.smoke.test.ts"
-   ],
-   "followupRefs": []
-  },
-  {
-   "id": "REQ-021",
-   "requirement": "Standing pins are respotted exactly where they came to rest, even if nudged off the home spot",
-   "gddRef": "docs/gdd/03-string-pinsetter.html#respot",
-   "status": "done",
-   "implementationRefs": [
-    "src/reset.ts",
-    "src/pins.ts"
-   ],
-   "testRefs": [
-    "tests/reset.test.ts",
-    "tests/reset.smoke.test.ts"
-   ],
-   "followupRefs": []
-  },
-  {
-   "id": "REQ-022",
-   "requirement": "A pin left hanging by its cord counts as fallen per the detection rule",
-   "gddRef": "docs/gdd/03-string-pinsetter.html#tangle-hang",
-   "status": "done",
-   "implementationRefs": [
-    "src/detection.ts"
-   ],
-   "testRefs": [
-    "tests/detection.test.ts",
-    "tests/hang.smoke.test.ts"
-   ],
-   "followupRefs": []
-  },
-  {
-   "id": "REQ-023",
-   "requirement": "A taut cord can yank a neighboring pin, emergent from the constraint sim, not scripted",
-   "gddRef": "docs/gdd/03-string-pinsetter.html#tangle-yank",
-   "status": "done",
-   "implementationRefs": ["src/pins.ts", "src/reset.ts", "src/config.ts"],
-   "testRefs": ["tests/yank.smoke.test.ts"],
-   "followupRefs": []
-  },
-  {
-   "id": "REQ-024",
-   "requirement": "Crossed/tangled cords are tolerated visually without the simulation deadlocking; next re-rack clears geometry",
-   "gddRef": "docs/gdd/03-string-pinsetter.html#tangle-cross",
-   "status": "done",
-   "implementationRefs": ["src/pins.ts", "src/reset.ts", "src/config.ts"],
-   "testRefs": ["tests/yank.smoke.test.ts"],
-   "followupRefs": []
-  },
-  {
-   "id": "REQ-025",
-   "requirement": "Lane geometry and all tunable sizes/masses live in a single LANE config constant",
-   "gddRef": "docs/gdd/06-reuse-and-tech.html#scene",
-   "status": "partial",
-   "implementationRefs": [
-    "src/config.ts"
-   ],
-   "testRefs": [
-    "tests/config.test.ts"
-   ],
-   "followupRefs": []
-  },
-  {
-   "id": "REQ-026",
-   "requirement": "Duckpin pins use a squat, belly-heavy collider and mass tuned for low energy transfer",
-   "gddRef": "docs/gdd/06-reuse-and-tech.html#scene",
-   "status": "partial",
-   "implementationRefs": [
-    "src/pins.ts"
-   ],
-   "testRefs": [
-    "tests/pins.test.ts",
-    "tests/pins.smoke.test.ts"
-   ],
-   "followupRefs": []
-  },
-  {
-   "id": "REQ-027",
-   "requirement": "Ten pins are arranged in the standard triangle with correct spacing",
-   "gddRef": "docs/gdd/06-reuse-and-tech.html#scene",
-   "status": "partial",
-   "implementationRefs": [
-    "src/pins.ts"
-   ],
-   "testRefs": [
-    "tests/pins.test.ts",
-    "tests/pins.smoke.test.ts"
-   ],
-   "followupRefs": []
-  },
-  {
-   "id": "REQ-028",
-   "requirement": "Ball is a palm-sized sphere with no finger holes and duckpin-appropriate mass",
-   "gddRef": "docs/gdd/06-reuse-and-tech.html#scene",
-   "status": "done",
-   "implementationRefs": [
-    "src/ball.ts",
-    "src/config.ts"
-   ],
-   "testRefs": [
-    "tests/ball.test.ts",
-    "tests/ball.smoke.test.ts"
-   ],
-   "followupRefs": []
-  },
-  {
-   "id": "REQ-029",
-   "requirement": "Ball rolls down the lane under physics from the launch impulse",
-   "gddRef": "docs/gdd/06-reuse-and-tech.html#scene",
-   "status": "done",
-   "implementationRefs": [
-    "src/ball.ts",
-    "src/config.ts",
-    "src/main.ts"
-   ],
-   "testRefs": [
-    "tests/ball.test.ts",
-    "tests/ball.smoke.test.ts",
-    "tests/containment.smoke.test.ts"
-   ],
-   "followupRefs": [
-    "F-004"
-   ]
-  },
-  {
-   "id": "REQ-030",
-   "requirement": "Pin-to-pin collisions chain with low scatter, tuned so real strikes stay genuinely rare",
-   "gddRef": "docs/gdd/01-vision-and-pillars.html#pillars",
-   "status": "done",
-   "note": "Beyond the squat belly-heavy mass (REQ-026), the pin contact material is now a deliberate, single-source PIN_PHYSICS config block (friction 0.55, restitution 0). Zero restitution means struck pins barely rebound, so the collision chain dies out fast instead of spraying the rack like tenpin; a small playtest sweep showed any non-zero restitution roughly doubling the furthest pin's travel. Applied to every pin collider in src/pins.ts. A real-Rapier scatter smoke (tests/scatter.smoke.test.ts) throws straight balls across a sweep of lateral aim points and speeds and proves the duckpin feel: a dead-centre straight ball never strikes, no straight shot in the sweep strikes, most frames leave several pins, and no pin is flung sideways more than a few pin-spacings. Spin/angle remain the way to work for the rare strike (REQ-034/036).",
-   "implementationRefs": [
-    "src/config.ts",
-    "src/pins.ts"
-   ],
-   "testRefs": [
-    "tests/scatter.smoke.test.ts",
-    "tests/config.test.ts"
-   ],
-   "followupRefs": []
-  },
-  {
-   "id": "REQ-031",
-   "requirement": "Gutters (smaller than tenpin) remove a ball that leaves the lane",
-   "gddRef": "docs/gdd/06-reuse-and-tech.html#scene",
-   "status": "done",
-   "implementationRefs": [
-    "src/config.ts",
-    "src/world3d.ts",
-    "src/gutter.ts",
-    "src/ball.ts",
-    "src/main.ts"
-   ],
-   "testRefs": [
-    "tests/containment.test.ts",
-    "tests/containment.smoke.test.ts",
-    "tests/gutter.test.ts"
-   ],
-   "followupRefs": [
-    "F-004"
-   ]
-  },
-  {
-   "id": "REQ-032",
-   "requirement": "Foul line is detected and an over-the-line release is handled",
-   "gddRef": "docs/gdd/06-reuse-and-tech.html#scene",
-   "status": "done",
-   "implementationRefs": [
-    "src/foul.ts",
-    "src/config.ts",
-    "src/main.ts"
-   ],
-   "testRefs": [
-    "tests/foul.test.ts"
-   ],
-   "followupRefs": []
-  },
-  {
-   "id": "REQ-033",
-   "requirement": "Step 1: player lines up the shot, setting lateral start position and base aim",
-   "gddRef": "docs/gdd/08-controls.html#step1-lineup",
-   "status": "done",
-   "note": "Lateral start position is settable via keyboard nudge and touch/mouse drag on an on-screen L/R indicator track (PR #18). Base-aim direction now ships: an off-centre stance points the ball back toward the pin deck via baseAimLateralSpeed (AIM config), threaded through ball.launch from the line-up alignment, so step 1 sets both where the ball starts and the direction it points. F-005 resolved.",
-   "implementationRefs": [
-    "src/camera.ts",
-    "src/main.ts",
-    "src/config.ts",
-    "src/ball.ts",
-    "index.html"
-   ],
-   "testRefs": [
-    "tests/camera.test.ts",
-    "tests/ball.test.ts"
-   ],
-   "followupRefs": [
-    "F-005"
-   ]
-  },
-  {
-   "id": "REQ-034",
-   "requirement": "Step 2: player stops a sweeping meter to set spin/angle (center is straight, sides curve)",
-   "gddRef": "docs/gdd/08-controls.html#step2-spin",
-   "status": "done",
-   "implementationRefs": [
-    "src/meter.ts",
-    "src/config.ts",
-    "src/main.ts"
-   ],
-   "testRefs": [
-    "tests/meter.test.ts"
-   ],
-   "followupRefs": [
-    "F-006"
-   ]
-  },
-  {
-   "id": "REQ-035",
-   "requirement": "Step 3: player stops a sweeping power meter to set ball speed and trigger release",
-   "gddRef": "docs/gdd/08-controls.html#step3-power",
-   "status": "done",
-   "implementationRefs": [
-    "src/meter.ts",
-    "src/config.ts",
-    "src/ball.ts",
-    "src/main.ts"
-   ],
-   "testRefs": [
-    "tests/ball.test.ts",
-    "tests/meter.test.ts"
-   ],
-   "followupRefs": []
-  },
-  {
-   "id": "REQ-036",
-   "requirement": "Release combines line-up, spin, and power into launch velocity plus angular velocity; spin curves the roll",
-   "gddRef": "docs/gdd/08-controls.html#release",
-   "status": "done",
-   "note": "ball.launch(spin, power, lateralOffset) now resolves all three inputs: the power stop sets down-lane speed, the spin stop adds a lateral nudge plus a vertical-axis yaw that hooks the roll, and the line-up stance adds the base-aim lateral velocity that points the ball back at the pins. ballLaunchVelocity composes spin and base aim additively over the power-resolved down-lane speed.",
-   "implementationRefs": [
-    "src/ball.ts",
-    "src/config.ts",
-    "src/main.ts"
-   ],
-   "testRefs": [
-    "tests/ball.test.ts"
-   ],
-   "followupRefs": [
-    "F-006",
-    "F-007"
-   ]
-  },
-  {
-   "id": "REQ-037",
-   "requirement": "Controls work via mouse, touch, and keyboard with a single confirm action per step",
-   "gddRef": "docs/gdd/08-controls.html#inputs",
-   "status": "done",
-   "note": "All three steps confirm via one input on every device: pointer/touch tap and Space/Enter stop the meters and lock the line; keyboard arrows and now touch/mouse drag on the line-up track both set step-1 lateral aim (PR #18). Geometry maps are unit tested in tests/camera.test.ts.",
-   "implementationRefs": [
-    "src/main.ts",
-    "src/camera.ts",
-    "index.html"
-   ],
-   "testRefs": [
-    "tests/camera.test.ts"
-   ],
-   "followupRefs": [
-    "F-007"
-   ]
-  },
-  {
-   "id": "REQ-038",
-   "requirement": "Spin and power meters render as mechanical gauges with a click on each stop, sweep speed/sweet-spot tunable",
-   "gddRef": "docs/gdd/08-controls.html#feedback",
-   "status": "done",
-   "note": "The spin and power meters render as mechanical gauges on riveted metal plates (#meters in index.html): each has a recessed rail, a highlighted centred sweet-spot/straight band sized from the tuned config (SPIN.straightBand, POWER.sweetSpotBand) via the pure meterBandSpan in src/meter.ts, end labels, and a brass needle that slides to the live cursor each aiming frame using lineupMarkerOffset. Only the active step's gauge is shown. The click on each stop is the existing audio.playClick() cue (REQ-043). Sweep speed and sweet-spot width stay tunable in the SPIN/POWER config blocks.",
-   "implementationRefs": [
-    "src/meter.ts",
-    "src/main.ts",
-    "index.html",
-    "src/config.ts"
-   ],
-   "testRefs": [
-    "tests/meter.test.ts"
-   ],
-   "followupRefs": []
-  },
-  {
-   "id": "REQ-039",
-   "requirement": "A single 3D lane scene is staged inside a machine-room interior",
-   "gddRef": "docs/gdd/04-look-and-feel.html#environment",
-   "status": "done",
-   "note": "The lane now sits inside an enclosed machine-room interior rather than floating in void. A new MACHINE_ROOM config block plus a pure machineRoomParts layout (src/config.ts) builds a dark shell (two side walls just outside the gutters, a back wall behind the pit, a front wall behind the bowler, and a ceiling above the pinsetter frame), and stages the background machinery the GDD #environment calls for: a conduit pipe run along each upper side wall (the new 'z' cylinder axis), a row of brass-rimmed gauge dials on the back wall, and the dim silhouette of a neighbouring lane rig off to one side. world3d.buildMachineRoom renders the shell with inward-facing BackSide material so the camera sees the interior, plus the conduit/gauge/neighbour dressing in the industrial palette (REQ-041). All set dressing, no colliders, staged from the pure layout well outside the playfield so it never touches the ball, pins, or cords. Verified headless (tests/machine-room.test.ts: the shell encloses the lane on every side, the ceiling clears the rig, walls rest on the floor, conduit runs down-lane high on each side outside the playfield, gauges sit symmetric on the back wall, the neighbour rig stands off to the side in the background) and confirmed in-browser (the room walls recede into the background and the neighbour-rig silhouette is visible, no console errors).",
-   "implementationRefs": [
-    "src/config.ts",
-    "src/world3d.ts",
-    "src/main.ts"
-   ],
-   "testRefs": [
-    "tests/machine-room.test.ts"
-   ],
-   "followupRefs": []
-  },
-  {
-   "id": "REQ-040",
-   "requirement": "The pinsetter rig is visible on stage: guide tubes, cords, winding drums, overhead drive unit",
-   "gddRef": "docs/gdd/04-look-and-feel.html#rube-goldberg",
-   "status": "done",
-   "note": "The string machine is now staged above the pin deck as set dressing. pinsetterRigParts in src/config.ts is pure layout derived from the rack home spots and a single tunable PINSETTER block: two longitudinal painted-red rails plus a cross beam over each pin row at the cord anchor height (PINSETTER.frameTopY = TETHER.topY, so the beams visibly carry the strings the pins already hang from), one blackened-steel guide tube hung below the frame over each pin (above the standing pins, below the frame), one winding drum per pin riding a per-row cross-shaft, and a dark cast-iron overhead drive unit mounted at the down-lane back end. world3d.buildPinsetterRig turns the parts into box and cylinder meshes via rigBeamMesh/rigCylinderMesh; the cords themselves were already rendered per pin in src/pins.ts (REQ-013). No colliders: the rig never touches physics or the cords' behaviour. The pure layout is unit tested headless (one tube and drum per pin, one shaft and cross beam per row, frame at anchor height, tubes clear of the standing pins, drive unit above and behind the rack, frame within lane width).",
-   "implementationRefs": [
-    "src/config.ts",
-    "src/world3d.ts",
-    "src/pins.ts"
-   ],
-   "testRefs": [
-    "tests/pinsetter.test.ts"
-   ],
-   "followupRefs": []
-  },
-  {
-   "id": "REQ-041",
-   "requirement": "Mechanical material palette (oiled wood, steel, brass) with warm industrial work-light lighting and fog",
-   "gddRef": "docs/gdd/04-look-and-feel.html#palette-lighting",
-   "status": "done",
-   "implementationRefs": [
-    "src/world3d.ts",
-    "src/config.ts"
-   ],
-   "testRefs": [
-    "tests/palette.test.ts"
-   ],
-   "followupRefs": []
-  },
-  {
-   "id": "REQ-042",
-   "requirement": "Scoreboard is styled as an electromechanical display (split-flap / rolling counters / relay digits)",
-   "gddRef": "docs/gdd/04-look-and-feel.html#ui",
-   "status": "done",
-   "note": "The scoreboard now reads as an electromechanical split-flap board on a blackened-steel plate. Every ball glyph and running total renders on a two-leaf split-flap card (top and bottom leaf split by a centre hinge seam) in src/scoreboard.ts, and when a cell's glyph changes between paints only that card gets a .vp-flip class and its top leaf folds over the hinge via the vp-flap-fold keyframe in index.html, the way a real split-flap board snaps a new digit. Which cells changed is a pure diff (cellGlyphs + changedCellKeys) so the flip targeting is unit tested without a DOM; the Scoreboard class adds/clears the class and is verified against a fake DOM. The flip is suppressed under prefers-reduced-motion (both in JS and the media query).",
-   "implementationRefs": [
-    "src/scoreboard.ts",
-    "index.html",
-    "src/main.ts"
-   ],
-   "testRefs": [
-    "tests/scoreboard.test.ts",
-    "tests/scoreboard.flip.test.ts"
-   ],
-   "followupRefs": []
-  },
-  {
-   "id": "REQ-043",
-   "requirement": "Procedural Web Audio engine synthesizes pin clatter, ball roll, and the string-reset whir",
-   "gddRef": "docs/gdd/04-look-and-feel.html#audio",
-   "status": "done",
-   "implementationRefs": [
-    "src/audio.ts",
-    "src/main.ts"
-   ],
-   "testRefs": [
-    "tests/audio.test.ts"
-   ],
-   "followupRefs": []
-  },
-  {
-   "id": "REQ-044",
-   "requirement": "Strike triggers a Rube Goldberg victory routine with mechanical-debris particles, screen shake, and a sound flourish",
-   "gddRef": "docs/gdd/04-look-and-feel.html#juice",
-   "status": "done",
-   "note": "A first-ball ten now runs a brief mechanical flourish alongside the existing audio strike sting (REQ-043). A new pure VictoryRoutine (src/victory.ts) spawns a burst of debris off the pin deck, integrates each bit under gravity and tumbles it, and produces a decaying camera-shake offset that oscillates on x/y (z stable) and zeroes after a short window. The VICTORY config block (src/config.ts) holds all tunables (debris count/spread/velocities, durations, shake amplitude/frequency, two-tone palette). The visual layer in src/world3d.ts is a pre-built emissive-spark/steel-scrap debris mesh pool with syncVictoryDebris to mirror the sim each frame; src/main.ts fires victory.start(LANE.headSpot) on a strike, applies the shake as an absolute offset from the captured resting camera pose so it rattles without drifting, and clears debris/shake when the burst ends. Durations sit inside the reset settle beat so the loop never drags. Motion is verified at the pure-sim level (tests/victory.test.ts) since jsdom cannot drive WebGL.",
-   "implementationRefs": ["src/victory.ts", "src/config.ts", "src/world3d.ts", "src/main.ts"],
-   "testRefs": ["tests/victory.test.ts"],
-   "followupRefs": []
-  },
-  {
-   "id": "REQ-045",
-   "requirement": "A screens/state machine drives menu, in-game, and summary states",
-   "gddRef": "docs/gdd/06-reuse-and-tech.html#shell",
-   "status": "done",
-   "implementationRefs": [
-    "src/screens.ts",
-    "src/main.ts",
-    "index.html"
-   ],
-   "testRefs": [
-    "tests/screens.test.ts"
-   ],
-   "followupRefs": []
-  },
-  {
-   "id": "REQ-046",
-   "requirement": "Settings (at least an audio enable toggle) persist across sessions",
-   "gddRef": "docs/gdd/06-reuse-and-tech.html#shell",
-   "status": "done",
-   "implementationRefs": [
-    "src/settings.ts",
-    "src/main.ts",
-    "index.html"
-   ],
-   "testRefs": [
-    "tests/settings.test.ts"
-   ],
-   "followupRefs": []
-  },
-  {
-   "id": "REQ-047",
-   "requirement": "A minimal first-run tutorial communicates the three-step control scheme without a wall of text",
-   "gddRef": "docs/gdd/06-reuse-and-tech.html#shell",
-   "status": "done",
-   "implementationRefs": [
-    "src/tutorial.ts",
-    "src/settings.ts",
-    "src/main.ts",
-    "index.html"
-   ],
-   "testRefs": [
-    "tests/tutorial.test.ts",
-    "tests/settings.test.ts"
-   ],
-   "followupRefs": []
-  },
-  {
-   "id": "REQ-048",
-   "requirement": "A match is a shared ten-frame game with two-plus seats and server-authoritative state",
-   "gddRef": "docs/gdd/05-async-multiplayer.html#match-model",
-   "status": "not_started",
-   "implementationRefs": [],
-   "testRefs": [],
-   "followupRefs": []
-  },
-  {
-   "id": "REQ-049",
-   "requirement": "Turn order is frame-by-frame and the server enforces whose turn it is, rejecting out-of-turn submissions",
-   "gddRef": "docs/gdd/05-async-multiplayer.html#turn-handoff",
-   "status": "not_started",
-   "implementationRefs": [],
-   "testRefs": [],
-   "followupRefs": []
-  },
-  {
-   "id": "REQ-050",
-   "requirement": "Finishing a turn presents a shareable handoff link via native share / copy",
-   "gddRef": "docs/gdd/05-async-multiplayer.html#turn-handoff",
-   "status": "not_started",
-   "implementationRefs": [],
-   "testRefs": [],
-   "followupRefs": []
-  },
-  {
-   "id": "REQ-051",
-   "requirement": "Clear your-turn vs waiting-for-player states, with the live scoreboard shown while waiting",
-   "gddRef": "docs/gdd/05-async-multiplayer.html#turn-handoff",
-   "status": "not_started",
-   "implementationRefs": [],
-   "testRefs": [],
-   "followupRefs": []
-  },
-  {
-   "id": "REQ-052",
-   "requirement": "Lightweight identity: display name plus per-device token, with a per-seat secret authorizing submissions",
-   "gddRef": "docs/gdd/05-async-multiplayer.html#identity",
-   "status": "not_started",
-   "implementationRefs": [],
-   "testRefs": [],
-   "followupRefs": []
-  },
-  {
-   "id": "REQ-053",
-   "requirement": "Bowling client computes physics and submits per-ball pin-fall; server validates and computes the authoritative score",
-   "gddRef": "docs/gdd/05-async-multiplayer.html#authority",
-   "status": "not_started",
-   "implementationRefs": [],
-   "testRefs": [],
-   "followupRefs": []
-  },
-  {
-   "id": "REQ-054",
-   "requirement": "Matches persist server-side with a roughly one-week TTL so a day-long game never expires mid-play",
-   "gddRef": "docs/gdd/05-async-multiplayer.html#lifecycle",
-   "status": "not_started",
-   "implementationRefs": [],
-   "testRefs": [],
-   "followupRefs": []
-  },
-  {
-   "id": "REQ-055",
-   "requirement": "Create, join (claim a seat), and resume flows for a match",
-   "gddRef": "docs/gdd/05-async-multiplayer.html#lifecycle",
-   "status": "not_started",
-   "implementationRefs": [],
-   "testRefs": [],
-   "followupRefs": []
-  },
-  {
-   "id": "REQ-056",
-   "requirement": "On completion the match locks and shows final standings",
-   "gddRef": "docs/gdd/05-async-multiplayer.html#lifecycle",
-   "status": "not_started",
-   "implementationRefs": [],
-   "testRefs": [],
-   "followupRefs": []
-  },
-  {
-   "id": "REQ-057",
-   "requirement": "A completed solo ten-frame game posts its authentic final score to the leaderboard",
-   "gddRef": "docs/gdd/07-leaderboard.html#what-counts",
-   "status": "done",
-   "note": "On game over the summary screen shows a name field and a Submit Score button. The client (src/leaderboard.ts) turns the finished GameScore into the per-frame ball line via framesFromScore and POSTs it to api/leaderboard.ts, which re-scores it with the shared scoreGame engine; the server total is authoritative, never a client-claimed number. The player name persists in src/settings.ts and pre-fills the field. A double-submit guard locks the form after a successful post, and a failed submit is non-fatal (status line only).",
-   "implementationRefs": [
-    "src/leaderboard.ts",
-    "src/main.ts",
-    "src/settings.ts",
-    "index.html"
-   ],
-   "testRefs": [
-    "tests/leaderboard.client.test.ts",
-    "tests/settings.test.ts"
-   ],
-   "followupRefs": []
-  },
-  {
-   "id": "REQ-058",
-   "requirement": "A completed line in an async match is eligible to post to the global leaderboard",
-   "gddRef": "docs/gdd/07-leaderboard.html#what-counts",
-   "status": "not_started",
-   "implementationRefs": [],
-   "testRefs": [],
-   "followupRefs": []
-  },
-  {
-   "id": "REQ-059",
-   "requirement": "Submitted scores are validated server-side against the duckpin rules; impossible scores are rejected",
-   "gddRef": "docs/gdd/07-leaderboard.html#what-counts",
-   "status": "partial",
-   "implementationRefs": ["api/leaderboard.ts", "src/scoring.ts"],
-   "testRefs": ["tests/leaderboard.test.ts", "tests/leaderboard.smoke.test.ts"],
-   "followupRefs": []
-  },
-  {
-   "id": "REQ-060",
-   "requirement": "An all-time global top board (capped) is maintained",
-   "gddRef": "docs/gdd/07-leaderboard.html#boards",
-   "status": "partial",
-   "implementationRefs": ["api/leaderboard.ts"],
-   "testRefs": ["tests/leaderboard.test.ts", "tests/leaderboard.smoke.test.ts"],
-   "followupRefs": []
-  },
-  {
-   "id": "REQ-061",
-   "requirement": "A daily board resets each day",
-   "gddRef": "docs/gdd/07-leaderboard.html#boards",
-   "status": "partial",
-   "implementationRefs": ["api/leaderboard.ts"],
-   "testRefs": ["tests/leaderboard.test.ts"],
-   "followupRefs": []
-  },
-  {
-   "id": "REQ-062",
-   "requirement": "The player's own best is shown in context (rank and nearby entries) even when off the top slice",
-   "gddRef": "docs/gdd/07-leaderboard.html#boards",
-   "status": "not_started",
-   "implementationRefs": [],
-   "testRefs": [],
-   "followupRefs": []
-  },
-  {
-   "id": "REQ-063",
-   "requirement": "The leaderboard is reachable from the main menu and shown on the end-of-game summary",
-   "gddRef": "docs/gdd/07-leaderboard.html#display",
-   "status": "not_started",
-   "implementationRefs": [],
-   "testRefs": [],
-   "followupRefs": []
-  },
-  {
-   "id": "REQ-064",
-   "requirement": "A Vercel serverless plus Upstash Redis backend with zod-validated payloads serves both multiplayer and the leaderboard",
-   "gddRef": "docs/gdd/06-reuse-and-tech.html#async-backend",
-   "status": "partial",
-   "implementationRefs": ["api/leaderboard.ts"],
-   "testRefs": ["tests/leaderboard.test.ts", "tests/leaderboard.smoke.test.ts"],
-   "followupRefs": []
-  }
- ]
+  "_comment_1": "ATOMIC GRANULARITY ONLY. One row per requirement, not per chapter. A 14-day project should produce on the order of 100 rows. If your row count is implausibly low for project age, the loop will self-terminate before the product is good. This is the Flatline failure mode.",
+  "_comment_2": "Allowed status values: not_started | partial | done | out_of_scope. Every row should carry implementationRefs and testRefs once status >= partial. followupRefs link to F-NNN entries in FOLLOWUPS.html.",
+  "updatedAt": "2026-05-29",
+  "rows": [
+    {
+      "id": "REQ-001",
+      "requirement": "A game is ten frames, played start to finish in the browser",
+      "gddRef": "docs/gdd/02-core-loop.html#loop",
+      "status": "done",
+      "implementationRefs": [
+        "src/scoring.ts",
+        "src/game.ts",
+        "src/main.ts"
+      ],
+      "testRefs": [
+        "tests/scoring.test.ts",
+        "tests/game.test.ts"
+      ],
+      "followupRefs": [
+        "F-008"
+      ]
+    },
+    {
+      "id": "REQ-002",
+      "requirement": "Each frame gives the player three balls to clear ten pins",
+      "gddRef": "docs/gdd/02-core-loop.html#ball-and-frame",
+      "status": "done",
+      "implementationRefs": [
+        "src/scoring.ts",
+        "src/game.ts",
+        "src/main.ts"
+      ],
+      "testRefs": [
+        "tests/scoring.test.ts",
+        "tests/game.test.ts"
+      ],
+      "followupRefs": [
+        "F-008"
+      ]
+    },
+    {
+      "id": "REQ-003",
+      "requirement": "Strike (all ten on first ball) scores 10 plus the next two balls",
+      "gddRef": "docs/gdd/02-core-loop.html#scoring-strike",
+      "status": "done",
+      "implementationRefs": [
+        "src/scoring.ts"
+      ],
+      "testRefs": [
+        "tests/scoring.test.ts"
+      ],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-004",
+      "requirement": "Spare (all ten in first two balls) scores 10 plus the next one ball",
+      "gddRef": "docs/gdd/02-core-loop.html#scoring-spare",
+      "status": "done",
+      "implementationRefs": [
+        "src/scoring.ts"
+      ],
+      "testRefs": [
+        "tests/scoring.test.ts"
+      ],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-005",
+      "requirement": "Clearing all ten on the third ball scores a flat 10 with no bonus (candlepin-style), not a spare",
+      "gddRef": "docs/gdd/02-core-loop.html#scoring-ten",
+      "status": "done",
+      "implementationRefs": [
+        "src/scoring.ts"
+      ],
+      "testRefs": [
+        "tests/scoring.test.ts"
+      ],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-006",
+      "requirement": "Open frame scores one point per pin knocked down across the three balls",
+      "gddRef": "docs/gdd/02-core-loop.html#scoring-open",
+      "status": "done",
+      "implementationRefs": [
+        "src/scoring.ts"
+      ],
+      "testRefs": [
+        "tests/scoring.test.ts"
+      ],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-007",
+      "requirement": "Tenth frame grants bonus balls (two for a strike, one for a spare, none for flat-ten/open)",
+      "gddRef": "docs/gdd/02-core-loop.html#tenth-frame",
+      "status": "done",
+      "implementationRefs": [
+        "src/scoring.ts"
+      ],
+      "testRefs": [
+        "tests/scoring.test.ts"
+      ],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-008",
+      "requirement": "Running cumulative score updates per ball and recomputes strike/spare bonuses retroactively",
+      "gddRef": "docs/gdd/02-core-loop.html#scoreboard",
+      "status": "done",
+      "implementationRefs": [
+        "src/scoring.ts"
+      ],
+      "testRefs": [
+        "tests/scoring.test.ts"
+      ],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-009",
+      "requirement": "Between balls in a frame, count fallen pins and leave standing pins in place for the next ball",
+      "gddRef": "docs/gdd/02-core-loop.html#pin-accounting",
+      "status": "done",
+      "implementationRefs": [
+        "src/game.ts",
+        "src/main.ts",
+        "src/shot.ts"
+      ],
+      "testRefs": [
+        "tests/game.test.ts",
+        "tests/shot.test.ts"
+      ],
+      "followupRefs": [
+        "F-008"
+      ]
+    },
+    {
+      "id": "REQ-010",
+      "requirement": "At frame end, perform a full re-rack of all ten pins",
+      "gddRef": "docs/gdd/02-core-loop.html#loop",
+      "status": "done",
+      "implementationRefs": [
+        "src/game.ts",
+        "src/main.ts",
+        "src/reset.ts"
+      ],
+      "testRefs": [
+        "tests/game.test.ts",
+        "tests/reset.test.ts"
+      ],
+      "followupRefs": [
+        "F-008"
+      ]
+    },
+    {
+      "id": "REQ-011",
+      "requirement": "After the tenth frame the game ends and shows a final score and summary",
+      "gddRef": "docs/gdd/02-core-loop.html#loop",
+      "status": "done",
+      "implementationRefs": [
+        "src/game.ts",
+        "src/main.ts"
+      ],
+      "testRefs": [
+        "tests/game.test.ts"
+      ],
+      "followupRefs": [
+        "F-008"
+      ]
+    },
+    {
+      "id": "REQ-012",
+      "requirement": "Scoreboard shows all ten frames, per-ball counts, and frame marks (strike, spare, flat ten, open)",
+      "gddRef": "docs/gdd/02-core-loop.html#scoreboard",
+      "status": "done",
+      "implementationRefs": [
+        "src/scoreboard.ts",
+        "src/main.ts",
+        "index.html"
+      ],
+      "testRefs": [
+        "tests/scoreboard.test.ts"
+      ],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-013",
+      "requirement": "Each pin is tethered at the neck by a cord to a fixed overhead anchor above its home spot",
+      "gddRef": "docs/gdd/03-string-pinsetter.html#tether",
+      "status": "done",
+      "implementationRefs": [
+        "src/pins.ts",
+        "src/config.ts"
+      ],
+      "testRefs": [
+        "tests/tether.test.ts",
+        "tests/tether.smoke.test.ts"
+      ],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-014",
+      "requirement": "Cords carry enough slack that pins fall, slide, and collide freely on ball impact",
+      "gddRef": "docs/gdd/03-string-pinsetter.html#free-fall",
+      "status": "partial",
+      "implementationRefs": [
+        "src/pins.ts",
+        "src/config.ts"
+      ],
+      "testRefs": [
+        "tests/tether.test.ts",
+        "tests/tether.smoke.test.ts"
+      ],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-015",
+      "requirement": "The tether is a length-limited rope/distance joint constraint in the physics engine",
+      "gddRef": "docs/gdd/03-string-pinsetter.html#tether",
+      "status": "done",
+      "implementationRefs": [
+        "src/pins.ts",
+        "src/config.ts"
+      ],
+      "testRefs": [
+        "tests/tether.test.ts",
+        "tests/tether.smoke.test.ts"
+      ],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-016",
+      "requirement": "A pin counts as standing only if upright within tolerance, at rest, and still on the deck footprint",
+      "gddRef": "docs/gdd/03-string-pinsetter.html#detection",
+      "status": "done",
+      "implementationRefs": [
+        "src/detection.ts",
+        "src/config.ts",
+        "src/pins.ts"
+      ],
+      "testRefs": [
+        "tests/detection.test.ts",
+        "tests/detection.smoke.test.ts"
+      ],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-017",
+      "requirement": "A settle window runs before counting so wobbling pins are not miscounted",
+      "gddRef": "docs/gdd/03-string-pinsetter.html#detection",
+      "status": "done",
+      "implementationRefs": [
+        "src/detection.ts",
+        "src/config.ts"
+      ],
+      "testRefs": [
+        "tests/detection.test.ts",
+        "tests/detection.smoke.test.ts"
+      ],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-018",
+      "requirement": "Reset cycle runs settle, lift fallen, reposition, lower and ready in roughly three to five seconds",
+      "gddRef": "docs/gdd/03-string-pinsetter.html#reset-cycle",
+      "status": "done",
+      "implementationRefs": [
+        "src/reset.ts",
+        "src/pins.ts",
+        "src/main.ts",
+        "src/config.ts"
+      ],
+      "testRefs": [
+        "tests/reset.test.ts",
+        "tests/reset.smoke.test.ts",
+        "tests/reset-cycle-timing.smoke.test.ts"
+      ],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-019",
+      "requirement": "Between balls only fallen pins are lifted; on a full re-rack all ten are lifted",
+      "gddRef": "docs/gdd/03-string-pinsetter.html#reset-cycle",
+      "status": "done",
+      "implementationRefs": [
+        "src/reset.ts",
+        "src/pins.ts"
+      ],
+      "testRefs": [
+        "tests/reset.test.ts",
+        "tests/reset.smoke.test.ts"
+      ],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-020",
+      "requirement": "No sweep mechanism: fallen pins are lifted out by their cords, never wiped off the deck",
+      "gddRef": "docs/gdd/03-string-pinsetter.html#non-goals",
+      "status": "done",
+      "implementationRefs": [
+        "src/reset.ts",
+        "src/pins.ts"
+      ],
+      "testRefs": [
+        "tests/reset.smoke.test.ts"
+      ],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-021",
+      "requirement": "Standing pins are respotted exactly where they came to rest, even if nudged off the home spot",
+      "gddRef": "docs/gdd/03-string-pinsetter.html#respot",
+      "status": "done",
+      "implementationRefs": [
+        "src/reset.ts",
+        "src/pins.ts"
+      ],
+      "testRefs": [
+        "tests/reset.test.ts",
+        "tests/reset.smoke.test.ts"
+      ],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-022",
+      "requirement": "A pin left hanging by its cord counts as fallen per the detection rule",
+      "gddRef": "docs/gdd/03-string-pinsetter.html#tangle-hang",
+      "status": "done",
+      "implementationRefs": [
+        "src/detection.ts"
+      ],
+      "testRefs": [
+        "tests/detection.test.ts",
+        "tests/hang.smoke.test.ts"
+      ],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-023",
+      "requirement": "A taut cord can yank a neighboring pin, emergent from the constraint sim, not scripted",
+      "gddRef": "docs/gdd/03-string-pinsetter.html#tangle-yank",
+      "status": "done",
+      "implementationRefs": [
+        "src/pins.ts",
+        "src/reset.ts",
+        "src/config.ts"
+      ],
+      "testRefs": [
+        "tests/yank.smoke.test.ts"
+      ],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-024",
+      "requirement": "Crossed/tangled cords are tolerated visually without the simulation deadlocking; next re-rack clears geometry",
+      "gddRef": "docs/gdd/03-string-pinsetter.html#tangle-cross",
+      "status": "done",
+      "implementationRefs": [
+        "src/pins.ts",
+        "src/reset.ts",
+        "src/config.ts"
+      ],
+      "testRefs": [
+        "tests/yank.smoke.test.ts"
+      ],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-025",
+      "requirement": "Lane geometry and all tunable sizes/masses live in a single LANE config constant",
+      "gddRef": "docs/gdd/06-reuse-and-tech.html#scene",
+      "status": "partial",
+      "implementationRefs": [
+        "src/config.ts"
+      ],
+      "testRefs": [
+        "tests/config.test.ts"
+      ],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-026",
+      "requirement": "Duckpin pins use a squat, belly-heavy collider and mass tuned for low energy transfer",
+      "gddRef": "docs/gdd/06-reuse-and-tech.html#scene",
+      "status": "partial",
+      "implementationRefs": [
+        "src/pins.ts"
+      ],
+      "testRefs": [
+        "tests/pins.test.ts",
+        "tests/pins.smoke.test.ts"
+      ],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-027",
+      "requirement": "Ten pins are arranged in the standard triangle with correct spacing",
+      "gddRef": "docs/gdd/06-reuse-and-tech.html#scene",
+      "status": "partial",
+      "implementationRefs": [
+        "src/pins.ts"
+      ],
+      "testRefs": [
+        "tests/pins.test.ts",
+        "tests/pins.smoke.test.ts"
+      ],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-028",
+      "requirement": "Ball is a palm-sized sphere with no finger holes and duckpin-appropriate mass",
+      "gddRef": "docs/gdd/06-reuse-and-tech.html#scene",
+      "status": "done",
+      "implementationRefs": [
+        "src/ball.ts",
+        "src/config.ts"
+      ],
+      "testRefs": [
+        "tests/ball.test.ts",
+        "tests/ball.smoke.test.ts"
+      ],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-029",
+      "requirement": "Ball rolls down the lane under physics from the launch impulse",
+      "gddRef": "docs/gdd/06-reuse-and-tech.html#scene",
+      "status": "done",
+      "implementationRefs": [
+        "src/ball.ts",
+        "src/config.ts",
+        "src/main.ts"
+      ],
+      "testRefs": [
+        "tests/ball.test.ts",
+        "tests/ball.smoke.test.ts",
+        "tests/containment.smoke.test.ts"
+      ],
+      "followupRefs": [
+        "F-004"
+      ]
+    },
+    {
+      "id": "REQ-030",
+      "requirement": "Pin-to-pin collisions chain with low scatter, tuned so real strikes stay genuinely rare",
+      "gddRef": "docs/gdd/01-vision-and-pillars.html#pillars",
+      "status": "done",
+      "note": "Beyond the squat belly-heavy mass (REQ-026), the pin contact material is now a deliberate, single-source PIN_PHYSICS config block (friction 0.55, restitution 0). Zero restitution means struck pins barely rebound, so the collision chain dies out fast instead of spraying the rack like tenpin; a small playtest sweep showed any non-zero restitution roughly doubling the furthest pin's travel. Applied to every pin collider in src/pins.ts. A real-Rapier scatter smoke (tests/scatter.smoke.test.ts) throws straight balls across a sweep of lateral aim points and speeds and proves the duckpin feel: a dead-centre straight ball never strikes, no straight shot in the sweep strikes, most frames leave several pins, and no pin is flung sideways more than a few pin-spacings. Spin/angle remain the way to work for the rare strike (REQ-034/036).",
+      "implementationRefs": [
+        "src/config.ts",
+        "src/pins.ts"
+      ],
+      "testRefs": [
+        "tests/scatter.smoke.test.ts",
+        "tests/config.test.ts"
+      ],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-031",
+      "requirement": "Gutters (smaller than tenpin) remove a ball that leaves the lane",
+      "gddRef": "docs/gdd/06-reuse-and-tech.html#scene",
+      "status": "done",
+      "implementationRefs": [
+        "src/config.ts",
+        "src/world3d.ts",
+        "src/gutter.ts",
+        "src/ball.ts",
+        "src/main.ts"
+      ],
+      "testRefs": [
+        "tests/containment.test.ts",
+        "tests/containment.smoke.test.ts",
+        "tests/gutter.test.ts"
+      ],
+      "followupRefs": [
+        "F-004"
+      ]
+    },
+    {
+      "id": "REQ-032",
+      "requirement": "Foul line is detected and an over-the-line release is handled",
+      "gddRef": "docs/gdd/06-reuse-and-tech.html#scene",
+      "status": "done",
+      "implementationRefs": [
+        "src/foul.ts",
+        "src/config.ts",
+        "src/main.ts"
+      ],
+      "testRefs": [
+        "tests/foul.test.ts"
+      ],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-033",
+      "requirement": "Step 1: player lines up the shot, setting lateral start position and base aim",
+      "gddRef": "docs/gdd/08-controls.html#step1-lineup",
+      "status": "done",
+      "note": "Lateral start position is settable via keyboard nudge and touch/mouse drag on an on-screen L/R indicator track (PR #18). Base-aim direction now ships: an off-centre stance points the ball back toward the pin deck via baseAimLateralSpeed (AIM config), threaded through ball.launch from the line-up alignment, so step 1 sets both where the ball starts and the direction it points. F-005 resolved.",
+      "implementationRefs": [
+        "src/camera.ts",
+        "src/main.ts",
+        "src/config.ts",
+        "src/ball.ts",
+        "index.html"
+      ],
+      "testRefs": [
+        "tests/camera.test.ts",
+        "tests/ball.test.ts"
+      ],
+      "followupRefs": [
+        "F-005"
+      ]
+    },
+    {
+      "id": "REQ-034",
+      "requirement": "Step 2: player stops a sweeping meter to set spin/angle (center is straight, sides curve)",
+      "gddRef": "docs/gdd/08-controls.html#step2-spin",
+      "status": "done",
+      "implementationRefs": [
+        "src/meter.ts",
+        "src/config.ts",
+        "src/main.ts"
+      ],
+      "testRefs": [
+        "tests/meter.test.ts"
+      ],
+      "followupRefs": [
+        "F-006"
+      ]
+    },
+    {
+      "id": "REQ-035",
+      "requirement": "Step 3: player stops a sweeping power meter to set ball speed and trigger release",
+      "gddRef": "docs/gdd/08-controls.html#step3-power",
+      "status": "done",
+      "implementationRefs": [
+        "src/meter.ts",
+        "src/config.ts",
+        "src/ball.ts",
+        "src/main.ts"
+      ],
+      "testRefs": [
+        "tests/ball.test.ts",
+        "tests/meter.test.ts"
+      ],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-036",
+      "requirement": "Release combines line-up, spin, and power into launch velocity plus angular velocity; spin curves the roll",
+      "gddRef": "docs/gdd/08-controls.html#release",
+      "status": "done",
+      "note": "ball.launch(spin, power, lateralOffset) now resolves all three inputs: the power stop sets down-lane speed, the spin stop adds a lateral nudge plus a vertical-axis yaw that hooks the roll, and the line-up stance adds the base-aim lateral velocity that points the ball back at the pins. ballLaunchVelocity composes spin and base aim additively over the power-resolved down-lane speed.",
+      "implementationRefs": [
+        "src/ball.ts",
+        "src/config.ts",
+        "src/main.ts"
+      ],
+      "testRefs": [
+        "tests/ball.test.ts"
+      ],
+      "followupRefs": [
+        "F-006",
+        "F-007"
+      ]
+    },
+    {
+      "id": "REQ-037",
+      "requirement": "Controls work via mouse, touch, and keyboard with a single confirm action per step",
+      "gddRef": "docs/gdd/08-controls.html#inputs",
+      "status": "done",
+      "note": "All three steps confirm via one input on every device: pointer/touch tap and Space/Enter stop the meters and lock the line; keyboard arrows and now touch/mouse drag on the line-up track both set step-1 lateral aim (PR #18). Geometry maps are unit tested in tests/camera.test.ts.",
+      "implementationRefs": [
+        "src/main.ts",
+        "src/camera.ts",
+        "index.html"
+      ],
+      "testRefs": [
+        "tests/camera.test.ts"
+      ],
+      "followupRefs": [
+        "F-007"
+      ]
+    },
+    {
+      "id": "REQ-038",
+      "requirement": "Spin and power meters render as mechanical gauges with a click on each stop, sweep speed/sweet-spot tunable",
+      "gddRef": "docs/gdd/08-controls.html#feedback",
+      "status": "done",
+      "note": "The spin and power meters render as mechanical gauges on riveted metal plates (#meters in index.html): each has a recessed rail, a highlighted centred sweet-spot/straight band sized from the tuned config (SPIN.straightBand, POWER.sweetSpotBand) via the pure meterBandSpan in src/meter.ts, end labels, and a brass needle that slides to the live cursor each aiming frame using lineupMarkerOffset. Only the active step's gauge is shown. The click on each stop is the existing audio.playClick() cue (REQ-043). Sweep speed and sweet-spot width stay tunable in the SPIN/POWER config blocks.",
+      "implementationRefs": [
+        "src/meter.ts",
+        "src/main.ts",
+        "index.html",
+        "src/config.ts"
+      ],
+      "testRefs": [
+        "tests/meter.test.ts"
+      ],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-039",
+      "requirement": "A single 3D lane scene is staged inside a machine-room interior",
+      "gddRef": "docs/gdd/04-look-and-feel.html#environment",
+      "status": "done",
+      "note": "The lane now sits inside an enclosed machine-room interior rather than floating in void. A new MACHINE_ROOM config block plus a pure machineRoomParts layout (src/config.ts) builds a dark shell (two side walls just outside the gutters, a back wall behind the pit, a front wall behind the bowler, and a ceiling above the pinsetter frame), and stages the background machinery the GDD #environment calls for: a conduit pipe run along each upper side wall (the new 'z' cylinder axis), a row of brass-rimmed gauge dials on the back wall, and the dim silhouette of a neighbouring lane rig off to one side. world3d.buildMachineRoom renders the shell with inward-facing BackSide material so the camera sees the interior, plus the conduit/gauge/neighbour dressing in the industrial palette (REQ-041). All set dressing, no colliders, staged from the pure layout well outside the playfield so it never touches the ball, pins, or cords. Verified headless (tests/machine-room.test.ts: the shell encloses the lane on every side, the ceiling clears the rig, walls rest on the floor, conduit runs down-lane high on each side outside the playfield, gauges sit symmetric on the back wall, the neighbour rig stands off to the side in the background) and confirmed in-browser (the room walls recede into the background and the neighbour-rig silhouette is visible, no console errors).",
+      "implementationRefs": [
+        "src/config.ts",
+        "src/world3d.ts",
+        "src/main.ts"
+      ],
+      "testRefs": [
+        "tests/machine-room.test.ts"
+      ],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-040",
+      "requirement": "The pinsetter rig is visible on stage: guide tubes, cords, winding drums, overhead drive unit",
+      "gddRef": "docs/gdd/04-look-and-feel.html#rube-goldberg",
+      "status": "done",
+      "note": "The string machine is now staged above the pin deck as set dressing. pinsetterRigParts in src/config.ts is pure layout derived from the rack home spots and a single tunable PINSETTER block: two longitudinal painted-red rails plus a cross beam over each pin row at the cord anchor height (PINSETTER.frameTopY = TETHER.topY, so the beams visibly carry the strings the pins already hang from), one blackened-steel guide tube hung below the frame over each pin (above the standing pins, below the frame), one winding drum per pin riding a per-row cross-shaft, and a dark cast-iron overhead drive unit mounted at the down-lane back end. world3d.buildPinsetterRig turns the parts into box and cylinder meshes via rigBeamMesh/rigCylinderMesh; the cords themselves were already rendered per pin in src/pins.ts (REQ-013). No colliders: the rig never touches physics or the cords' behaviour. The pure layout is unit tested headless (one tube and drum per pin, one shaft and cross beam per row, frame at anchor height, tubes clear of the standing pins, drive unit above and behind the rack, frame within lane width).",
+      "implementationRefs": [
+        "src/config.ts",
+        "src/world3d.ts",
+        "src/pins.ts"
+      ],
+      "testRefs": [
+        "tests/pinsetter.test.ts"
+      ],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-041",
+      "requirement": "Mechanical material palette (oiled wood, steel, brass) with warm industrial work-light lighting and fog",
+      "gddRef": "docs/gdd/04-look-and-feel.html#palette-lighting",
+      "status": "done",
+      "implementationRefs": [
+        "src/world3d.ts",
+        "src/config.ts"
+      ],
+      "testRefs": [
+        "tests/palette.test.ts"
+      ],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-042",
+      "requirement": "Scoreboard is styled as an electromechanical display (split-flap / rolling counters / relay digits)",
+      "gddRef": "docs/gdd/04-look-and-feel.html#ui",
+      "status": "done",
+      "note": "The scoreboard now reads as an electromechanical split-flap board on a blackened-steel plate. Every ball glyph and running total renders on a two-leaf split-flap card (top and bottom leaf split by a centre hinge seam) in src/scoreboard.ts, and when a cell's glyph changes between paints only that card gets a .vp-flip class and its top leaf folds over the hinge via the vp-flap-fold keyframe in index.html, the way a real split-flap board snaps a new digit. Which cells changed is a pure diff (cellGlyphs + changedCellKeys) so the flip targeting is unit tested without a DOM; the Scoreboard class adds/clears the class and is verified against a fake DOM. The flip is suppressed under prefers-reduced-motion (both in JS and the media query).",
+      "implementationRefs": [
+        "src/scoreboard.ts",
+        "index.html",
+        "src/main.ts"
+      ],
+      "testRefs": [
+        "tests/scoreboard.test.ts",
+        "tests/scoreboard.flip.test.ts"
+      ],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-043",
+      "requirement": "Procedural Web Audio engine synthesizes pin clatter, ball roll, and the string-reset whir",
+      "gddRef": "docs/gdd/04-look-and-feel.html#audio",
+      "status": "done",
+      "implementationRefs": [
+        "src/audio.ts",
+        "src/main.ts"
+      ],
+      "testRefs": [
+        "tests/audio.test.ts"
+      ],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-044",
+      "requirement": "Strike triggers a Rube Goldberg victory routine with mechanical-debris particles, screen shake, and a sound flourish",
+      "gddRef": "docs/gdd/04-look-and-feel.html#juice",
+      "status": "done",
+      "note": "A first-ball ten now runs a brief mechanical flourish alongside the existing audio strike sting (REQ-043). A new pure VictoryRoutine (src/victory.ts) spawns a burst of debris off the pin deck, integrates each bit under gravity and tumbles it, and produces a decaying camera-shake offset that oscillates on x/y (z stable) and zeroes after a short window. The VICTORY config block (src/config.ts) holds all tunables (debris count/spread/velocities, durations, shake amplitude/frequency, two-tone palette). The visual layer in src/world3d.ts is a pre-built emissive-spark/steel-scrap debris mesh pool with syncVictoryDebris to mirror the sim each frame; src/main.ts fires victory.start(LANE.headSpot) on a strike, applies the shake as an absolute offset from the captured resting camera pose so it rattles without drifting, and clears debris/shake when the burst ends. Durations sit inside the reset settle beat so the loop never drags. Motion is verified at the pure-sim level (tests/victory.test.ts) since jsdom cannot drive WebGL.",
+      "implementationRefs": [
+        "src/victory.ts",
+        "src/config.ts",
+        "src/world3d.ts",
+        "src/main.ts"
+      ],
+      "testRefs": [
+        "tests/victory.test.ts"
+      ],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-045",
+      "requirement": "A screens/state machine drives menu, in-game, and summary states",
+      "gddRef": "docs/gdd/06-reuse-and-tech.html#shell",
+      "status": "done",
+      "implementationRefs": [
+        "src/screens.ts",
+        "src/main.ts",
+        "index.html"
+      ],
+      "testRefs": [
+        "tests/screens.test.ts"
+      ],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-046",
+      "requirement": "Settings (at least an audio enable toggle) persist across sessions",
+      "gddRef": "docs/gdd/06-reuse-and-tech.html#shell",
+      "status": "done",
+      "implementationRefs": [
+        "src/settings.ts",
+        "src/main.ts",
+        "index.html"
+      ],
+      "testRefs": [
+        "tests/settings.test.ts"
+      ],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-047",
+      "requirement": "A minimal first-run tutorial communicates the three-step control scheme without a wall of text",
+      "gddRef": "docs/gdd/06-reuse-and-tech.html#shell",
+      "status": "done",
+      "implementationRefs": [
+        "src/tutorial.ts",
+        "src/settings.ts",
+        "src/main.ts",
+        "index.html"
+      ],
+      "testRefs": [
+        "tests/tutorial.test.ts",
+        "tests/settings.test.ts"
+      ],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-048",
+      "requirement": "A match is a shared ten-frame game with two-plus seats and server-authoritative state",
+      "gddRef": "docs/gdd/05-async-multiplayer.html#match-model",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-049",
+      "requirement": "Turn order is frame-by-frame and the server enforces whose turn it is, rejecting out-of-turn submissions",
+      "gddRef": "docs/gdd/05-async-multiplayer.html#turn-handoff",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-050",
+      "requirement": "Finishing a turn presents a shareable handoff link via native share / copy",
+      "gddRef": "docs/gdd/05-async-multiplayer.html#turn-handoff",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-051",
+      "requirement": "Clear your-turn vs waiting-for-player states, with the live scoreboard shown while waiting",
+      "gddRef": "docs/gdd/05-async-multiplayer.html#turn-handoff",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-052",
+      "requirement": "Lightweight identity: display name plus per-device token, with a per-seat secret authorizing submissions",
+      "gddRef": "docs/gdd/05-async-multiplayer.html#identity",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-053",
+      "requirement": "Bowling client computes physics and submits per-ball pin-fall; server validates and computes the authoritative score",
+      "gddRef": "docs/gdd/05-async-multiplayer.html#authority",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-054",
+      "requirement": "Matches persist server-side with a roughly one-week TTL so a day-long game never expires mid-play",
+      "gddRef": "docs/gdd/05-async-multiplayer.html#lifecycle",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-055",
+      "requirement": "Create, join (claim a seat), and resume flows for a match",
+      "gddRef": "docs/gdd/05-async-multiplayer.html#lifecycle",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-056",
+      "requirement": "On completion the match locks and shows final standings",
+      "gddRef": "docs/gdd/05-async-multiplayer.html#lifecycle",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-057",
+      "requirement": "A completed solo ten-frame game posts its authentic final score to the leaderboard",
+      "gddRef": "docs/gdd/07-leaderboard.html#what-counts",
+      "status": "done",
+      "note": "On game over the summary screen shows a name field and a Submit Score button. The client (src/leaderboard.ts) turns the finished GameScore into the per-frame ball line via framesFromScore and POSTs it to api/leaderboard.ts, which re-scores it with the shared scoreGame engine; the server total is authoritative, never a client-claimed number. The player name persists in src/settings.ts and pre-fills the field. A double-submit guard locks the form after a successful post, and a failed submit is non-fatal (status line only).",
+      "implementationRefs": [
+        "src/leaderboard.ts",
+        "src/main.ts",
+        "src/settings.ts",
+        "index.html"
+      ],
+      "testRefs": [
+        "tests/leaderboard.client.test.ts",
+        "tests/settings.test.ts"
+      ],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-058",
+      "requirement": "A completed line in an async match is eligible to post to the global leaderboard",
+      "gddRef": "docs/gdd/07-leaderboard.html#what-counts",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-059",
+      "requirement": "Submitted scores are validated server-side against the duckpin rules; impossible scores are rejected",
+      "gddRef": "docs/gdd/07-leaderboard.html#what-counts",
+      "status": "partial",
+      "implementationRefs": [
+        "api/leaderboard.ts",
+        "src/scoring.ts"
+      ],
+      "testRefs": [
+        "tests/leaderboard.test.ts",
+        "tests/leaderboard.smoke.test.ts"
+      ],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-060",
+      "requirement": "An all-time global top board (capped) is maintained",
+      "gddRef": "docs/gdd/07-leaderboard.html#boards",
+      "status": "partial",
+      "implementationRefs": [
+        "api/leaderboard.ts",
+        "index.html",
+        "src/leaderboard.ts",
+        "src/main.ts"
+      ],
+      "testRefs": [
+        "tests/leaderboard.client.test.ts",
+        "tests/leaderboard.smoke.test.ts",
+        "tests/leaderboard.test.ts"
+      ],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-061",
+      "requirement": "A daily board resets each day",
+      "gddRef": "docs/gdd/07-leaderboard.html#boards",
+      "status": "partial",
+      "implementationRefs": [
+        "api/leaderboard.ts",
+        "index.html",
+        "src/leaderboard.ts",
+        "src/main.ts"
+      ],
+      "testRefs": [
+        "tests/leaderboard.client.test.ts",
+        "tests/leaderboard.test.ts"
+      ],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-062",
+      "requirement": "The player's own best is shown in context (rank and nearby entries) even when off the top slice",
+      "gddRef": "docs/gdd/07-leaderboard.html#boards",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-063",
+      "requirement": "The leaderboard is reachable from the main menu and shown on the end-of-game summary",
+      "gddRef": "docs/gdd/07-leaderboard.html#display",
+      "status": "done",
+      "implementationRefs": [
+        "src/leaderboard.ts",
+        "src/main.ts",
+        "index.html"
+      ],
+      "testRefs": [
+        "tests/leaderboard.client.test.ts"
+      ],
+      "followupRefs": [],
+      "note": "The leaderboard is reachable from the main menu and the end-of-game summary via Leaderboard buttons that open a standings overlay (Back returns to the opening screen). The overlay shows an all-time/daily tab pair over a rolling-counter standings plate (split-flap-style rows of rank/name/score) in the electromechanical scoreboard language. src/leaderboard.ts gained fetchBoard/fetchBoth (GET /api/leaderboard?type&limit) and a pure renderBoardRows; src/main.ts wires open/close, the tab toggle (aria-pressed), fetch-on-open, and re-render. A failed load is non-fatal."
+    },
+    {
+      "id": "REQ-064",
+      "requirement": "A Vercel serverless plus Upstash Redis backend with zod-validated payloads serves both multiplayer and the leaderboard",
+      "gddRef": "docs/gdd/06-reuse-and-tech.html#async-backend",
+      "status": "partial",
+      "implementationRefs": [
+        "api/leaderboard.ts"
+      ],
+      "testRefs": [
+        "tests/leaderboard.test.ts",
+        "tests/leaderboard.smoke.test.ts"
+      ],
+      "followupRefs": []
+    }
+  ]
 }
