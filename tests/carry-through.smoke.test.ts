@@ -193,12 +193,14 @@ function throwShot(stop: number, power: number, lateralOffset: number): ThrowRes
     return !toppled(i) && onDeck;
   }).length;
 
-  return {
+  const result: ThrowResult = {
     carriedPastHead: minBallZ < LANE.headSpot.z,
     maxYOverDeck,
     knockedBehind: PINS_BEHIND_HEAD.some(toppled),
     standing,
   };
+  world.free();
+  return result;
 }
 
 describe('a good pocket hit carries past the head pin into the pack (REQ-030)', () => {
