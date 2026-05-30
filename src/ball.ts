@@ -9,7 +9,17 @@
 
 import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier3d-compat';
-import { LANE, SPIN, POWER, AIM, GROUP, type Vec3 } from './config.js';
+import {
+  LANE,
+  SPIN,
+  POWER,
+  AIM,
+  GROUP,
+  BALL_RETURN,
+  ballReturnPathPoint,
+  ballRackPositions,
+  type Vec3,
+} from './config.js';
 import type { World3D } from './world3d.js';
 
 // Ball membership plus a filter that collides with everything (lane, deck,
@@ -85,9 +95,43 @@ export function ballLaunchVelocity(stop = 0, power?: number, lateralOffset = 0):
   };
 }
 
+// The rest spot the returned ball settles into: the front (bowler-most) slot of
+// the rack, where the pickup lifts it next shot.
+export function ballRackFront(): Vec3 {
+  return ballRackPositions()[0];
+}
+
+// Kinematic position of the ball as it travels back up the return track to the
+// rack, for a normalized progress p in [0, 1] (REQ-039). For most of the travel
+// the ball rides the chrome runway centerline from the down-lane end to the
+// bowler-end track front (ballReturnPathPoint); over the final stretch it eases
+// laterally off the track front onto the rack front rest spot, so it reads as
+// rolling home and nestling into the cradle. Pure, so the return path sampling
+// is unit-testable: p = 0 sits at the runway back, p = 1 sits at the rack front.
+export function ballReturnTravelPos(p: number): Vec3 {
+  const t = Math.max(0, Math.min(1, p));
+  // The last fraction of travel hands the ball from the track front to the rack.
+  const HANDOFF = 0.78;
+  const front = ballRackFront();
+  if (t <= HANDOFF) {
+    return ballReturnPathPoint(t / HANDOFF);
+  }
+  const trackFront = ballReturnPathPoint(1);
+  const k = (t - HANDOFF) / (1 - HANDOFF);
+  const ease = k * k * (3 - 2 * k);
+  return {
+    x: trackFront.x + (front.x - trackFront.x) * ease,
+    y: trackFront.y + (front.y - trackFront.y) * ease,
+    z: trackFront.z + (front.z - trackFront.z) * ease,
+  };
+}
+
 export class Ball {
   private readonly mesh: THREE.Mesh;
   private readonly body: RAPIER.RigidBody;
+  // Elapsed seconds into the kinematic return-to-rack animation, or null when no
+  // return is playing.
+  private returnElapsed: number | null = null;
 
   constructor(private readonly world: World3D) {
     const spawn = ballSpawnPosition();
@@ -174,12 +218,41 @@ export class Ball {
     return { x: t.x, z: t.z, speed: Math.hypot(v.x, v.y, v.z) };
   }
 
-  // Reset the ball back to the spawn point at rest as a kinematic carried body,
-  // ready for the next shot's pickup/walk-up. Mirrors the constructor spawn.
-  respawn(): void {
-    const spawn = ballSpawnPosition();
+  // Begin the kinematic return: take the just-thrown ball (wherever it resolved,
+  // the pit or the lane) and animate it back up the return track to the rack
+  // (REQ-039). The ball becomes a kinematic body for the travel; stepReturn
+  // advances it each frame and settleAtRack parks it once home.
+  startReturn(): void {
     this.body.setBodyType(RAPIER.RigidBodyType.KinematicPositionBased, true);
-    this.body.setNextKinematicTranslation(spawn);
+    this.body.setLinvel({ x: 0, y: 0, z: 0 }, true);
+    this.body.setAngvel({ x: 0, y: 0, z: 0 }, true);
+    this.returnElapsed = 0;
+  }
+
+  // Advance the return-to-rack animation by dt. Returns true once the ball has
+  // reached the rack front (the travel is complete), false while still in
+  // transit. A no-op returning true if no return is in progress.
+  stepReturn(dt: number): boolean {
+    if (this.returnElapsed === null) return true;
+    this.returnElapsed += dt;
+    const p = Math.min(1, this.returnElapsed / BALL_RETURN.returnSeconds);
+    const pos = ballReturnTravelPos(p);
+    this.body.setNextKinematicTranslation(pos);
+    this.body.setNextKinematicRotation({ x: 0, y: 0, z: 0, w: 1 });
+    if (p >= 1) {
+      this.returnElapsed = null;
+      return true;
+    }
+    return false;
+  }
+
+  // Park the ball at rest at the rack front as a kinematic carried body, ready
+  // for the next shot's pickup/walk-up. The pickup lifts it off the rack.
+  respawn(): void {
+    const rest = ballRackFront();
+    this.returnElapsed = null;
+    this.body.setBodyType(RAPIER.RigidBodyType.KinematicPositionBased, true);
+    this.body.setNextKinematicTranslation(rest);
     this.body.setNextKinematicRotation({ x: 0, y: 0, z: 0, w: 1 });
     this.body.setLinvel({ x: 0, y: 0, z: 0 }, true);
     this.body.setAngvel({ x: 0, y: 0, z: 0 }, true);
