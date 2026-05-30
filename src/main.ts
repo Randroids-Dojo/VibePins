@@ -475,10 +475,18 @@ async function finishMatchFrame(): Promise<void> {
     return;
   }
   setStatus('Submitting your frame...');
-  const result = await matchClient.submitFrame(turn.matchId, turn.frame, turn.accumulator.balls);
-  screens.toMatch();
-  if (!result.ok) {
-    setMatchStatus(matchClient.error ?? 'Could not submit your frame', 'error');
+  // submitFrame resolves rather than throws (it catches its own errors), but guard
+  // anyway so an unexpected rejection still hands back to the hub rather than
+  // stranding the player in the playing state.
+  try {
+    const result = await matchClient.submitFrame(turn.matchId, turn.frame, turn.accumulator.balls);
+    if (!result.ok) {
+      setMatchStatus(matchClient.error ?? 'Could not submit your frame', 'error');
+    }
+  } catch {
+    setMatchStatus('Could not submit your frame', 'error');
+  } finally {
+    screens.toMatch();
   }
 }
 
@@ -915,7 +923,9 @@ function startMatchTurn(): void {
     // three balls, every earlier frame ends on a strike / spare / three balls.
     accumulator: new MatchFrameAccumulator(match.currentFrame - 1),
   };
-  screens.bowlMatch();
+  // Clear the turn if the screen transition is rejected, so stale match context
+  // cannot leak into a later solo play transition.
+  if (!screens.bowlMatch()) matchTurn = null;
 }
 
 menuLeaderboardBtn?.addEventListener('click', () => {
