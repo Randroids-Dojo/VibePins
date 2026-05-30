@@ -36,6 +36,7 @@ import {
   renderMatchScoreboard,
   type MatchViewMode,
 } from './matchUI.js';
+import { MatchFrameAccumulator } from './matchFrame.js';
 import { Tutorial } from './tutorial.js';
 import { AudioEngine } from './audio.js';
 import { VictoryRoutine } from './victory.js';
@@ -95,6 +96,7 @@ const matchPlayEl = document.getElementById('match-play');
 const matchHeadlineEl = document.getElementById('match-headline');
 const matchScoreboardEl = document.getElementById('match-scoreboard');
 const matchPlayNoteEl = document.getElementById('match-play-note');
+const matchBowlBtn = document.getElementById('match-bowl-btn') as HTMLButtonElement | null;
 const matchShareBtn = document.getElementById('match-share-btn') as HTMLButtonElement | null;
 const matchRefreshBtn = document.getElementById('match-refresh-btn') as HTMLButtonElement | null;
 const matchCompleteEl = document.getElementById('match-complete');
@@ -196,6 +198,11 @@ const leaderboard = new Leaderboard();
 // the entry block can offer Join instead of Create when one is present.
 const matchClient = new MatchClient(settings);
 let pendingMatchId: string | null = null;
+// The in-flight async-match turn (REQ-053): the match id, the 1-based frame the
+// server expects, and the accumulator that collects each settled ball's pin-fall
+// into the frame array submitted on frame completion. Non-null only while the live
+// shot loop is bowling a match frame; null keeps the solo flow unchanged (RULE 7).
+let matchTurn: { matchId: string; frame: number; accumulator: MatchFrameAccumulator } | null = null;
 // Whether the current summary's score has already been submitted, so the player
 // cannot double-post the same game.
 let scoreSubmitted = false;
@@ -438,6 +445,51 @@ function startNewGame(): void {
   startReset('rerack');
 }
 
+// Start bowling the player's async-match frame in the live game (REQ-053). Reuses
+// the exact solo shot loop and Game spine: a fresh Game so the deck re-racks and
+// the between-balls vs frame-end resets honour the same duckpin rules, with the
+// tutorial coach suppressed (this is not a first-run flow). The match-turn state is
+// already set by the Bowl handler; recordSettledBall feeds the accumulator while it
+// is non-null and submits the frame on completion. Only one frame is bowled: the
+// match's currentFrame, then the turn hands off.
+function startMatchFrame(): void {
+  game = new Game();
+  phase = 'aiming';
+  renderScore();
+  startReset('rerack');
+}
+
+// The match frame's turn is over: submit its per-ball pin-fall to the server, which
+// re-scores and advances the turn (REQ-053), then return to the hub. The hub's
+// re-render shows the advanced state (waiting / your next frame) or, when this was
+// the last line, the final-standings plate (REQ-056). A submit failure surfaces on
+// the hub status line; the turn is not lost because the server is authoritative and
+// the player can Refresh and retry. Clearing matchTurn first keeps the solo flow
+// clean if the player navigates away.
+async function finishMatchFrame(): Promise<void> {
+  const turn = matchTurn;
+  matchTurn = null;
+  phase = 'over';
+  if (!turn) {
+    screens.toMatch();
+    return;
+  }
+  setStatus('Submitting your frame...');
+  // submitFrame resolves rather than throws (it catches its own errors), but guard
+  // anyway so an unexpected rejection still hands back to the hub rather than
+  // stranding the player in the playing state.
+  try {
+    const result = await matchClient.submitFrame(turn.matchId, turn.frame, turn.accumulator.balls);
+    if (!result.ok) {
+      setMatchStatus(matchClient.error ?? 'Could not submit your frame', 'error');
+    }
+  } catch {
+    setMatchStatus('Could not submit your frame', 'error');
+  } finally {
+    screens.toMatch();
+  }
+}
+
 // Reflect the audio-enable setting on the menu toggle (label + accessible state).
 function syncAudioToggle(): void {
   if (!menuAudioBtn) return;
@@ -454,9 +506,10 @@ function showScreen(screen: Screen): void {
   const isMatch = screen === 'match';
   if (menuEl) menuEl.hidden = !isMenu;
   if (summaryEl) summaryEl.hidden = !isSummary;
-  // The match hub is its own screen; openMatch() reveals it (and hides the menu)
-  // so the listener does not need to. A transition away always hides it.
-  if (matchEl && !isMatch) matchEl.hidden = true;
+  // The match hub is its own screen: reveal it when entering, hide it when leaving.
+  // openMatch() also handles the entry resume; this keeps the overlay visible when
+  // returning to the hub from a bowled match frame (the playing -> match path).
+  if (matchEl) matchEl.hidden = !isMatch;
   // The standings board is a sub-view of the menu/summary; a screen transition
   // always closes it so it never lingers over the wrong screen or the live game.
   if (boardEl) boardEl.hidden = true;
@@ -472,10 +525,19 @@ function showScreen(screen: Screen): void {
   }
 }
 
-screens.onChange((screen) => {
+screens.onChange((screen, previous) => {
   showScreen(screen);
-  if (screen === 'playing') startNewGame();
-  if (screen === 'match') openMatch();
+  // Entering play from the match hub bowls one match frame (matchTurn is set);
+  // otherwise it is a fresh solo game. Returning to the hub from a finished match
+  // frame re-renders the advanced state rather than re-opening from scratch.
+  if (screen === 'playing') {
+    if (matchTurn) startMatchFrame();
+    else startNewGame();
+  }
+  if (screen === 'match') {
+    if (previous === 'playing') renderMatch();
+    else openMatch();
+  }
 });
 
 // Menu and summary controls (mouse / touch / keyboard via native button
@@ -668,9 +730,17 @@ function renderMatch(): void {
     // The handoff link is the bowler's tool to pass the match on; show it on both
     // states so a waiting player can re-share the invite (REQ-050).
     if (matchShareBtn) matchShareBtn.hidden = false;
+    // The Bowl button launches the live shot loop for this frame; it is the
+    // unmistakable your-turn affordance and is hidden while waiting (REQ-051/053).
+    if (matchBowlBtn) {
+      matchBowlBtn.hidden = !yours;
+      matchBowlBtn.disabled = matchClient.loading;
+      const frame = matchClient.match?.currentFrame ?? 1;
+      matchBowlBtn.textContent = `Bowl Frame ${frame}`;
+    }
     if (matchPlayNoteEl) {
       matchPlayNoteEl.textContent = yours
-        ? 'Bowling your frame in-browser is coming soon. Use Refresh to follow the match.'
+        ? 'Bowl your frame, then share the handoff link to pass the match on.'
         : 'You will see the score update here as players bowl. Use Refresh to check.';
     }
     setMatchStatus('');
@@ -775,6 +845,12 @@ matchCopyBtn?.addEventListener('click', () => {
   if (matchLinkInput?.value) copyToClipboard(matchLinkInput.value, matchCopyBtn);
 });
 
+matchBowlBtn?.addEventListener('click', () => {
+  wakeAudio();
+  audio.playClick();
+  startMatchTurn();
+});
+
 matchShareBtn?.addEventListener('click', () => {
   audio.playClick();
   if (matchClient.match) copyToClipboard(handoffLink(window.location.href, matchClient.match.id), matchShareBtn);
@@ -830,6 +906,26 @@ async function joinMatchFromForm(): Promise<void> {
     setMatchStatus(result.error ?? 'Could not join match', 'error');
   }
   renderMatch();
+}
+
+// Launch the live shot loop to bowl the player's current match frame (REQ-053).
+// Guard on its actually being this device's turn so a stale render cannot start a
+// frame the server would reject. Set the match-turn state (id, expected frame, a
+// fresh accumulator) before the screen transition so the playing listener routes to
+// startMatchFrame rather than a solo game.
+function startMatchTurn(): void {
+  if (!matchClient.isMyTurn || !matchClient.match) return;
+  const match = matchClient.match;
+  matchTurn = {
+    matchId: match.id,
+    frame: match.currentFrame,
+    // The accumulator's frame index is zero-based; the tenth frame (index 9) takes
+    // three balls, every earlier frame ends on a strike / spare / three balls.
+    accumulator: new MatchFrameAccumulator(match.currentFrame - 1),
+  };
+  // Clear the turn if the screen transition is rejected, so stale match context
+  // cannot leak into a later solo play transition.
+  if (!screens.bowlMatch()) matchTurn = null;
 }
 
 menuLeaderboardBtn?.addEventListener('click', () => {
@@ -1092,6 +1188,22 @@ function recordSettledBall(standingNow: number): void {
     } else {
       audio.playSpare();
     }
+  }
+
+  // Async-match turn (REQ-053): collect this ball's pin-fall (the same dead-ball
+  // aware count the solo flow scores) into the frame array. When the frame's turn
+  // is over, submit it and hand back to the hub; otherwise fall through so the
+  // Game spine's between-balls / re-rack reset readies the next ball of the frame
+  // (a strike or spare ends a normal frame before three balls; the tenth always
+  // bowls three, re-racking for its bonus balls just like the solo tenth).
+  if (matchTurn) {
+    const frameDone = matchTurn.accumulator.record(pinsDowned);
+    if (frameDone) {
+      void finishMatchFrame();
+      return;
+    }
+    if (result.reset !== 'none') startReset(result.reset);
+    return;
   }
 
   if (result.outcome === 'game-over') {

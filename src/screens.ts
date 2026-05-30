@@ -19,7 +19,9 @@
 // the shell stays a single consistent flow (AGENTS rule 7):
 //   menu --start--> playing
 //   menu --openMatch--> match
+//   match --bowlMatch--> playing   // bowl your async-match frame in-browser
 //   match --toMenu--> menu
+//   playing --toMatch--> match     // return to the hub after a match frame
 //   playing --finish--> summary
 //   summary --playAgain--> playing
 //   summary --toMenu--> menu
@@ -61,6 +63,18 @@ export class Screens {
   // stray open during play or summary cannot pull the shell off its flow.
   openMatch(): boolean {
     return this.transition('match', this.current === 'menu');
+  }
+
+  // Leave the match hub to bowl your async-match frame in the live game (REQ-053).
+  // Only valid from the hub, so it cannot pull the shell off its flow elsewhere.
+  bowlMatch(): boolean {
+    return this.transition('playing', this.current === 'match');
+  }
+
+  // Return to the match hub after bowling a match frame. Only valid while playing,
+  // so a solo game (which finishes to the summary) never lands back in the hub.
+  toMatch(): boolean {
+    return this.transition('match', this.current === 'playing');
   }
 
   // Finish the live game and show the summary. Only valid while playing.

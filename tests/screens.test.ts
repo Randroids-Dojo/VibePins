@@ -81,6 +81,27 @@ describe('Screens: menu / playing / summary state machine (REQ-045)', () => {
     expect(s.screen).toBe('match');
   });
 
+  it('bowls a match frame from the hub and returns to the hub (REQ-053)', () => {
+    const s = new Screens('match');
+    expect(s.bowlMatch()).toBe(true);
+    expect(s.screen).toBe('playing');
+    expect(s.toMatch()).toBe(true);
+    expect(s.screen).toBe('match');
+  });
+
+  it('rejects bowling a match frame from anywhere but the hub', () => {
+    expect(new Screens('menu').bowlMatch()).toBe(false);
+    expect(new Screens('summary').bowlMatch()).toBe(false);
+    const playing = new Screens('playing');
+    expect(playing.bowlMatch()).toBe(false);
+    expect(playing.screen).toBe('playing');
+  });
+
+  it('returns to the hub only while playing, never from the menu or summary', () => {
+    expect(new Screens('menu').toMatch()).toBe(false);
+    expect(new Screens('summary').toMatch()).toBe(false);
+  });
+
   it('notifies the listener on every transition with the previous screen', () => {
     const s = new Screens('menu');
     const seen: Array<[Screen, Screen]> = [];
