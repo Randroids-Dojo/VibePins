@@ -206,26 +206,50 @@ export const MATERIALS = {
   signalWaitDark: { color: 0x3a120c, roughness: 0.5, metalness: 0.3 },
 } as const satisfies Record<string, SurfaceMaterial>;
 
+// Inner face of the machine-room back wall (the plane the wall slab presents to
+// the lane, behind the pit at -z). Derived once here so both the wall-mounted
+// go/stop signal (THROW_LIGHT_3D) and the room shell (MACHINE_ROOM.backZ) hang
+// off the same plane rather than each recomputing it.
+export const MACHINE_ROOM_BACK_Z = LANE.headSpot.z - LANE.pinDeckDepth - LANE.pitLength - 0.6;
+
 // The lane-end go/stop signal lamp (REQ-038, look-and-feel). A physical 3D
-// traffic signal mounted down-lane above the pin deck, facing the bowler, with a
-// red lens over a green lens. It replaces the on-screen HUD overlay light as the
-// at-a-glance "is it my turn to throw" cue: RED while the machine owns the lane
-// (ball rolling, rack settling, pinsetter setting, loading / walk-up, or not your
-// turn in a match), GREEN only once the rack is set and the bowler can aim and
-// throw. Positioned just above and behind the pin deck so it is visible down the
-// whole lane from the bowler view.
+// signal mounted on the machine-room back wall like a clock on a wall, high
+// above the pin deck and facing the bowler, with a red lens over a green lens.
+// It replaces the on-screen HUD overlay light as the at-a-glance "is it my turn
+// to throw" cue: RED while the machine owns the lane (ball rolling, rack
+// settling, pinsetter setting, loading / walk-up, or not your turn in a match),
+// GREEN only once the rack is set and the bowler can aim and throw. Mounted on
+// the back-wall plane well behind and above the pinsetter rig so it is plainly
+// visible down the whole lane from the bowler view and never occluded by the
+// rig, cones, or pins (playtest follow-up to PR #61).
 export const THROW_LIGHT_3D = {
-  // Centre of the lamp housing, above and slightly behind the head spot so it
-  // sits over the pin deck and reads down-lane toward the bowler.
-  center: { x: 0, y: 2.05, z: LANE.headSpot.z - 0.35 } as Vec3,
-  // Housing half-extents (a tall narrow box holding the two stacked lenses).
-  housingHalf: { x: 0.16, y: 0.32, z: 0.1 } as Vec3,
+  // The signal is mounted on the back-wall plane like a clock on a wall, high
+  // above the pin deck and centred on the lane, facing the bowler (+z). It sits
+  // well behind and above the pinsetter rig (the rig footprint is up around the
+  // head spot; the back wall is metres further down-lane at MACHINE_ROOM.backZ),
+  // so it reads plainly down-lane and is never occluded by the rig, cones, or
+  // pins (playtest follow-up to PR #61). The housing face hangs just in front of
+  // the wall inner plane; the small offset keeps it off the wall surface so it
+  // does not z-fight the wall or the gauges below it.
+  wallOffsetZ: 0.06,
+  center: {
+    x: 0,
+    // Above the back-wall gauge row (MACHINE_ROOM.gaugeY 1.4) and clear of the
+    // pin deck, in the upper band of the wall like a wall clock.
+    y: 2.15,
+    z: MACHINE_ROOM_BACK_Z + 0.06,
+  } as Vec3,
+  // Round wall-clock housing: a shallow disc flush to the wall holding the two
+  // lenses. radius is the outer rim; depth is how far it stands off the wall.
+  housingRadius: 0.34,
+  housingDepth: 0.1,
   // Lens radius and how far each lens centre sits above / below the housing
-  // centre (red on top, green below, like a real signal).
+  // centre (red on top, green below, like a real signal face).
   lensRadius: 0.11,
   lensOffsetY: 0.15,
-  // How far the lens face sits in front of the housing (+z, toward the bowler).
-  lensFrontZ: 0.1,
+  // How far the lens face sits in front of the housing rim (+z, toward the
+  // bowler), so the lit lens stands proud of the housing disc.
+  lensFrontZ: 0.06,
 } as const;
 
 // Shot-setup camera sequence (GDD 08-controls, REQ-033 lineup). The camera
@@ -606,7 +630,7 @@ export const MACHINE_ROOM = {
   // The room runs from behind the bowler (+z, past the approach) to behind the pit
   // (-z, past the pin deck), enclosing the whole playfield.
   frontZ: LANE.approachDepth + 0.6, //   back wall behind the bowler
-  backZ: LANE.headSpot.z - LANE.pinDeckDepth - LANE.pitLength - 0.6, // wall behind the pit
+  backZ: MACHINE_ROOM_BACK_Z, // wall behind the pit (shared back-wall plane)
   wallThickness: 0.1, //                 half-thickness of the shell slabs
 
   // Background conduit: horizontal pipe runs along the upper side walls, the kind

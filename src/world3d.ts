@@ -473,13 +473,16 @@ export class World3D {
     }
   }
 
-  // The lane-end go/stop signal lamp (REQ-038, look-and-feel). A physical traffic
-  // signal mounted down-lane above the pin deck, facing the bowler: a dark
-  // cast-metal housing with a red lens stacked over a green lens, like the signal
-  // at a Pins Mechanical lane. It replaces the on-screen HUD overlay light as the
-  // at-a-glance "is it my turn to throw" cue, visible down the whole lane from the
-  // bowler view. setThrowLight lights exactly one lens for the current state. The
-  // unlit lens drops to a near-black tinted material so only the live state glows.
+  // The lane-end go/stop signal lamp (REQ-038, look-and-feel). A physical signal
+  // mounted on the machine-room back wall like a clock on a wall, high above the
+  // pin deck and facing the bowler: a round dark cast-metal housing disc with a
+  // red lens stacked over a green lens. It hangs on the back-wall plane well
+  // behind and above the pinsetter rig, so it reads plainly down the whole lane
+  // from the bowler view and is never occluded by the rig, cones, or pins
+  // (playtest follow-up to PR #61). It replaces the on-screen HUD overlay light
+  // as the at-a-glance "is it my turn to throw" cue. setThrowLight lights exactly
+  // one lens for the current state; the unlit lens drops to a near-black tinted
+  // material so only the live state glows.
   private buildThrowLight(): void {
     const cfg = THROW_LIGHT_3D;
 
@@ -488,20 +491,24 @@ export class World3D {
     this.waitLitMat = this.surfaceMaterial(MATERIALS.signalWaitLit);
     this.waitDarkMat = this.surfaceMaterial(MATERIALS.signalWaitDark);
 
-    // The housing the two lenses sit in.
+    // The round wall-clock housing disc the two lenses sit in. A cylinder with
+    // its axis along z stands flush off the wall facing the bowler (+z).
     const housing = new THREE.Mesh(
-      new THREE.BoxGeometry(cfg.housingHalf.x * 2, cfg.housingHalf.y * 2, cfg.housingHalf.z * 2),
+      new THREE.CylinderGeometry(cfg.housingRadius, cfg.housingRadius, cfg.housingDepth, 32),
       this.surfaceMaterial(MATERIALS.signalHousing),
     );
-    housing.position.set(cfg.center.x, cfg.center.y, cfg.center.z);
+    // Lay the cylinder so its circular faces point down-lane (+z toward bowler).
+    housing.rotation.x = Math.PI / 2;
+    housing.position.set(cfg.center.x, cfg.center.y, cfg.center.z + cfg.housingDepth / 2);
     housing.castShadow = true;
     this.scene.add(housing);
 
-    // The lens faces sit on the front (+z, toward the bowler) of the housing; red
-    // on top, green below, like a real signal. A circle facing +z reads as the
-    // round lens; it starts dark and setThrowLight lights the active one.
+    // The lens faces sit on the front (+z, toward the bowler) of the housing disc;
+    // red on top, green below, like a real signal. A circle facing +z reads as the
+    // round lens; it starts dark and setThrowLight lights the active one. The
+    // lenses stand just proud of the disc's front face.
     const lensGeo = new THREE.CircleGeometry(cfg.lensRadius, 24);
-    const frontZ = cfg.center.z + cfg.lensFrontZ;
+    const frontZ = cfg.center.z + cfg.housingDepth + cfg.lensFrontZ;
 
     this.waitLens = new THREE.Mesh(lensGeo, this.waitDarkMat);
     this.waitLens.position.set(cfg.center.x, cfg.center.y + cfg.lensOffsetY, frontZ);
