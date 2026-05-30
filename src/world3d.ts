@@ -514,8 +514,9 @@ export class World3D {
     this.waitLitMat = this.surfaceMaterial(MATERIALS.signalWaitLit);
     this.waitDarkMat = this.surfaceMaterial(MATERIALS.signalWaitDark);
 
-    // The round wall-clock housing disc the two lenses sit in. A cylinder with
-    // its axis along z stands flush off the wall facing the bowler (+z).
+    // The round masking-header housing disc the two lenses sit in. A cylinder with
+    // its axis along z stands proud of the header facing the bowler (+z), mounted
+    // in front of the pinsetter rig so nothing in the machinery occludes it.
     const housing = new THREE.Mesh(
       new THREE.CylinderGeometry(cfg.housingRadius, cfg.housingRadius, cfg.housingDepth, 32),
       this.surfaceMaterial(MATERIALS.signalHousing),

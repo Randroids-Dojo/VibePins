@@ -212,35 +212,47 @@ export const MATERIALS = {
 // off the same plane rather than each recomputing it.
 export const MACHINE_ROOM_BACK_Z = LANE.headSpot.z - LANE.pinDeckDepth - LANE.pitLength - 0.6;
 
+// How far the pinsetter frame overhangs the front of the rack toward the bowler
+// (+z). Shared by the rig layout (PINSETTER.frameOverhang) and the masking-header
+// signal placement so the signal sits in front of one agreed rig front edge.
+const PINSETTER_FRAME_OVERHANG = 0.25;
+
+// Down-lane (z) of the pinsetter rig's frontmost edge, the closest point of the
+// machinery to the bowler. The frontmost rack row is the head spot; the frame
+// overhangs it toward the bowler by PINSETTER_FRAME_OVERHANG. Anything mounted at
+// a z greater than this (more toward the bowler, +z) sits in FRONT of the rig,
+// cones, and pins along the bowler sight line, so nothing in the machinery can
+// occlude it.
+export const PINSETTER_RIG_FRONT_Z = LANE.headSpot.z + PINSETTER_FRAME_OVERHANG;
+
 // The lane-end go/stop signal lamp (REQ-038, look-and-feel). A physical 3D
-// signal mounted on the machine-room back wall like a clock on a wall, high
-// above the pin deck and facing the bowler, with a red lens over a green lens.
-// It replaces the on-screen HUD overlay light as the at-a-glance "is it my turn
-// to throw" cue: RED while the machine owns the lane (ball rolling, rack
-// settling, pinsetter setting, loading / walk-up, or not your turn in a match),
-// GREEN only once the rack is set and the bowler can aim and throw. Mounted on
-// the back-wall plane well behind and above the pinsetter rig so it is plainly
-// visible down the whole lane from the bowler view and never occluded by the
-// rig, cones, or pins (playtest follow-up to PR #61).
+// signal mounted on the masking header above the pin-deck opening, the way a real
+// lane carries the signal on the masking unit in front of the machinery, with a
+// red lens over a green lens. It replaces the on-screen HUD overlay light as the
+// at-a-glance "is it my turn to throw" cue: RED while the machine owns the lane
+// (ball rolling, rack settling, pinsetter setting, loading / walk-up, or not your
+// turn in a match), GREEN only once the rack is set and the bowler can aim and
+// throw. Mounted in FRONT of the pinsetter rig (at a z toward the bowler of the
+// rig front edge) and above the pins, so the bowler sight line reaches it with
+// nothing (rig, cones, pins, or table) between, plainly visible down the whole
+// lane (playtest follow-up to PR #65, which had it on the back wall behind the rig
+// where the rig and cones occluded it).
 export const THROW_LIGHT_3D = {
-  // The signal is mounted on the back-wall plane like a clock on a wall, high
-  // above the pin deck and centred on the lane, facing the bowler (+z). It sits
-  // well behind and above the pinsetter rig (the rig footprint is up around the
-  // head spot; the back wall is metres further down-lane at MACHINE_ROOM.backZ),
-  // so it reads plainly down-lane and is never occluded by the rig, cones, or
-  // pins (playtest follow-up to PR #61). The housing face hangs just in front of
-  // the wall inner plane; the small offset keeps it off the wall surface so it
-  // does not z-fight the wall or the gauges below it.
+  // Kept for back-compat with the back-wall stand-off; unused now the signal hangs
+  // on the masking header in front of the rig.
   wallOffsetZ: 0.06,
   center: {
     x: 0,
-    // Above the back-wall gauge row (MACHINE_ROOM.gaugeY 1.4) and clear of the
-    // pin deck, in the upper band of the wall like a wall clock.
-    y: 2.15,
-    z: MACHINE_ROOM_BACK_Z + 0.06,
+    // High on the masking header above the pin deck, like a real masking unit:
+    // above the pins and above the back-wall gauge row, but below the ceiling.
+    y: 2.2,
+    // In FRONT of the rig front edge (toward the bowler, +z) so the rig, cones,
+    // and pins are all further down-lane and cannot occlude it. The clearance is
+    // larger than the housing depth so the whole disc clears the rig plane.
+    z: PINSETTER_RIG_FRONT_Z + 0.4,
   } as Vec3,
-  // Round wall-clock housing: a shallow disc flush to the wall holding the two
-  // lenses. radius is the outer rim; depth is how far it stands off the wall.
+  // Round wall-clock housing: a shallow disc holding the two lenses. radius is the
+  // outer rim; depth is how far it stands proud (toward the bowler, +z).
   housingRadius: 0.34,
   housingDepth: 0.1,
   // Lens radius and how far each lens centre sits above / below the housing
@@ -440,7 +452,9 @@ export const PINSETTER = {
   railHalfX: LANE.width / 2 - 0.06,
   beamThickness: 0.05, // square cross-section half-extent for rails and beams
   // How far the frame overhangs the rack front/back so the beams clear the pins.
-  frameOverhang: 0.25,
+  // Shared with the masking-header signal placement (PINSETTER_RIG_FRONT_Z) so the
+  // signal sits in front of one agreed rig front edge.
+  frameOverhang: PINSETTER_FRAME_OVERHANG,
 
   // Guide tubes: a short open tube hung from the frame above each pin, the cord
   // dropping through it toward the pin neck. They stop above the standing pins.
