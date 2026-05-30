@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { pinRackPositions, pinMassProperties } from '../src/pins.js';
-import { LANE } from '../src/config.js';
+import { pinRackPositions, pinMassProperties, duckpinProfilePoints } from '../src/pins.js';
+import { LANE, TETHER } from '../src/config.js';
 
 const ROW_GAP = LANE.pinSpacing * (Math.sqrt(3) / 2);
 
@@ -71,5 +71,55 @@ describe('pinMassProperties', () => {
     // The pin is taller than it is wide, so the tipping inertia about a
     // horizontal axis exceeds the spin inertia about the upright axis.
     expect(props.principalAngularInertia.y).toBeLessThan(props.principalAngularInertia.x);
+  });
+});
+
+describe('duckpinProfilePoints (REQ-026 squat silhouette)', () => {
+  const h = LANE.pinHeight;
+  const r = LANE.pinBellyRadius;
+  const profile = duckpinProfilePoints(h, r);
+
+  it('spans the full pin height from base to top, centred on the body', () => {
+    const ys = profile.map((p) => p.y);
+    expect(Math.min(...ys)).toBeCloseTo(-h / 2, 6);
+    expect(Math.max(...ys)).toBeCloseTo(h / 2, 6);
+  });
+
+  it('rises monotonically up the silhouette so the lathe revolves cleanly', () => {
+    for (let i = 1; i < profile.length; i += 1) {
+      expect(profile[i].y).toBeGreaterThanOrEqual(profile[i - 1].y);
+    }
+  });
+
+  it('caps the base and crown on the axis (closed solid, no open ends)', () => {
+    expect(profile[0].x).toBe(0);
+    expect(profile[profile.length - 1].x).toBe(0);
+  });
+
+  it('keeps every radius within the belly radius (belly is the widest point)', () => {
+    const widest = Math.max(...profile.map((p) => p.x));
+    expect(widest).toBeCloseTo(r, 6);
+    for (const p of profile) {
+      expect(p.x).toBeLessThanOrEqual(r + 1e-9);
+      expect(p.x).toBeGreaterThanOrEqual(0);
+    }
+  });
+
+  it('puts the fat belly low in the body, below the geometric centre', () => {
+    const belly = profile.reduce((a, b) => (b.x > a.x ? b : a));
+    expect(belly.y).toBeLessThan(0);
+  });
+
+  it('pinches in to a neck above the belly, near the cord anchor', () => {
+    const belly = profile.reduce((a, b) => (b.x > a.x ? b : a));
+    // The cord attaches at TETHER.neckLocalY above centre; the silhouette should
+    // narrow there relative to the belly so the cord leaves a real neck.
+    const neckBand = profile.filter(
+      (p) => p.y > belly.y && Math.abs(p.y - TETHER.neckLocalY) < h * 0.15,
+    );
+    expect(neckBand.length).toBeGreaterThan(0);
+    for (const p of neckBand) {
+      expect(p.x).toBeLessThan(belly.x * 0.7);
+    }
   });
 });

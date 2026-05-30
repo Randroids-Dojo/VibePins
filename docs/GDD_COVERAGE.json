@@ -402,7 +402,10 @@
         "tests/pins.test.ts",
         "tests/pins.smoke.test.ts"
       ],
-      "followupRefs": []
+      "followupRefs": [
+        "F-015"
+      ],
+      "note": "The squat belly-heavy collider/mass were already in place. The visual mesh now matches: PinSet builds a THREE.LatheGeometry revolved from a pure duckpinProfilePoints silhouette (small foot, fat low belly, pinched neck, small crown) instead of a plain cylinder, so the pins read clearly as duckpins. Collider stays a belly-radius cylinder and the tuned physics (mass, scatter REQ-030, cord neck anchor REQ-013/014, detection) is unchanged. Painted-wood material detail and the red neck band (look-and-feel) remain (F-015), so this stays partial."
     },
     {
       "id": "REQ-027",
