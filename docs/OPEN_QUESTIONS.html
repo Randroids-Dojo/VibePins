@@ -38,6 +38,23 @@
 <main id="open">
   <h2>Open</h2>
 
+  <section data-q="Q-035" data-status="open">
+    <h3>Q-035: How to remove the deck-lip seam that launched the ball</h3>
+    <dl>
+      <dt>Context</dt><dd>Playtest: the ball hit a lip around the second row of pins (just behind the head pin) and launched into the air. Root-caused in real Rapier: the lane bed and pin deck were two separate overlapping coplanar collider cuboids, and the deck cuboid's front vertical face was an internal seam edge inside the playable surface that a fast ball caught and climbed (same class as the PR #47 gutter-lip rail). The fix must remove the internal seam so the ball rolls flat across the whole deck.</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li>Unify the playable surface into ONE continuous collider slab (foul line to deck back) via a shared <code>laneSurfaceSpan()</code>, keeping the bed and deck as two separate VISUAL meshes for the look. No tunables change.</li>
+          <li>Keep two colliders but make them abut at the head spot with no overlap (a coincident face). A coincident face between two boxes can still produce a seam contact at speed, so it is riskier than one slab.</li>
+          <li>Re-tune ball CCD / contact params to ride over the seam. Treats the symptom, not the geometry, and is fragile across speeds.</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>A. One continuous slab is the simplest consistent fix (RULE 7): it eliminates the internal seam entirely rather than relying on a coincident face or contact tuning, changes no physics tunables, and keeps the bed/deck look unchanged (two meshes). Verified in real Rapier: the ball pops ~0.33 m off the old overlapping geometry and stays within 0.05 m of bed height across the whole deck after the fix (<code>tests/lane-physics.smoke.test.ts</code>, fails before, passes after). Shipped under A; left open for dev override after the re-playtest.</dd>
+      <dt>Owner</dt><dd>Playtest gate (Q-010).</dd>
+      <dt>Resolution</dt><dd>(shipped under Recommended default A in the deck-lip fix slice, PR #67; left open for dev override after the re-playtest)</dd>
+    </dl>
+  </section>
+
   <section data-q="Q-034" data-status="open">
     <h3>Q-034: Where on the back wall to mount the go/stop signal</h3>
     <dl>

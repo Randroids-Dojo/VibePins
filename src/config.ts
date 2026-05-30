@@ -1107,6 +1107,24 @@ export interface Box {
   readonly half: Vec3; // half-extents (x, y, z)
 }
 
+// The single playable-surface span in z: ONE continuous slab from the lane front
+// (foul line, z=0) back to the back of the pin deck. The lane bed and the pin
+// deck are drawn as two separate meshes (oiled wood, then brushed steel), but
+// their PHYSICS must be a single slab. Two overlapping coplanar collider cuboids
+// (the old separate bed + deck colliders, which overlapped ~0.15m around the head
+// spot) presented an internal vertical face at the deck front: a fast ball
+// rolling off the bed onto the deck caught that seam edge and was launched into
+// the air around the second row of pins (the deck-lip playtest bug, same class as
+// the PR #47 gutter-lip rail). A single slab has no internal seam, so the ball
+// rolls flat across the whole surface and into the pit. The top stays coplanar
+// with the lane bed at floorY. Derived here so world3d's collider and the lane
+// smoke tests share one source of truth.
+export function laneSurfaceSpan(): { centerZ: number; length: number } {
+  const frontZ = 0; // lane front at the foul line
+  const backZ = LANE.headSpot.z - LANE.pinDeckDepth; // back of the pin deck
+  return { centerZ: (frontZ + backZ) / 2, length: frontZ - backZ };
+}
+
 // The lane-and-deck run in z: from just behind the foul line back to the back
 // of the pin deck. Gutters span this whole run alongside the bed.
 const LANE_RUN_BACK_Z = LANE.headSpot.z - LANE.pinDeckDepth;

@@ -30,6 +30,7 @@ import {
   SPIN,
   gutterBoxes,
   pitBoxes,
+  laneSurfaceSpan,
   type Box,
 } from '../src/config.js';
 import { ballSpawnPosition, ballLaunchVelocity, spinFraction } from '../src/ball.js';
@@ -61,20 +62,16 @@ function addStaticBox(world: RAPIER.World, box: Box): void {
   world.createCollider(RAPIER.ColliderDesc.cuboid(box.half.x, box.half.y, box.half.z), body);
 }
 
-// Exactly the colliders world3d builds: lane bed, pin deck, gutters, and the pit
-// (the pit's back wall is what stops a carried-through ball, matching real play).
+// Exactly the colliders world3d builds: the single continuous lane-surface slab
+// (foul line to deck back, one slab with no internal seam, the deck-lip fix),
+// the gutters, and the pit (the pit's back wall is what stops a carried-through
+// ball, matching real play).
 function addLane(world: RAPIER.World): void {
-  const bed = world.createRigidBody(
-    RAPIER.RigidBodyDesc.fixed().setTranslation(0, LANE.floorY - 0.05, -LANE.length / 2),
+  const span = laneSurfaceSpan();
+  const surface = world.createRigidBody(
+    RAPIER.RigidBodyDesc.fixed().setTranslation(0, LANE.floorY - 0.05, span.centerZ),
   );
-  world.createCollider(RAPIER.ColliderDesc.cuboid(LANE.width / 2, 0.05, LANE.length / 2), bed);
-  const deck = world.createRigidBody(
-    RAPIER.RigidBodyDesc.fixed().setTranslation(0, LANE.floorY - 0.05, (FRONT_Z + BACK_Z) / 2),
-  );
-  world.createCollider(
-    RAPIER.ColliderDesc.cuboid(LANE.width / 2, 0.05, (FRONT_Z - BACK_Z) / 2),
-    deck,
-  );
+  world.createCollider(RAPIER.ColliderDesc.cuboid(LANE.width / 2, 0.05, span.length / 2), surface);
   for (const box of gutterBoxes()) addStaticBox(world, box);
   for (const box of pitBoxes()) addStaticBox(world, box);
 }
