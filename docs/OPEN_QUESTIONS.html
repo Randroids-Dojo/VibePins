@@ -289,6 +289,22 @@
 <aside id="resolved">
   <h2>Resolved</h2>
 
+  <section data-q="Q-030" data-status="resolved">
+    <h3>Q-030: Do the go/stop signal lenses follow the warm-metal palette invariant?</h3>
+    <dl>
+      <dt>Context</dt><dd>Moving the throw light into the 3D scene (playtest bug 1) adds green and red lens materials to <code>MATERIALS</code>. The palette test (REQ-041) enforces that every surface is warm (red channel &gt;= blue channel). A green "go" lens is blue-of-red by nature, so it fails that invariant. The light is a functional go/stop signal, not venue set dressing.</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li>Exempt the functional signal lens materials from the warm-palette invariant. A traffic signal reads as a signal precisely because it is saturated green / red, the universal go/stop cue. The housing and the unlit (dark) lenses stay warm; only the lit lenses are exempt.</li>
+          <li>Force the lenses into the warm palette (amber-green / amber-red). Keeps one invariant for all materials but muddies the at-a-glance green = go / red = wait read the whole feature exists to provide.</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>A. The warm-metal invariant governs the scene's set dressing, not a functional indicator; a real Pins Mechanical lane-end signal is green / red. The palette test now exempts the four signal lens materials by name and documents why; the housing and dark lenses remain warm. Shipped under A.</dd>
+      <dt>Status</dt><dd>resolved</dd>
+      <dt>Resolution</dt><dd>A, shipped in the lane-end-throw-light slice. <code>tests/palette.test.ts</code> filters the <code>signalGoLit</code> / <code>signalWaitLit</code> / <code>signalGoDark</code> / <code>signalWaitDark</code> materials out of the warmth assertions.</dd>
+    </dl>
+  </section>
+
   <section data-q="Q-022" data-status="resolved">
     <h3>Q-022: Where the bowler's gaze anchors when stepping to align</h3>
     <dl>

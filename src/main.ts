@@ -54,7 +54,6 @@ const statusEl = document.getElementById('status');
 // verbose in-game status text: the scoreboard carries frame/ball/score, and this
 // lamp is the at-a-glance "is it my turn to throw" cue (REQ-038, look-and-feel).
 const throwLightEl = document.getElementById('throw-light');
-const throwLightLabelEl = document.getElementById('throw-light-label');
 
 // App-shell overlays (REQ-045). The menu and summary screens gate the live game.
 const menuEl = document.getElementById('menu');
@@ -301,17 +300,30 @@ function setStatus(text: string): void {
   statusEl.hidden = text.length === 0;
 }
 
-// Drive the red/green throw light from the current shot phase. GREEN ('go') only
-// in the aiming phase (the player may throw); RED ('wait') for every machine-owned
-// phase. The accessible label and visible word change with it so the state is not
-// colour-only (RULE 10). Hidden outside live play (set by showScreen).
+// Drive the go/stop throw light from the current shot state. The light now lives
+// in the 3D scene as a physical signal at the lane end (world.setThrowLight); the
+// on-screen #throw-light element is kept only as a visually-hidden role=status so
+// screen-reader users still hear "Ready to throw" / "Wait" and the state is not
+// conveyed by the 3D colour alone (RULE 10).
+//
+// GREEN ('go') only when the rack is set AND the bowler has walked up to the line
+// and can aim (the aiming phase with the shot-setup camera at 'align' or
+// 'locked'). RED ('wait') for every other state: the whole reset / pin-setting
+// cycle, the ball in motion, the settling rack, the ball load and walk-up, and
+// game over. So the signal stays red while the pinsetter sets the rack and only
+// turns green once the lane is ready, the corrected timing.
+let lastThrowLight: ThrowLightState | null = null;
 function renderThrowLight(): void {
+  const state: ThrowLightState = throwLightFor(phase, shotCamera.currentPhase);
+  // The aiming branch calls this every frame to catch the walk-up to align
+  // transition; skip the work when the state has not actually changed.
+  if (state === lastThrowLight) return;
+  lastThrowLight = state;
+  world.setThrowLight(state);
   if (!throwLightEl) return;
-  const state: ThrowLightState = throwLightFor(phase);
   const label = state === 'go' ? 'Ready to throw' : 'Wait';
-  throwLightEl.dataset.light = state;
   throwLightEl.setAttribute('aria-label', label);
-  if (throwLightLabelEl) throwLightLabelEl.textContent = state === 'go' ? 'Go' : 'Wait';
+  throwLightEl.textContent = label;
 }
 
 function renderScore(): void {
@@ -1330,6 +1342,12 @@ function stepShotLoop(dt: number): void {
     renderLineup();
     // Slide the spin/power gauge needles to their live cursors (REQ-038).
     renderMeters();
+    // The aiming phase spans the ball load and walk-up before the bowler reaches
+    // the line, so the throw light stays RED through the walk-up and only turns
+    // GREEN once the camera reaches 'align' / 'locked'. The camera setup phase
+    // advances over these frames, so refresh the signal each aiming frame to catch
+    // that transition (renderThrowLight no-ops when nothing changed).
+    renderThrowLight();
   } else if (phase === 'watching') {
     const k = ball.kinematics();
     // Ball Cam (REQ-033 polish): when the setting is on, ride a damped chase cam

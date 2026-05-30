@@ -117,48 +117,22 @@
     }
     #status[hidden] { display: none; }
 
-    /* Throw light (REQ-038, look-and-feel). A Pins Mechanical style traffic lamp:
-       a single round lamp in a riveted metal housing that the player reads at a
-       glance instead of a sentence of status text. RED = wait (the machine owns
-       the lane: ball rolling, rack settling, pinsetter resetting, or game over).
-       GREEN = ready to aim and throw. The scoreboard carries frame / ball / score,
-       so this is the only persistent in-game cue. Non-interactive; sits at the
-       bottom centre above the canvas. The accessible label (role=status) reads
-       "Ready to throw" / "Wait" so the state is not conveyed by colour alone
-       (RULE 10), paired with the GO / WAIT word baked into the housing plate. */
+    /* Throw light (REQ-038, look-and-feel). The go/stop light is now a physical 3D
+       signal at the lane end (a Pins Mechanical style traffic signal mounted over
+       the pin deck, facing the bowler; built in src/world3d.ts). RED = the machine
+       owns the lane (ball rolling, rack settling, pinsetter setting pins, the ball
+       loading / walk-up, or game over, and "not your turn" in a match). GREEN =
+       the rack is set and the bowler is ready to aim and throw. This #throw-light
+       element no longer draws an on-screen lamp; it is kept only as a
+       visually-hidden role=status so screen-reader users still hear "Ready to
+       throw" / "Wait", so the state is never conveyed by the 3D colour alone
+       (RULE 10). src/main.ts updates its aria-label alongside the 3D signal. */
     #throw-light {
-      position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%);
-      display: flex; flex-direction: column; align-items: center; gap: 6px;
-      padding: 10px 12px 8px; border-radius: 8px;
-      background: linear-gradient(rgba(28, 26, 22, 0.94), rgba(16, 15, 12, 0.94));
-      border: 1px solid #5a4d34;
-      box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.06),
-        0 3px 10px rgba(0, 0, 0, 0.6);
-      pointer-events: none; user-select: none; z-index: 45;
+      position: fixed; width: 1px; height: 1px; margin: -1px; padding: 0;
+      overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%);
+      white-space: nowrap; border: 0;
     }
     #throw-light[hidden] { display: none; }
-    .vp-lamp {
-      width: 34px; height: 34px; border-radius: 50%;
-      border: 2px solid #2a2620;
-      box-shadow: inset 0 2px 3px rgba(0, 0, 0, 0.6);
-      background: radial-gradient(circle at 36% 30%, #3a3a3a, #1a1a1a 70%);
-      transition: background 0.15s ease, box-shadow 0.15s ease;
-    }
-    .vp-lamp-label {
-      font: 700 10px/1 ui-monospace, "SFMono-Regular", Menlo, monospace;
-      letter-spacing: 0.18em; text-transform: uppercase; color: #b9a87a;
-    }
-    #throw-light[data-light="go"] .vp-lamp {
-      background: radial-gradient(circle at 36% 30%, #b6ffb0, #2fbf3a 55%, #137a1c);
-      box-shadow: inset 0 2px 3px rgba(0, 0, 0, 0.3), 0 0 14px rgba(60, 220, 90, 0.7);
-    }
-    #throw-light[data-light="go"] .vp-lamp-label { color: #9fe88f; }
-    #throw-light[data-light="wait"] .vp-lamp {
-      background: radial-gradient(circle at 36% 30%, #ff9b8a, #d2402a 55%, #8a1c10);
-      box-shadow: inset 0 2px 3px rgba(0, 0, 0, 0.3), 0 0 14px rgba(220, 70, 50, 0.7);
-    }
-    #throw-light[data-light="wait"] .vp-lamp-label { color: #f0a08a; }
 
     /* First-run tutorial coach (REQ-047). A minimal metal-plate hint panel that
        names the current throw step and what one confirm does. Non-interactive
@@ -463,15 +437,12 @@
   <div id="status" aria-live="polite" hidden></div>
 
   <!-- Throw light (REQ-038, look-and-feel). A Pins Mechanical style red/green
-       lamp that replaces the verbose in-game status text. role=status with an
-       aria-label that reads "Ready to throw" / "Wait" so the state is announced
-       and never conveyed by colour alone (RULE 10). The GO / WAIT word on the
-       plate is the visible non-colour cue. Toggled and labelled by src/main.ts
-       from the shot phase; hidden outside live play. -->
-  <div id="throw-light" role="status" aria-label="Wait" data-light="wait" hidden>
-    <div class="vp-lamp" aria-hidden="true"></div>
-    <div id="throw-light-label" class="vp-lamp-label">Wait</div>
-  </div>
+       signal that lives in the 3D scene (src/world3d.ts). This element is the
+       visually-hidden accessible mirror of it: role=status with an aria-label that
+       reads "Ready to throw" / "Wait" so the state is announced to screen readers
+       and never conveyed by the 3D colour alone (RULE 10). Labelled by src/main.ts
+       from the corrected shot state; hidden outside live play. -->
+  <div id="throw-light" role="status" aria-label="Wait" hidden>Wait</div>
 
   <!-- First-run control tutorial coach (REQ-047). Populated and toggled by
        src/main.ts per throw step; aria-live so the step is announced. -->
