@@ -19,6 +19,8 @@ import {
   pitBoxes,
   pinsetterRigParts,
   machineRoomParts,
+  ballReturnParts,
+  BALL_RETURN,
   type Box,
   type RigBeam,
   type RigCylinder,
@@ -111,6 +113,24 @@ export class World3D {
     pinLight.shadow.camera.far = 6;
     this.scene.add(pinLight);
     this.scene.add(pinLight.target);
+
+    // Warm work-light over the ball-return / pickup area so the returning ball
+    // and the pickup moment read well lit instead of dim (playtest item 13;
+    // GDD 04-look-and-feel: "focused pools over the lane", REQ-041 warm
+    // industrial palette). A focused SpotLight hangs above the return on the
+    // throwing-hand side and points down at where the ball waits, mirroring the
+    // pin-deck hero light. Kept local (short range, soft cone) so it lights the
+    // pickup without washing out the moody machine-room falloff elsewhere.
+    const rp = SHOT_CAMERA.ballReturnPos;
+    const returnLight = new THREE.SpotLight(0xffc878, 26, 4.5, 0.7, 0.55, 1.5);
+    returnLight.position.set(rp.x + 0.2, 2.2, rp.z);
+    returnLight.target.position.set(rp.x, LANE.floorY, rp.z);
+    returnLight.castShadow = true;
+    returnLight.shadow.mapSize.set(512, 512);
+    returnLight.shadow.camera.near = 0.5;
+    returnLight.shadow.camera.far = 4;
+    this.scene.add(returnLight);
+    this.scene.add(returnLight.target);
   }
 
   private buildLane(): void {
@@ -133,18 +153,39 @@ export class World3D {
     this.scene.add(approach);
   }
 
-  // The ball return: a short steel rail beside the approach. The real ball rests
-  // here at the start of the shot and is picked up by the setup sequence.
+  // The metal ball return (REQ-039 / REQ-041): the chrome rack and return runway
+  // a Pins Mechanical lane brings the ball back along, modeled in polished steel
+  // and staged on the throwing-hand side just outside the approach. The pure
+  // ballReturnParts layout is the single source of truth (see config + the
+  // tests/ball-return.test.ts bounds checks). On the lane bed itself the ball
+  // still rests on a small brushed-steel pedestal at SHOT_CAMERA.ballReturnPos,
+  // where the shot-setup pickup grabs it; the new rack/runway sit just outboard
+  // of it so the return reads as the track the ball came up. The tilted runway
+  // rails carry the eye down-lane; the rack cradles the ball at the bowler end.
   private buildBallReturn(): void {
+    const parts = ballReturnParts();
+    const steel = this.surfaceMaterial(MATERIALS.polishedSteel);
+
+    // The runway rails tilt down toward the bowler so the ball would roll home.
+    const tilt = Math.atan2(BALL_RETURN.runwayRise, BALL_RETURN.zFront - BALL_RETURN.zBack);
+    for (const rail of parts.rails) {
+      const mesh = this.rigBeamMesh(rail, steel);
+      mesh.rotation.x = tilt;
+      this.scene.add(mesh);
+    }
+    this.scene.add(this.rigBeamMesh(parts.rack, steel));
+    for (const leg of parts.legs) this.scene.add(this.rigBeamMesh(leg, steel));
+
+    // The pedestal the playable ball actually rests on, on the lane side.
     const p = SHOT_CAMERA.ballReturnPos;
-    const rail = new THREE.Mesh(
+    const pedestal = new THREE.Mesh(
       new THREE.BoxGeometry(0.5, 0.12, 0.7),
       this.surfaceMaterial(MATERIALS.brushedSteel),
     );
-    rail.position.set(p.x, LANE.floorY + 0.06, p.z);
-    rail.castShadow = true;
-    rail.receiveShadow = true;
-    this.scene.add(rail);
+    pedestal.position.set(p.x, LANE.floorY + 0.06, p.z);
+    pedestal.castShadow = true;
+    pedestal.receiveShadow = true;
+    this.scene.add(pedestal);
   }
 
   // Flat inlay markers on the lane surface: the foul line, a row of guide dots

@@ -127,6 +127,11 @@ export const MATERIALS = {
   // Tuned warm-neutral (red >= blue) so the metal sits in the warm palette
   // rather than the cool blue-grey it read as before.
   brushedSteel: { color: 0x42403c, roughness: 0.5, metalness: 0.55 },
+  // Polished/chromed steel: the ball-return rack rails and the return runway,
+  // the bright machined metal a Pins Mechanical ball return is built from.
+  // Lighter and glossier than brushed steel so it catches the work-light as a
+  // chrome highlight; warm-neutral (red >= blue) to stay in the venue palette.
+  polishedSteel: { color: 0x9b958c, roughness: 0.22, metalness: 0.92 },
   // Blackened steel: the recessed gutters. Darker, a touch glossier.
   blackenedSteel: { color: 0x282624, roughness: 0.55, metalness: 0.6 },
   // Cast iron: the dim back pit and the overhead drive-unit housing.
@@ -566,6 +571,78 @@ export function machineRoomParts(): {
   };
 
   return { walls, ceiling, conduits, gauges, neighborRig };
+}
+
+// The metal ball return (GDD 04-look-and-feel#environment, REQ-039 / REQ-041),
+// the chrome rack and return runway a real Pins Mechanical lane brings the ball
+// back along. It is set dressing plus the visible runway the ball reads as
+// returning along: pure geometry, no colliders, staged on the throwing-hand
+// side (+x) just outside the approach so it never touches the lane, pins, or
+// cords. The rack sits at the bowler end where the ball waits (around
+// SHOT_CAMERA.ballReturnPos); the runway is a pair of polished rails that run
+// down-lane from the rack so the eye reads a track the ball came up. Sizes are
+// tunable here so the return can be re-staged from one place (REQ-025).
+export const BALL_RETURN = {
+  // Centre x of the return assembly: just outside the approach floor edge on the
+  // throwing-hand (+x) side, so it frames the bowler without sitting on the walk-up.
+  centerX: (LANE.width + 0.6) / 2 + 0.22,
+  // The polished rails the ball rides: two parallel runners with a ball-width gap.
+  railHalfX: 0.04, //          half-width of each runner
+  railGap: 0.09, //            inner gap between the two runners (just under a ball)
+  railTopY: LANE.floorY + 0.16, // rail height at the bowler end (where the ball waits)
+  // The runway runs from just behind the bowler down toward the foul line so it
+  // reads as the track the ball returned up. zFront is nearer the camera (+z).
+  zFront: SHOT_CAMERA.ballReturnPos.z + 0.45,
+  zBack: -0.2,
+  // The runway tilts down toward the bowler so the ball would roll home: the
+  // far (down-lane) end sits this much higher than the bowler end.
+  runwayRise: 0.14,
+  // The rack housing the ball waits in: a chrome cradle box around ballReturnPos.
+  rackSize: { x: 0.34, y: 0.2, z: 0.5 } as Vec3,
+  // Two upright legs carry the runway off the approach floor.
+  legHalf: { x: 0.03, z: 0.03 } as Vec3,
+  legY: LANE.floorY, //        legs stand on the floor
+} as const;
+
+// Pure layout of the metal ball return (REQ-039 / REQ-041), derived from
+// BALL_RETURN, SHOT_CAMERA, and LANE so the world3d meshes and a unit test share
+// one source of truth. Returns the two polished runway rails (each a tilted beam),
+// the chrome rack cradle at the bowler end, and the support legs. No physics: set
+// dressing staged off the playfield (every part sits beyond the bed + gutter on
+// the +x side).
+export function ballReturnParts(): {
+  rails: RigBeam[];
+  rack: RigBeam;
+  legs: RigBeam[];
+} {
+  const b = BALL_RETURN;
+  const centerZ = (b.zFront + b.zBack) / 2;
+  const halfZ = (b.zFront - b.zBack) / 2;
+  // The runway midline rides at the rail-top height, lifted half the rise so the
+  // tilt pivots about its centre (front end low at the bowler, back end raised).
+  const railCenterY = b.railTopY + b.runwayRise / 2;
+
+  const rails: RigBeam[] = ([-1, 1] as const).map((side) => ({
+    center: { x: b.centerX + side * (b.railGap / 2 + b.railHalfX), y: railCenterY, z: centerZ },
+    half: { x: b.railHalfX, y: 0.03, z: halfZ },
+  }));
+
+  // The chrome rack cradle sits at the bowler end, centred on where the ball waits.
+  const rack: RigBeam = {
+    center: { x: b.centerX, y: b.railTopY - b.rackSize.y / 2 + 0.04, z: SHOT_CAMERA.ballReturnPos.z },
+    half: { x: b.rackSize.x / 2, y: b.rackSize.y / 2, z: b.rackSize.z / 2 },
+  };
+
+  // Two legs under the runway (one near each end) carrying it off the floor.
+  const legs: RigBeam[] = ([b.zFront - 0.3, b.zBack + 0.3] as const).map((z) => {
+    const top = railCenterY - 0.03;
+    return {
+      center: { x: b.centerX, y: (b.legY + top) / 2, z },
+      half: { x: b.legHalf.x, y: (top - b.legY) / 2, z: b.legHalf.z },
+    };
+  });
+
+  return { rails, rack, legs };
 }
 
 // Pin standing/fallen detection tunables (GDD 03-string-pinsetter, REQ-016/017).
