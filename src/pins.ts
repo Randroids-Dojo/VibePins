@@ -226,6 +226,24 @@ export class PinSet {
     }
   }
 
+  // Release the given carried pins to the dynamics WHERE THEY ARE (no teleport,
+  // no zeroed velocity), so the real rope joints and pin-to-pin collisions act on
+  // them. Used by the tangle drop-and-unwind recovery (REQ-024): a snagged cluster
+  // dropped this way swings and unwinds under gravity instead of being scripted.
+  // Unlike endReset this keeps the pin's current motion so the drop reads as the
+  // strings paying out, not a hard reset.
+  releaseToDynamics(pinIndices: readonly number[]): void {
+    for (const i of pinIndices) this.pins[i].body.setBodyType(RAPIER.RigidBodyType.Dynamic, true);
+  }
+
+  // Re-capture the given pins as kinematic at their current pose so the reset can
+  // reel them back up from wherever the release left them. The counterpart to
+  // releaseToDynamics in the recovery loop (REQ-024): after gravity has swung the
+  // dropped pins, this freezes them so the re-lift carries them up cleanly.
+  recaptureKinematic(pinIndices: readonly number[]): void {
+    for (const i of pinIndices) this.pins[i].body.setBodyType(RAPIER.RigidBodyType.KinematicPositionBased, true);
+  }
+
   // Hand the given pins back to the dynamics, at rest. Call when the reset
   // completes; the pins are then standing on their home spots under gravity.
   endReset(pinIndices: readonly number[]): void {

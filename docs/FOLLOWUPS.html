@@ -136,6 +136,16 @@
 <section id="polish">
   <h2>Polish</h2>
 
+  <section data-f="F-014" data-priority="polish">
+    <h3>F-014: Tune the tangle drop-and-unwind recovery for feel against the playtest gate</h3>
+    <dl>
+      <dt>Context</dt><dd>The reset tangle drop-and-unwind recovery (REQ-024) shipped with first-pass <code>TANGLE</code> tunables (Q-020): drop height <code>releaseY</code> 0.32m, settle window 30 frames, retry cap 4, and a tangle read of "any pin moving OR any two pins piled within 0.12m". The recovery is emergent and the product owner will playtest the feel: how often a recall visibly struggles, how big and how lingering the drop reads, and whether the read trips too often or too rarely. See <a href="gdd/03-string-pinsetter.html#tangle-drop-unwind">string pinsetter, drop-and-unwind recovery</a>.</dd>
+      <dt>Blocker</dt><dd>none; the recovery loop and the single <code>TANGLE</code> config block already exist.</dd>
+      <dt>Unblock condition</dt><dd>playtest the recall struggle and re-tune the <code>TANGLE</code> values (and the detection thresholds in <code>isRackTangled</code>) so the struggle reads as charming and lands at the desired frequency without dragging the loop, then record the resolution on Q-020.</dd>
+      <dt>PR / Dot reference</dt><dd>(not started)</dd>
+    </dl>
+  </section>
+
   <section data-f="F-003" data-priority="polish">
     <h3>F-003: Code-split the production bundle</h3>
     <dl>

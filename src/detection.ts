@@ -132,3 +132,44 @@ export class SettleWindow {
 export function detectPins(pinSet: PinSet, thresholds: StandingThresholds): PinState[] {
   return classifyRack(pinSet.pinStates(), thresholds);
 }
+
+export interface TangleThresholds {
+  // Two pins whose horizontal centres are closer than this have piled on top of
+  // one another (a crossed-cord snag dragged them together), so the rack reads
+  // tangled. A clean rack let loose drops onto its own distinct columns.
+  readonly pileDistance: number;
+  // A pin still swinging/colliding faster than these has not settled, so the rack
+  // is not yet hanging clear and still, and reads tangled.
+  readonly atRestLinSpeed: number;
+  readonly atRestAngSpeed: number;
+}
+
+// Horizontal (x,z) distance between two pin centres.
+function horizontalDist(a: PinKinematics, b: PinKinematics): number {
+  return Math.hypot(a.position.x - b.position.x, a.position.z - b.position.z);
+}
+
+// Is the rack tangled when let loose for the reset's hang test (REQ-024)? When the
+// reeled rack is released onto its cords, a clean rack drops onto its own distinct
+// columns and settles still, while a crossed-cord snag drags pins together into a
+// pile and keeps the cluster swinging. The rack reads tangled if any pin is still
+// moving above the at-rest speeds OR any two pins have piled within pileDistance
+// of each other. Pure: reads plain kinematics; the adapter passes the live sim
+// reading at the checkpoint. The clearanceY argument is unused by this read and
+// kept for the adapter call-site signature stability across tuning.
+export function isRackTangled(
+  states: readonly PinKinematics[],
+  _clearanceY: number,
+  thresholds: TangleThresholds,
+): boolean {
+  const moving = states.some(
+    (s) => s.linSpeed > thresholds.atRestLinSpeed || s.angSpeed > thresholds.atRestAngSpeed,
+  );
+  if (moving) return true;
+  for (let i = 0; i < states.length; i += 1) {
+    for (let j = i + 1; j < states.length; j += 1) {
+      if (horizontalDist(states[i], states[j]) < thresholds.pileDistance) return true;
+    }
+  }
+  return false;
+}

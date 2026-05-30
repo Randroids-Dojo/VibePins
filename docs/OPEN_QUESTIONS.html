@@ -38,6 +38,23 @@
 <main id="open">
   <h2>Open</h2>
 
+  <section data-q="Q-020" data-status="open">
+    <h3>Q-020: Tangle drop-and-unwind recovery tunables (drop height, settle window, retry cap, tangle threshold)</h3>
+    <dl>
+      <dt>Context</dt><dd>The reset's tangle drop-and-unwind recovery (REQ-024) is governed by the <code>TANGLE</code> config block: how far the rack is lowered for the hang test (<code>releaseY</code>), how long it is let loose to settle before the read (<code>verifyFrames</code>), how many drop-and-unwind retries before a force-clear (<code>maxRetries</code>), and the read thresholds (<code>pileDistance</code> and the at-rest speeds). These set how often a recall actually struggles and how the struggle reads (how big the drop is, how long it lingers, how snappy the retries feel). The recovery is emergent and chaotic, so the values trade legibility (a clear, charming struggle) against pace (not dragging the loop) and against false positives/negatives in the tangle read.</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li>Ship the first-pass defaults: <code>releaseY</code> 0.32m (a soft, legible drop just above the deck), <code>verifyFrames</code> 30 (~0.5s settle), <code>releaseFrames</code> 30 and <code>reLiftFrames</code> 24, <code>maxRetries</code> 4, and a tangle read of "any pin still moving OR any two pins piled within <code>pileDistance</code> 0.12m". Tighten against the playtest gate.</li>
+          <li>Make the struggle rarer / faster (lower retry cap, shorter settle), trading charm for pace.</li>
+          <li>Make the struggle more pronounced (bigger drop, longer settle, looser tangle threshold so more recalls visibly struggle), trading pace for show.</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>A. The first-pass values give a soft, legible drop that settles cleanly (a clean rack passes on the first drop with zero retries in the real-Rapier smoke) and a bounded loop that always terminates and sets the rack; the product owner will playtest the feel and the threshold can be re-tuned from the one <code>TANGLE</code> block (REQ-025). Tracked for tuning as FOLLOWUPS F-014.</dd>
+      <dt>Status</dt><dd>open</dd>
+      <dt>Resolution</dt><dd>(filled in once dev confirms or overrides after playtest)</dd>
+    </dl>
+  </section>
+
   <section data-q="Q-019" data-status="open">
     <h3>Q-019: Where a re-spotted standing pin lands, its home spot vs its nudged resting position</h3>
     <dl>

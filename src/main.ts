@@ -14,8 +14,8 @@
 import { createWorld3D } from './world3d.js';
 import { PinSet, pinRackPositions } from './pins.js';
 import { Ball, ballSpawnPosition } from './ball.js';
-import { detectPins, SettleWindow } from './detection.js';
-import { ResetCycle, type ResetMode } from './reset.js';
+import { detectPins, isRackTangled, SettleWindow } from './detection.js';
+import { ResetCycle, type ResetMode, type ResetPhase } from './reset.js';
 import { ShotCamera, canThrow, lineupMarkerOffset, lineupFractionFromOffset, shotMetersVisibility } from './camera.js';
 import { SweepMeter, meterBandSpan } from './meter.js';
 import { Game } from './game.js';
@@ -42,7 +42,7 @@ import { MatchFrameAccumulator } from './matchFrame.js';
 import { Tutorial } from './tutorial.js';
 import { AudioEngine } from './audio.js';
 import { VictoryRoutine } from './victory.js';
-import { DETECTION, FOUL, GUTTER, LANE, PIN_REST_Y, POWER, RESET, SHOT, SHOT_CAMERA, SPIN, VICTORY } from './config.js';
+import { DETECTION, FOUL, GUTTER, LANE, PIN_REST_Y, POWER, RESET, SHOT, SHOT_CAMERA, SPIN, TANGLE, VICTORY } from './config.js';
 
 const canvas = document.getElementById('lane') as HTMLCanvasElement | null;
 if (!canvas) {
@@ -147,7 +147,7 @@ const ball = new Ball(world);
 let game = new Game();
 const scoreboard = scoreboardEl ? new Scoreboard(scoreboardEl) : null;
 
-const reset = new ResetCycle({ ...RESET, restY: PIN_REST_Y });
+const reset = new ResetCycle({ ...RESET, ...TANGLE, restY: PIN_REST_Y });
 const settle = new SettleWindow(DETECTION, DETECTION.settleAtRestFrames, DETECTION.settleMaxFrames);
 const shotWatcher = new ShotWatcher(SHOT);
 // Over-the-line release detection (REQ-032). Watches the thrown ball's down-lane
@@ -258,6 +258,10 @@ let resetMode: ResetMode = 'rerack';
 // them back. Tracked so the rerack carries exactly the held pins home alongside
 // the freshly fallen ones.
 let clearedPins = new Set<number>();
+// The reset phase on the previous tick, so stepReset can act on the frame a
+// recovery sub-phase is entered (release the rack to the dynamics for the tangle
+// hang test, re-capture it kinematic before the re-lift). Reset on each cycle.
+let prevResetPhase: ResetPhase = 'idle';
 
 const ALIGN_STEP = 0.04;
 
@@ -399,6 +403,7 @@ function startReset(mode: ResetMode): void {
   const heldAloft = mode === 'rerack' ? fallen : [...new Set([...fallen, ...clearedPins])];
   pins.beginReset(allPins);
   reset.start(mode, heldAloft, pinRackPositions(), settled);
+  prevResetPhase = 'idle';
   // The pinsetter's signature voice: servo whir, taut cords, relay clicks, the
   // rack thunking home (REQ-043).
   audio.playStringReset();
@@ -1182,6 +1187,64 @@ function frame(now: number): void {
   requestAnimationFrame(frame);
 }
 
+// Pin indices the active reset is carrying (the whole reeled rack).
+function reeledPins(): number[] {
+  return [...reset.targets];
+}
+
+// One tick of the reset cycle, including the tangle drop-and-unwind recovery
+// (REQ-024). The pure ResetCycle drives the phase timing and the bounded retry
+// loop; this adapter wires it to the real physics so the struggle is visible and
+// the tangle verdict reads from the live sim:
+//
+//   settle-hold / lift / re-lift / reposition / lower: the carried pins are
+//     kinematic and follow the cycle's targets (the strings reeling them).
+//   release: the reeled pins are lowered kinematically from the aloft clearance
+//     down to just above the deck (releaseY), a visible drop, the strings paying
+//     out.
+//   verify-clear: the lowered rack is let LOOSE on its cords (made dynamic) so it
+//     settles under gravity; a clear rack lands on its own distinct columns and
+//     stills, a tangled one piles up snagged or keeps swinging. The verdict reads
+//     that live state (isRackTangled) and feeds the cycle, which re-lifts then
+//     either sets the rack (clear, or the retry cap reached: a force-clear so the
+//     reset never hangs) or drops and unwinds again.
+function stepReset(dt: number): void {
+  const targets = reset.update(dt);
+  const phase = reset.phase;
+
+  // Entering verify-clear: the rack has been lowered to just above the deck; let
+  // it loose on its cords so the settle and the tangle read run on real physics.
+  if (phase === 'verify-clear' && prevResetPhase !== 'verify-clear') {
+    pins.releaseToDynamics(reeledPins());
+  }
+
+  // The tangle verdict: the settle window has elapsed and the cycle is paused for
+  // a read. Classify the live (loose, settled) rack and feed the cycle; it re-lifts
+  // and then either proceeds (clear / force-clear) or drops to keep unwinding.
+  if (reset.needsTangleVerdict) {
+    const tangled = isRackTangled(pins.pinStates(), RESET.liftPinY, TANGLE);
+    reset.reportTangle(tangled);
+    prevResetPhase = phase;
+    return;
+  }
+
+  // Entering re-lift: the rack is loose and resting near the deck after its drop.
+  // Re-capture it kinematic where it landed so the re-lift reels it up cleanly and
+  // the next phase starts from its new position rather than snapping back.
+  if (phase === 're-lift' && prevResetPhase !== 're-lift') {
+    pins.recaptureKinematic(reeledPins());
+    reset.updateSettled(pins.pinStates().map((s) => s.position));
+  }
+
+  // Apply the kinematic carry on every phase except verify-clear, where the rack
+  // is dynamic and physics owns its motion.
+  if (phase !== 'verify-clear') {
+    pins.resetStep(targets);
+  }
+
+  prevResetPhase = phase;
+}
+
 // One tick of the live shot phase machine. Split from frame() so the menu/
 // summary guard reads as a single condition rather than wrapping the whole body.
 function stepShotLoop(dt: number): void {
@@ -1216,7 +1279,7 @@ function stepShotLoop(dt: number): void {
     const result = settle.step(pins.pinStates());
     if (result.settled) recordSettledBall(result.standingCount);
   } else if (phase === 'resetting') {
-    pins.resetStep(reset.update(dt));
+    stepReset(dt);
     if (reset.isComplete()) {
       // The pins lowered onto a home spot are handed back to the dynamics at rest
       // (all ten on a rerack; the standing pins on a between-balls cycle). The
