@@ -320,6 +320,22 @@
 <aside id="resolved">
   <h2>Resolved</h2>
 
+  <section data-q="Q-033" data-status="resolved">
+    <h3>Q-033: Line-up camera is a lateral sidestep (no pivot), and how far it travels</h3>
+    <dl>
+      <dt>Context</dt><dd>Supersedes Q-022. A product-owner re-playtest (playtest bug 2) found that the eye-only shift shipped under Q-022 option A made the whole lane appear to ROTATE as the slider moved: anchoring the look-at on a fixed centred down-lane point while sliding the eye swings the gaze, which reads as a pivot, worse than the original imperceptible parallel slide. The line-up should read as the bowler stepping sideways while still looking straight ahead, not the lane spinning.</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li>True lateral sidestep: translate the eye AND the look-at by the same lateral amount so the view direction stays parallel down-lane (no pivot). Rely on near-field parallax (foul line, gutters, ball return, lane edges) to make the step read, and widen the lateral travel so a parallel step over the long sight line is clearly visible.</li>
+          <li>Keep the eye-only pivot from Q-022 but reduce its magnitude so the rotation is subtle. Still a rotation; the playtest already rejected the rotation read.</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>A. A sidestep is what lining up at a lane physically is, and translating eye and look-at together is the cleanest no-rotation contract (the camera tests assert the view direction is constant across all stances). Step magnitude: <code>SHOT_CAMERA.alignLimit</code> widened from 0.34 to <strong>0.55 m per side</strong> (a ~1.1 m sidestep end to end). This is wide enough that the near-field parallax of a parallel step is clearly visible, while the bowler still stays over the ~1.05 m lane bed and the off-centre stance keeps aiming the ball back toward the pocket (<code>baseAimLateralSpeed</code>, unchanged). Shipped under A. Revisit the 0.55 m value if a later playtest finds the step too wide or still too subtle.</dd>
+      <dt>Owner</dt><dd>Playtest gate (Q-010).</dd>
+      <dt>Resolution</dt><dd>A, shipped in the lineup-sidestep slice. <code>src/camera.ts</code> <code>shiftX</code> translates the eye and the look-at by the same x (parallel gaze, no pivot); <code>src/config.ts</code> <code>SHOT_CAMERA.alignLimit</code> is 0.55. Supersedes Q-022 (whose eye-only anchor caused the pivot).</dd>
+    </dl>
+  </section>
+
   <section data-q="Q-030" data-status="resolved">
     <h3>Q-030: Do the go/stop signal lenses follow the warm-metal palette invariant?</h3>
     <dl>

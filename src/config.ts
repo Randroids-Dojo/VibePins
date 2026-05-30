@@ -249,8 +249,14 @@ export const SHOT_CAMERA = {
   pickupSeconds: 1.3,
   walkupSeconds: 2.0,
 
-  // Max lateral stance shift (metres) while aligning at the line.
-  alignLimit: 0.34,
+  // Max lateral stance shift (metres) while aligning at the line. This is now a
+  // true lateral sidestep (the eye AND the look-at translate together, so the gaze
+  // stays parallel down-lane with no pivot, playtest bug 2). A parallel step over
+  // the long sight line is only perceptible through near-field parallax (the rail,
+  // gutters, ball return, lane edges), so the travel is widened from the old 0.34
+  // to 0.55 m per side (a ~1.1 m sidestep end to end) so the reposition clearly
+  // reads as the bowler stepping sideways while staying over the lane bed.
+  alignLimit: 0.55,
 
   // Optional ball-cam chase view (REQ-033 polish, persisted setting default off).
   // When on, the watching phase rides behind and above the rolling ball, looking
