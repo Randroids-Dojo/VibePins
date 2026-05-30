@@ -206,6 +206,48 @@ export const MATERIALS = {
   signalWaitDark: { color: 0x3a120c, roughness: 0.5, metalness: 0.3 },
 } as const satisfies Record<string, SurfaceMaterial>;
 
+// Scene lighting and atmosphere tunables (GDD 04-look-and-feel#palette-lighting,
+// REQ-041). The single source of truth for the scene's light rig and fog, so the
+// venue mood can be re-tuned from one place (REQ-025). The GDD calls for warm
+// industrial work-light: focused pools over the lane and rig with soft falloff into
+// a dim machine room, plus scene fog for depth. This block lifts the venue out of
+// the near-black it played as (playtest 2026-05-30: "too dark") WITHOUT washing out
+// the moody industrial palette: a touch more warm ambient and a low warm hemisphere
+// fill give the room shape and depth, the directional key warms and brightens, and
+// a dim warm lane glow lights the neighbour lanes and the bed so the venue reads as
+// inhabited rather than a single pool in the void. Every colour is warm (red >=
+// blue) so the palette never drifts cool. The hero pin-deck and pickup spots stay
+// the brightest pools so focus is preserved.
+export const ATMOSPHERE = {
+  // Background / fog colour: a warm near-black so the venue recedes into warm dark
+  // rather than flat black (lifted a hair from the old 0x0b0806 so depth reads).
+  bgColor: 0x110d09,
+  // Warm ambient: the base light that keeps the whole venue readable. Lifted from
+  // the old 0.38 so the dark machine room is moody, not pitch black.
+  ambientColor: 0xc79a6a,
+  ambientIntensity: 0.52,
+  // Warm hemisphere fill: a soft sky/ground gradient that gives the room volume and
+  // depth without a hard shadow. Sky is the warm work-light tone, ground a dim warm
+  // floor bounce; low intensity so it lifts the dark without flattening the mood.
+  hemisphereSky: 0xffd9a0,
+  hemisphereGround: 0x1a120a,
+  hemisphereIntensity: 0.45,
+  // Warm directional key across the whole lane (the main shaping light). Warmed and
+  // brightened a touch from the old 1.0 so the bed and rig catch a clear highlight.
+  keyColor: 0xffd9a0,
+  keyIntensity: 1.15,
+  // Dim warm lane-glow point lights spaced down the venue, the soft pools a row of
+  // work-lights throws over the lanes. They light the neighbour lanes and the player
+  // bed midway down so the venue reads inhabited, with a short range and low
+  // intensity so the falloff into the dark machine room is preserved (not washed
+  // out). count pools are spread evenly down-lane between the foul line and the deck.
+  laneGlowColor: 0xffbf80,
+  laneGlowIntensity: 14,
+  laneGlowRange: 7.5,
+  laneGlowY: 2.6,
+  laneGlowCount: 3,
+} as const;
+
 // Inner face of the machine-room back wall (the plane the wall slab presents to
 // the lane, behind the pit at -z). Derived once here so both the wall-mounted
 // go/stop signal (THROW_LIGHT_3D) and the room shell (MACHINE_ROOM.backZ) hang
@@ -660,9 +702,14 @@ export function pinsetterRigParts(rackPositions: readonly Vec3[]): {
 // colliders, well off the playfield so it never touches the ball, pins, or cords.
 // All sizes are tunable here so the room can be re-staged from one place (REQ-025).
 export const MACHINE_ROOM = {
-  // The room shell: a floor-to-ceiling box around the lane. Walls sit just outside
-  // the gutters; the ceiling hangs above the pinsetter frame so the rig stays clear.
-  wallHalfX: LANE.width / 2 + LANE.gutterWidth + 0.5, // each side wall offset from centre
+  // The room shell: a floor-to-ceiling box around the lane. The room is widened to
+  // each side so a neighbouring lane (NEIGHBOR_LANES) fits in the periphery between
+  // the player's gutter and the side wall, and the room reads as one bay in a row
+  // of lanes rather than a solo booth. The wall still sits well outside the player
+  // gutter (the machine-room test asserts the inner face clears the playfield).
+  // The pitch is one player-lane-plus-gutters span (NEIGHBOR_PITCH below) per
+  // neighbour, plus an outer margin past the far neighbour gutter to the wall.
+  wallHalfX: 3 * (LANE.width / 2 + LANE.gutterWidth) + 0.5, // each side wall offset from centre
   ceilingY: TETHER.topY + 0.9, //        ceiling height above the floor
   // The room runs from behind the bowler (+z, past the approach) to behind the pit
   // (-z, past the pin deck), enclosing the whole playfield.
@@ -771,6 +818,130 @@ export function machineRoomParts(): {
   };
 
   return { walls, ceiling, conduits, gauges, neighborRig };
+}
+
+// Centre-to-centre spacing between adjacent lanes (the player lane and a neighbour,
+// or two neighbours): one full lane-bed-plus-both-gutters span. The neighbours are
+// laid out on this pitch so the row of lanes reads as evenly spaced bays.
+const NEIGHBOR_PITCH = LANE.width + 2 * LANE.gutterWidth;
+
+// Neighbouring lanes with other bowlers (GDD 04-look-and-feel#environment, REQ-039).
+// The venue is a row of lanes, not a solo booth: low-detail neighbour lanes sit on
+// each side of the player's lane, each with its own dim bed, a standing pin rack at
+// the far end, and a simple looped bowler figure that periodically walks up and
+// swings. They are background atmosphere only (pure geometry and a kinematic figure
+// animation, NO physics, NO colliders, NO gameplay), staged well off the player's
+// playfield so they never touch the ball, pins, or cords. The figures keep the
+// venue alive while the moody industrial work-light still falls off into the dark.
+// All sizes are tunable here so the row can be re-staged from one place (REQ-025).
+export const NEIGHBOR_LANES = {
+  // How many neighbour lanes per side (one each side keeps the bundle small while
+  // the venue reads as a row of bays; the figures are instanced so this can grow).
+  perSide: 1,
+  // Lateral pitch between the player lane and each neighbour (and between
+  // neighbours, for perSide > 1).
+  pitch: NEIGHBOR_PITCH,
+  // The neighbour bed: a darker, matte wood slab, narrower hint of a lane receding
+  // into the fog. Its top sits at the lane floor so it reads coplanar with ours.
+  bedWidth: LANE.width,
+  // The neighbour lane runs from roughly the foul line down to its pin deck, the
+  // same span as ours so the beds line up across the row.
+  bedFrontZ: 0,
+  bedBackZ: LANE.headSpot.z,
+  // Neighbour pins: a single standing rack at the far end, drawn as squat capsule
+  // stand-ins (no per-pin rig) so the far lane reads as set and ready. The rack is
+  // the same 4-row duckpin triangle as ours, scaled in place by pinRackPositions.
+  pinColor: 0xd8c7a6, // painted-wood duckpin, warm off-white
+  pinNeckColor: 0x8c2f22, // the red neck band real duckpins carry
+  bedColor: 0x3a2c1c, //   darker oiled wood than the player bed, dim in the periphery
+  // The bowler figure: a low-poly silhouette (torso + head + two legs + a swinging
+  // arm holding a ball), built from a few boxes/spheres so it reads as a person in
+  // the periphery without any rig. Dark, lit only by the falloff of the work-light.
+  figureColor: 0x14110e,
+  figureHeight: 1.7, //    standing height of the figure (metres)
+  ballColor: 0x1a1714, //  the dark house ball the neighbour bowler carries
+  // The figure stands behind its lane's foul line (toward the camera, +z), on the
+  // neighbour approach, and walks up toward the line during its approach phase.
+  standZ: LANE.approachDepth * 0.7,
+  walkupReach: 0.9, //     how far the figure walks toward the foul line on approach
+  // The looped approach-and-swing cycle period (seconds). Each neighbour figure runs
+  // the same loop at its own phase offset so the lanes are not in lockstep.
+  cycleSeconds: 6.0,
+} as const;
+
+// One placed neighbour lane: its lateral centre x and the start phase of its bowler
+// loop, so adjacent lanes animate out of sync.
+export interface NeighborLanePlacement {
+  readonly centerX: number;
+  readonly side: -1 | 1;
+  readonly phase: number; // 0..1 start offset into the bowler cycle
+}
+
+// Pure layout of the neighbouring lanes (REQ-039): the lateral centre of each
+// neighbour lane on each side, on the NEIGHBOR_LANES.pitch, with a per-lane phase
+// offset so their bowler loops are staggered. Returned left-to-right. Pure so the
+// placement (count, spacing, staying inside the room) is unit-testable without
+// booting Three.js.
+export function neighborLaneLayout(): NeighborLanePlacement[] {
+  const n = NEIGHBOR_LANES;
+  const out: NeighborLanePlacement[] = [];
+  for (const side of [-1, 1] as const) {
+    for (let i = 1; i <= n.perSide; i += 1) {
+      // A deterministic phase offset per placed lane so adjacent bowlers stagger.
+      const phase = ((side === -1 ? i : i + n.perSide) * 0.37) % 1;
+      out.push({ centerX: side * i * n.pitch, side, phase });
+    }
+  }
+  return out.sort((a, b) => a.centerX - b.centerX);
+}
+
+// A kinematic pose for a neighbour bowler figure at a normalized loop time t in
+// [0, 1) (REQ-039). The loop is a simple approach-and-swing the venue reads as a
+// person bowling, with no physics: the figure walks up toward its foul line over
+// the first part of the cycle (walk), draws the ball back and swings it forward
+// over the next (swing/release), then resets back to the start (recover). Returns:
+//   - walkOffset: how far the figure has advanced toward the foul line (-z), in the
+//     range [0, walkupReach]; subtract from standZ to get the figure z.
+//   - armSwing: the swing arm angle in radians, 0 hanging straight down, negative
+//     drawn back (behind, +z), positive swung forward (toward the lane, -z).
+//   - releasing: true during the brief forward release beat (for a thrown-ball cue).
+// Pure and deterministic, so the figure animation is unit-testable: the walk and
+// the swing both move observably over the cycle (RULE 10 observable motion).
+export function bowlerFigurePose(t: number): {
+  walkOffset: number;
+  armSwing: number;
+  releasing: boolean;
+} {
+  const u = ((t % 1) + 1) % 1; // wrap into [0, 1)
+  const n = NEIGHBOR_LANES;
+  // Phase split: walk up (0..0.45), swing through (0.45..0.7), recover (0.7..1).
+  if (u < 0.45) {
+    // Walk up: ease the figure forward toward the line, arm relaxed (slight back draw).
+    const w = u / 0.45;
+    return {
+      walkOffset: n.walkupReach * w,
+      armSwing: -0.35 * w, // gentle backswing building as they approach
+      releasing: false,
+    };
+  }
+  if (u < 0.7) {
+    // Swing: arm sweeps from drawn-back (-1.1 rad) through the bottom to forward
+    // (+0.9 rad); the release beat is the brief window crossing the bottom.
+    const s = (u - 0.45) / 0.25;
+    const armSwing = -1.1 + s * (0.9 - -1.1);
+    return {
+      walkOffset: n.walkupReach,
+      armSwing,
+      releasing: armSwing > -0.15 && armSwing < 0.25, // crossing the bottom
+    };
+  }
+  // Recover: step back to the start, arm settling to rest.
+  const r = (u - 0.7) / 0.3;
+  return {
+    walkOffset: n.walkupReach * (1 - r),
+    armSwing: 0.9 * (1 - r),
+    releasing: false,
+  };
 }
 
 // A tubular rig part: a round tube swept along a curved centerline (a list of

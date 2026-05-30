@@ -1287,6 +1287,9 @@ function frame(now: number): void {
   pins.sync();
   ball.sync();
   ballRack.sync();
+  // Keep the neighbour-lane bowlers alive on every screen (REQ-039), driven by the
+  // wall clock so the loop is never paused on focus (RULE 10).
+  world.animateNeighbors(now / 1000);
   world.render();
   requestAnimationFrame(frame);
 }

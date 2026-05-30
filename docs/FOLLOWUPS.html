@@ -167,6 +167,16 @@
     </dl>
   </section>
 
+  <section data-f="F-017" data-priority="polish">
+    <h3>F-017: Richer neighbouring-lane crowd and bowler animation</h3>
+    <dl>
+      <dt>Context</dt><dd>PR #71 (atmosphere-and-neighbor-lanes) added one neighbour lane per side, each with a dim wood bed, an instanced standing duckpin rack, and a single low-poly silhouette bowler running a looped kinematic approach-and-swing (<code>NEIGHBOR_LANES</code> / <code>neighborLaneLayout</code> / <code>bowlerFigurePose</code> in <code>src/config.ts</code>, rendered and animated in <code>world3d.buildNeighborLanes</code> / <code>animateNeighbors</code>). It reads as a row of bays and the venue feels alive, but the crowd is minimal: one figure per lane, one shared swing loop, no thrown neighbour ball, no varied idle/celebrate poses, and the neighbour pins are static (they never react or reset). See <a href="gdd/04-look-and-feel.html#environment">look-and-feel, environment</a>.</dd>
+      <dt>Blocker</dt><dd>none; the layout helpers, the instanced pins, and the figure animation hook already exist and are unit tested.</dd>
+      <dt>Unblock condition</dt><dd>ready now. Candidate polish: more lanes per side (bump <code>NEIGHBOR_LANES.perSide</code>, the layout and instancing already scale), varied figures and idle poses, a thrown neighbour ball rolling down the neighbour bed on the figure's release beat (<code>bowlerFigurePose</code> already flags <code>releasing</code>), and a light neighbour pin reaction / reset so the far lanes are not frozen. Keep it instanced / kinematic (no physics) and watch the bundle.</dd>
+      <dt>PR / Dot reference</dt><dd>deferred from PR #71 (split per the dot's larger-slice guidance); a new polish dot tracks the richer crowd.</dd>
+    </dl>
+  </section>
+
   <section data-f="F-003" data-priority="polish">
     <h3>F-003: Code-split the production bundle</h3>
     <dl>
