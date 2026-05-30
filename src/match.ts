@@ -5,14 +5,15 @@
 // of the actual state logic lives here so it can be unit tested without a store and
 // reused on the client to render the scoreboard without re-simulating.
 //
-// This slice ships the match data model and the create/join/resume transitions.
-// Turn order enforcement (REQ-049), per-ball submission and server scoring
-// (REQ-053), the handoff link UI (REQ-050/051), completion locking (REQ-056), and
-// posting a finished line to the leaderboard (REQ-058) are deferred to follow-on
-// slices. The shape here is built to carry those without a schema break: each seat
-// already owns a `frames` line and the match carries `currentSeat`/`currentFrame`.
+// This module ships the match data model, the create/join/resume transitions, and
+// the turn submission transition: turn-order enforcement (REQ-049), out-of-turn
+// rejection, server-authoritative duckpin scoring of each submitted frame via the
+// shared scoring engine (REQ-053), and locking the match to `complete` once every
+// seat finishes ten frames (REQ-056 final-standings groundwork). The handoff link
+// and your-turn/waiting UI (REQ-050/051) and posting a finished line to the
+// leaderboard (REQ-058) remain follow-on slices.
 
-import { FRAME_COUNT, type GameFrames } from './scoring.js';
+import { FRAME_COUNT, scoreGame, type GameFrames } from './scoring.js';
 
 // A match lives for roughly a week so a day-long game never expires mid-play
 // (REQ-054). The route applies this as the Redis key TTL.
@@ -164,6 +165,103 @@ export function seatForSecret(match: MatchState, secret: string | undefined): nu
   if (!secret) return null;
   const seat = match.seats.find((s) => s.claimed && s.secret === secret);
   return seat ? seat.seat : null;
+}
+
+const PINS = 10;
+
+// A bowled frame is "complete" (the turn is over) when no more balls are owed.
+// Mirrors the duckpin rules the scoring engine encodes (REQ-002 to REQ-007):
+//   - First two balls clear all ten (strike or spare): two balls end the turn,
+//     except the tenth frame which grants bonus balls.
+//   - Otherwise the turn runs the full three balls.
+// The tenth frame always takes exactly three balls: strike grants two bonus
+// balls, spare grants one, flat ten / open already used all three.
+function frameComplete(balls: readonly number[], frameIndex: number): boolean {
+  const isTenth = frameIndex === FRAME_COUNT - 1;
+  if (isTenth) return balls.length === 3;
+  if (balls.length >= 1 && balls[0] === PINS) return true; // strike: early-out
+  if (balls.length >= 2 && balls[0] + balls[1] === PINS) return true; // spare: early-out
+  return balls.length === 3; // open or flat ten
+}
+
+export interface SubmitResult {
+  ok: boolean;
+  error?: string;
+  // HTTP-ish status the route maps directly: 403 not-your-turn, 409 illegal move,
+  // 200 accepted. Present on every result so the route never guesses.
+  status: number;
+}
+
+// Submit a completed frame for the seat that owns `secret` (REQ-049 turn order,
+// REQ-053 server-authoritative scoring). The server is the sole authority:
+//   1. The secret must own a seat (else not-your-turn, no info leak about seats).
+//   2. It must be that seat's turn (currentSeat) or the submission is rejected.
+//   3. The submitted frame must be the frame the match is on (currentFrame).
+//   4. The frame must be a legal, complete duckpin frame for that seat's line,
+//      validated by the shared scoring engine (no client-trusted scores).
+// On success the frame is appended to the seat's line and the turn advances:
+// to the next seat in the same frame, or to seat 1 of the next frame once every
+// seat has bowled this frame. When all seats finish ten frames the match locks
+// to `complete`. `now` is injected for deterministic tests. Mutates `match` in
+// place; the route persists it.
+export function submitTurn(
+  match: MatchState,
+  opts: { secret: string | undefined; frame: number; balls: number[]; now?: string },
+): SubmitResult {
+  if (match.status === 'complete') {
+    return { ok: false, error: 'match is already complete', status: 409 };
+  }
+  if (match.status !== 'active') {
+    return { ok: false, error: 'match has not started', status: 409 };
+  }
+
+  const seatNumber = seatForSecret(match, opts.secret);
+  if (seatNumber == null) {
+    return { ok: false, error: 'not a player in this match', status: 403 };
+  }
+  if (seatNumber !== match.currentSeat) {
+    return { ok: false, error: 'not your turn', status: 403 };
+  }
+  if (opts.frame !== match.currentFrame) {
+    return { ok: false, error: `expected frame ${match.currentFrame}`, status: 409 };
+  }
+
+  const seat = match.seats[seatNumber - 1];
+  const frameIndex = match.currentFrame - 1;
+
+  if (!Array.isArray(opts.balls)) {
+    return { ok: false, error: 'balls must be an array', status: 409 };
+  }
+  if (!frameComplete(opts.balls, frameIndex)) {
+    return { ok: false, error: 'frame is incomplete', status: 409 };
+  }
+
+  // Validate the seat's line with the submitted frame appended. The scoring
+  // engine rejects out-of-range pins, illegal ball values, and over-rack counts.
+  const candidate: number[][] = [...seat.frames.map((f) => [...f]), [...opts.balls]];
+  const scored = scoreGame(candidate);
+  if (!scored.valid) {
+    return { ok: false, error: scored.error ?? 'illegal frame', status: 409 };
+  }
+
+  seat.frames = candidate;
+
+  // Advance the turn. Standard bowling order: every seat bowls the current frame
+  // before the frame clock advances (GDD: players alternate by frame).
+  if (match.currentSeat < match.seatCount) {
+    match.currentSeat += 1;
+  } else {
+    match.currentSeat = 1;
+    match.currentFrame += 1;
+  }
+
+  // The match is complete once every seat has a full ten-frame, scored line.
+  if (match.seats.every((s) => scoreGame(s.frames).complete)) {
+    match.status = 'complete';
+  }
+
+  match.updatedAt = opts.now ?? new Date().toISOString();
+  return { ok: true, status: 200 };
 }
 
 // The secret-free view safe to return to any device (GDD: a per-seat secret is

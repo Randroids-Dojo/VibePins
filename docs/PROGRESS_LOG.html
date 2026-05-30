@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="match-turn-submit-scoring" data-date="2026-05-29">
+    <h3>Async Multiplayer: Turn Order, Out-of-Turn Rejection, and Server-Authoritative Frame Scoring (REQ-049/053/056)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/20260529-204931-match-turn-submit</code></dd>
+      <dt>PR</dt><dd>#39</dd>
+      <dt>Changed</dt><dd>Second sub-slice of the async multiplayer backend: the turn-submission transition. Added <code>submitTurn</code> to the pure match model (<code>src/match.ts</code>), the single authority for whose turn it is and what their frame scores. A submission must come from the seat the per-seat secret owns (else 403, no leak about seats), that seat must equal <code>currentSeat</code> (out-of-turn rejected, 403), and the submitted frame must equal <code>currentFrame</code> (wrong-frame rejected, 409). Turn order is frame-by-frame per the GDD: every seat bowls the current frame before <code>currentFrame</code> advances and <code>currentSeat</code> resets to 1. The submitted frame's pin-fall is re-validated by the shared <code>scoreGame</code> engine (<code>src/scoring.ts</code>): incomplete frames, over-rack counts, and illegal ball values are rejected (409), so the server, not the client, owns the scored line (REQ-053). A new <code>frameComplete</code> helper encodes duckpin turn-end (strike/spare early-out, three balls otherwise, three-ball tenth). Once every seat has a full, <code>scoreGame</code>-complete ten-frame line the match locks to <code>complete</code> and further submissions are rejected (REQ-056 locking). Exposed over a new <code>PATCH /api/match</code> action (<code>api/match.ts</code>): id via query or body, frame and balls in the body, secret via the <code>X-Match-Secret</code> header; the response is the authoritative public match view.</dd>
+      <dt>Verification</dt><dd>em-dash grep clean on all changed files; <code>git diff --check</code> clean; <code>npm run typecheck</code> clean; <code>npm run test</code> 444/444 passing (22 new across <code>tests/match.test.ts</code> turn-order/scoring/completion and <code>tests/match.api.test.ts</code> PATCH route with mocked Redis, including a full two-seat match played to completion); <code>npm run build</code> succeeds. <code>.env.local</code> not staged.</dd>
+      <dt>Assumptions</dt><dd>A turn submits the whole completed frame (not ball-by-ball), matching the GDD "bowl your whole frame, then hand off". The bowling client that derives the per-ball pin-fall from the Rapier sim and PATCHes it lands with the handoff UI slice (REQ-050/051). Final-standings ranking and UI are a separate slice. PATCH was chosen for submission so create (POST no id) and join (POST with id) stay unambiguous.</dd>
+      <dt>GDD coverage</dt><dd>REQ-049 flipped to <code>done</code>. REQ-053 and REQ-056 flipped to <code>partial</code> (server authority and completion locking shipped; client pin-fall wiring and the standings UI deferred). Build log appended to <code>docs/gdd/05-async-multiplayer.html</code>.</dd>
+      <dt>Followups</dt><dd>None new. Remaining match dots unchanged: handoff link plus your-turn/waiting UI (REQ-050/051), final-standings ranking and UI (REQ-056 remainder), and posting a finished match line to the leaderboard (REQ-058).</dd>
+    </dl>
+  </article>
+
   <article data-slice="match-backend-create-join-resume" data-date="2026-05-29">
     <h3>Async Multiplayer: Match Model and Create/Join/Resume Backend (REQ-048/052/054/055)</h3>
     <dl>
