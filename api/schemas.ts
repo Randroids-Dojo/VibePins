@@ -47,14 +47,16 @@ export const leaderboardSubmitSchema = z.object({
 });
 export type LeaderboardSubmit = z.infer<typeof leaderboardSubmitSchema>;
 
-// The leaderboard GET query. `type` selects the board; absent or unknown means
-// all-time. `limit` arrives as a string on the query and is coerced to a bounded
+// The leaderboard GET query. `type` selects the board; the route reads it as
+// "daily" vs anything-else means all-time, so the schema keeps it a tolerant
+// optional string (a stray value must not 400 a read-only board fetch, matching
+// `mode`). `limit` arrives as a string on the query and is coerced to a bounded
 // positive integer (the route clamps to MAX_ENTRIES; this rejects a non-numeric
 // or non-positive limit so the parse stays predictable). `name` is the optional
 // rank-in-context lookup. `mode` is accepted but unused, kept tolerant so a
 // future client query field never 400s a board read.
 export const leaderboardQuerySchema = z.object({
-  type: z.enum(['daily', 'alltime']).optional(),
+  type: z.string().optional(),
   limit: z.coerce.number().int().positive().optional(),
   name: nameSchema.optional(),
   mode: z.string().optional(),
