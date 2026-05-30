@@ -611,6 +611,38 @@ async function submitScore(): Promise<void> {
   }
 }
 
+// Post this device's own seat line from a finished match to the global
+// leaderboard (REQ-058). Default: only this device's seat posts, under the name
+// it claimed the seat with, so each line lands once (no cross-device duplicates)
+// and never under a guessed name. The post is guarded by a persisted flag so a
+// re-view of the same finished match (the complete view re-renders on refresh)
+// cannot double-post. Fire-and-forget and non-fatal: a failure leaves the flag
+// unset so a later view can retry, and never blocks the standings render. The
+// client re-scores locally only to confirm completeness; the server is the sole
+// ranking authority and we never send a claimed total.
+function postMatchLineToBoard(): void {
+  const match = matchClient.match;
+  const seat = matchClient.mySeat;
+  if (!match || match.status !== 'complete' || seat == null) return;
+  if (settings.hasPostedMatchToBoard(match.id)) return;
+
+  const seatLine = match.seats.find((s) => s.seat === seat);
+  if (!seatLine) return;
+  const cred = settings.matchCredential(match.id);
+  const name = (cred?.name ?? seatLine.name).trim();
+  if (!name) return;
+
+  // Mark before the round trip so a synchronous re-render does not fire a second
+  // post; clear it again if the post fails so the next view can retry.
+  settings.markMatchPostedToBoard(match.id);
+  void leaderboard
+    .submitFrames(name, seatLine.frames, 'match')
+    .then((result) => {
+      if (!result || !result.success) settings.unmarkMatchPostedToBoard(match.id);
+    })
+    .catch(() => settings.unmarkMatchPostedToBoard(match.id));
+}
+
 // Render the standings list for the active tab from the leaderboard's cached
 // entries and load state. Called after a fetch resolves and on every tab flip
 // so the visible rows always match the chosen board (RULE 10 observable render).
@@ -751,6 +783,9 @@ function renderMatch(): void {
       matchStandingsEl.innerHTML = renderMatchScoreboard(matchClient.match, matchClient.mySeat);
     }
     setMatchStatus('Match complete.', 'ok');
+    // Feed this device's finished line into the global board (REQ-058). Guarded
+    // against double-posting; non-fatal if it fails.
+    postMatchLineToBoard();
   }
 }
 

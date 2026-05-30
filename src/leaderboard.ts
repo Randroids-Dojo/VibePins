@@ -15,7 +15,7 @@
 // end-of-game flow.
 
 import { escapeHtml } from './html.js';
-import type { GameScore } from './scoring.js';
+import { scoreGame, type GameFrames, type GameScore } from './scoring.js';
 
 const API_BASE = '/api/leaderboard';
 
@@ -179,6 +179,27 @@ export class Leaderboard {
   async submitGame(name: string, score: GameScore, source: 'solo' | 'match' = 'solo'): Promise<SubmitResult | null> {
     const frames = framesFromScore(score);
     if (!frames) {
+      this.error = 'Only a completed game can post a score';
+      this.lastResult = null;
+      return null;
+    }
+    return this.submitFrames(name, frames, source);
+  }
+
+  // Submit a completed line from its raw per-frame ball tape (REQ-058). This is
+  // the path the match-complete flow uses: a finished seat's ten-frame line is a
+  // number[][] already, not a GameScore, so it posts directly. The tape is
+  // re-scored locally only to confirm completeness before the round trip (the
+  // server re-scores authoritatively and is the sole ranking authority, REQ-059).
+  // Resolves to the server result on success, or null on any failure, leaving
+  // `error` set. Never throws.
+  async submitFrames(
+    name: string,
+    frames: number[][],
+    source: 'solo' | 'match' = 'solo',
+  ): Promise<SubmitResult | null> {
+    const scored = scoreGame(frames as GameFrames);
+    if (!scored.complete) {
       this.error = 'Only a completed game can post a score';
       this.lastResult = null;
       return null;

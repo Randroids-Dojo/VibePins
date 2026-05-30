@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="post-match-line-to-leaderboard" data-date="2026-05-29">
+    <h3>Async Multiplayer: Post a Completed Match Line to the Global Leaderboard (REQ-058 done)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/20260529-post-match-line-to-leaderboard</code></dd>
+      <dt>PR</dt><dd>#TBD</dd>
+      <dt>Changed</dt><dd>The last not-started requirement: a finished async match now feeds the all-time / daily global board. When a match completes, the hub's complete view posts this device's own seat line to the leaderboard via <code>postMatchLineToBoard</code> (<code>src/main.ts</code>, called from <code>renderMatch</code>'s complete branch). Added <code>Leaderboard.submitFrames(name, frames, source)</code> (<code>src/leaderboard.ts</code>) which posts a raw completed <code>number[][]</code> line with <code>source=match</code>; <code>submitGame</code> now delegates to it. The line is re-scored locally only to confirm it is a complete ten frames, and the client never sends a claimed total, so the server stays the sole ranking authority (REQ-059). Double-posting is blocked by a persisted per-match guard added to <code>src/settings.ts</code> (<code>matchPostedToBoard</code> with <code>markMatchPostedToBoard</code> / <code>hasPostedMatchToBoard</code> / <code>unmarkMatchPostedToBoard</code>): the match id is recorded before the network round trip and cleared on failure so a later view can retry. This is what keeps the complete view (which re-renders on every refresh) from re-posting the same line.</dd>
+      <dt>Verification</dt><dd>em-dash grep (U+2014/U+2013) clean on changed files; <code>git diff --check</code> clean; <code>npx tsc --noEmit</code> clean; <code>npx vitest run</code> 519/519 passing (new <code>tests/leaderboard.client.test.ts</code> cases: <code>submitFrames</code> posts a raw match line with the right payload and source, defaults source to solo, refuses an incomplete line without a network call, surfaces a server reject; new <code>tests/settings.test.ts</code> cases: the posted-to-board guard reports / marks idempotently, persists across instances, unmarks for retry, drops malformed ids; two existing serialized-payload assertions updated for the new field); <code>npx vite build</code> succeeds. <code>.env.local</code> not staged. Dependency Upgrade Gate: watched pins (three 0.184.0, @dimforge/rapier3d-compat 0.19.3, @upstash/redis ^1.38.0) match latest npm; no bump due.</dd>
+      <dt>Assumptions</dt><dd>Q-016 (resolved): each device posts only its own seat's line, under the name it claimed the seat with. Rationale: a device is authoritative for its own name so a line never lands under a guess, every seat's line posts exactly once across the participating devices (no cross-device duplicates), and a spectator with no seat posts nothing. The post is fire-and-forget and non-fatal: a failure leaves the persisted flag cleared so the next view of the finished match retries, and never blocks the standings render.</dd>
+      <dt>GDD coverage</dt><dd>REQ-058 <code>not_started -&gt; done</code> with implementation/test refs and a note. 0 requirements remain not_started (51 done, 13 partial of 64). Build log appended to <code>docs/gdd/07-leaderboard.html</code>.</dd>
+      <dt>Followups</dt><dd>None new. Q-016 added to <code>docs/OPEN_QUESTIONS.html</code> as resolved.</dd>
+    </dl>
+  </article>
+
   <article data-slice="match-in-browser-bowling" data-date="2026-05-29">
     <h3>Async Multiplayer: Bowl Your Match Frame In-Browser (REQ-053 done, REQ-051 done, REQ-056 display done)</h3>
     <dl>

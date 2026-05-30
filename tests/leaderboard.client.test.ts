@@ -109,6 +109,49 @@ describe('Leaderboard.submitGame (REQ-057)', () => {
   });
 });
 
+describe('Leaderboard.submitFrames (REQ-058)', () => {
+  it('POSTs a raw completed line and returns the server result', async () => {
+    const fetchMock = vi.fn<FetchLike>(async () =>
+      jsonResponse({ success: true, name: 'BEE', score: 90, rank: 4 }),
+    );
+    const board = new Leaderboard(fetchMock);
+    const result = await board.submitFrames('bee', COMPLETE_FRAMES, 'match');
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe('/api/leaderboard');
+    expect(init?.method).toBe('POST');
+    const sent = JSON.parse(String(init?.body));
+    expect(sent).toEqual({ name: 'bee', frames: COMPLETE_FRAMES, source: 'match' });
+    expect(result).toEqual({ success: true, name: 'BEE', score: 90, rank: 4 });
+    expect(board.error).toBeNull();
+  });
+
+  it('defaults the source to solo when not given', async () => {
+    const fetchMock = vi.fn<FetchLike>(async () => jsonResponse({ success: true, name: 'X', score: 90, rank: 1 }));
+    await new Leaderboard(fetchMock).submitFrames('x', COMPLETE_FRAMES);
+    const sent = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
+    expect(sent.source).toBe('solo');
+  });
+
+  it('refuses an incomplete line without hitting the network', async () => {
+    const fetchMock = vi.fn<FetchLike>(async () => jsonResponse({}));
+    const board = new Leaderboard(fetchMock);
+    const result = await board.submitFrames('bee', [[3, 3, 3]], 'match');
+    expect(result).toBeNull();
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(board.error).toMatch(/completed game/i);
+  });
+
+  it('returns null and sets an error when the server rejects', async () => {
+    const fetchMock = vi.fn<FetchLike>(async () => jsonResponse({ error: 'bad' }, false, 400));
+    const board = new Leaderboard(fetchMock);
+    const result = await board.submitFrames('bee', COMPLETE_FRAMES, 'match');
+    expect(result).toBeNull();
+    expect(board.error).toBe('Could not submit score');
+  });
+});
+
 const SAMPLE_ENTRIES: BoardEntry[] = [
   { name: 'ACE', score: 120, date: '2026-05-29T00:00:00.000Z', source: 'solo' },
   { name: 'BEE', score: 90, date: '2026-05-29T00:00:00.000Z', source: 'match' },

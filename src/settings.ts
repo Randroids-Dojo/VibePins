@@ -43,6 +43,10 @@ export interface SettingsState {
   // match on the same device resumes the same seat. Pruned only by the store's
   // own writes; the server's week-long TTL bounds how long any entry stays live.
   matchCredentials: Record<string, MatchCredential>;
+  // Match ids whose completed line this device has already posted to the global
+  // leaderboard (REQ-058). Persisted so re-opening a finished match (which the
+  // complete view does on every refresh) cannot double-post the same line.
+  matchPostedToBoard: string[];
 }
 
 const DEFAULTS: SettingsState = {
@@ -50,6 +54,7 @@ const DEFAULTS: SettingsState = {
   tutorialSeen: false,
   playerName: '',
   matchCredentials: {},
+  matchPostedToBoard: [],
 };
 
 // A minimal storage port so the store works without a real localStorage (tests,
@@ -71,6 +76,7 @@ function parse(raw: string | null): SettingsState {
       tutorialSeen: typeof data.tutorialSeen === 'boolean' ? data.tutorialSeen : DEFAULTS.tutorialSeen,
       playerName: typeof data.playerName === 'string' ? data.playerName : DEFAULTS.playerName,
       matchCredentials: parseMatchCredentials(data.matchCredentials),
+      matchPostedToBoard: parseMatchPosted(data.matchPostedToBoard),
     };
   } catch {
     return { ...DEFAULTS };
@@ -90,6 +96,18 @@ function parseMatchCredentials(raw: unknown): Record<string, MatchCredential> {
     }
   }
   return out;
+}
+
+// Parse the persisted set of match ids whose line this device already posted
+// (REQ-058), keeping only non-empty string ids and dropping duplicates so a
+// hand-edited payload cannot bloat the guard.
+function parseMatchPosted(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  const seen = new Set<string>();
+  for (const id of raw) {
+    if (typeof id === 'string' && id) seen.add(id);
+  }
+  return [...seen];
 }
 
 // Resolve a usable storage: the provided one, else the browser's localStorage,
@@ -168,6 +186,36 @@ export class Settings {
     this.state = {
       ...this.state,
       matchCredentials: { ...this.state.matchCredentials, [matchId]: cred },
+    };
+    this.save();
+  }
+
+  // Whether this device has already posted its line for a finished match to the
+  // global leaderboard (REQ-058). The complete view re-renders on every refresh,
+  // so the post path checks this first and skips when true.
+  hasPostedMatchToBoard(matchId: string): boolean {
+    return this.state.matchPostedToBoard.includes(matchId);
+  }
+
+  // Record that this device posted its line for a match, so a later view of the
+  // same finished match does not post it again (REQ-058). Idempotent.
+  markMatchPostedToBoard(matchId: string): void {
+    if (this.state.matchPostedToBoard.includes(matchId)) return;
+    this.state = {
+      ...this.state,
+      matchPostedToBoard: [...this.state.matchPostedToBoard, matchId],
+    };
+    this.save();
+  }
+
+  // Clear the posted flag for a match so a failed post can be retried on the
+  // next view (REQ-058). The caller marks before the network round trip to block
+  // a synchronous double-post, then unmarks here if the post did not succeed.
+  unmarkMatchPostedToBoard(matchId: string): void {
+    if (!this.state.matchPostedToBoard.includes(matchId)) return;
+    this.state = {
+      ...this.state,
+      matchPostedToBoard: this.state.matchPostedToBoard.filter((id) => id !== matchId),
     };
     this.save();
   }
