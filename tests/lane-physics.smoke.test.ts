@@ -17,7 +17,16 @@
 
 import { describe, it, expect, beforeAll } from 'vitest';
 import RAPIER from '@dimforge/rapier3d-compat';
-import { LANE, GROUP, TETHER, PIN_PHYSICS, gutterBoxes, pitBoxes, type Box } from '../src/config.js';
+import {
+  LANE,
+  GROUP,
+  TETHER,
+  PIN_PHYSICS,
+  gutterBoxes,
+  pitBoxes,
+  laneSurfaceSpan,
+  type Box,
+} from '../src/config.js';
 import { ballSpawnPosition, ballLaunchVelocity } from '../src/ball.js';
 import { pinRackPositions, pinMassProperties, neckLocalAnchor } from '../src/pins.js';
 
@@ -26,8 +35,6 @@ beforeAll(async () => {
 });
 
 const IDENTITY = { x: 0, y: 0, z: 0, w: 1 };
-const FRONT_Z = LANE.headSpot.z + 0.15;
-const BACK_Z = LANE.headSpot.z - LANE.pinDeckDepth;
 
 function makeWorld(): RAPIER.World {
   const world = new RAPIER.World({ x: 0, y: LANE.gravity, z: 0 });
@@ -35,19 +42,17 @@ function makeWorld(): RAPIER.World {
   return world;
 }
 
-// Exactly the colliders world3d.buildLaneCollider / buildPinDeckCollider build.
-function addBed(world: RAPIER.World): void {
-  const bed = world.createRigidBody(
-    RAPIER.RigidBodyDesc.fixed().setTranslation(0, LANE.floorY - 0.05, -LANE.length / 2),
+// Exactly the collider world3d.buildLaneSurfaceCollider builds: ONE continuous
+// slab from the foul line back to the back of the pin deck. The bed and deck are
+// drawn as two meshes for the look, but their physics is a single slab so there
+// is no internal seam edge for a rolling ball to catch on (the deck-lip launch
+// bug). Sharing laneSurfaceSpan keeps the smoke in lockstep with the real world.
+function addLaneSurface(world: RAPIER.World): void {
+  const span = laneSurfaceSpan();
+  const body = world.createRigidBody(
+    RAPIER.RigidBodyDesc.fixed().setTranslation(0, LANE.floorY - 0.05, span.centerZ),
   );
-  world.createCollider(RAPIER.ColliderDesc.cuboid(LANE.width / 2, 0.05, LANE.length / 2), bed);
-}
-
-function addDeck(world: RAPIER.World): void {
-  const deck = world.createRigidBody(
-    RAPIER.RigidBodyDesc.fixed().setTranslation(0, LANE.floorY - 0.05, (FRONT_Z + BACK_Z) / 2),
-  );
-  world.createCollider(RAPIER.ColliderDesc.cuboid(LANE.width / 2, 0.05, (FRONT_Z - BACK_Z) / 2), deck);
+  world.createCollider(RAPIER.ColliderDesc.cuboid(LANE.width / 2, 0.05, span.length / 2), body);
 }
 
 function addStaticBox(world: RAPIER.World, box: Box): void {
@@ -125,8 +130,7 @@ const upAxisY = (body: RAPIER.RigidBody): number => {
 describe('a centred ball rolls flat down the full lane without launching (REQ-029)', () => {
   it('never goes airborne off a lane-edge ramp and reaches the pin deck', () => {
     const world = makeWorld();
-    addBed(world);
-    addDeck(world);
+    addLaneSurface(world);
     addContainment(world); // gutters + pit, exactly as world3d builds them
     const ball = addBall(world);
     launch(ball, ballLaunchVelocity(0, 0, 0)); // centred, full power, no spin
@@ -159,21 +163,77 @@ describe('a centred ball rolls flat down the full lane without launching (REQ-02
   });
 });
 
+describe('a pocket-line ball rolls flat across the whole pin deck (REQ-029)', () => {
+  it('does not launch off a deck lip around the second row, head pin to pit', () => {
+    // The deck-lip playtest bug: the lane bed and pin deck colliders were two
+    // overlapping coplanar cuboids, and the deck's front vertical face was an
+    // internal seam edge. A ball rolling off the bed onto the deck caught that
+    // edge and was kicked into the air right around the second row of pins (just
+    // behind the head pin), sailing over the rack. With ONE continuous surface
+    // slab (no internal seam) the ball stays low the whole way across the deck.
+    //
+    // Run an EMPTY deck (no rack) so the only thing that could launch the ball is
+    // the surface geometry, not a pin climb. Launch with the actual game launch
+    // params on a slight pocket line, and track the ball's height as it travels
+    // from the head pin (z = headSpot.z) THROUGH the second row (one row gap
+    // behind) to the back of the deck and into the pit.
+    const world = makeWorld();
+    addLaneSurface(world);
+    addContainment(world);
+    const ball = addBall(world);
+    // A representative pocket throw the control scheme produces (slight spin +
+    // stance into the pocket), including LANE.ballLaunchTopspin via launch().
+    launch(ball, ballLaunchVelocity(0.15, 0, 0.04));
+
+    const restY = LANE.floorY + LANE.ballRadius;
+    // A ball that climbs the deck-lip seam pops ~0.3m up (reproduced at 0.33m).
+    // A flat-rolling ball never rises above the bed beyond contact jitter. The
+    // 0.05 epsilon clears jitter with margin while failing hard against the lip.
+    const airborneEpsilon = 0.05;
+    // The deck region the lip lived in: from the head pin front to the deck back.
+    const deckFrontZ = LANE.headSpot.z + 0.15;
+    const deckBackZ = LANE.headSpot.z - LANE.pinDeckDepth;
+    let maxYOverDeck = -Infinity;
+    let reachedSecondRow = false;
+    let reachedDeckBack = false;
+    const secondRowZ = LANE.headSpot.z - LANE.pinSpacing * (Math.sqrt(3) / 2);
+    for (let i = 0; i < 320; i += 1) {
+      world.step();
+      const t = ball.translation();
+      if (t.z <= deckFrontZ && t.z >= deckBackZ) {
+        maxYOverDeck = Math.max(maxYOverDeck, t.y);
+      }
+      if (t.z <= secondRowZ) reachedSecondRow = true;
+      if (t.z <= deckBackZ) reachedDeckBack = true;
+    }
+
+    // It traveled across the deck (past the second row and on to the deck back).
+    expect(reachedSecondRow).toBe(true);
+    expect(reachedDeckBack).toBe(true);
+    // And it stayed flat the whole way: never launched off a deck-lip seam.
+    expect(maxYOverDeck).toBeLessThan(restY + airborneEpsilon);
+    world.free();
+  });
+});
+
 describe('a solid pocket hit drives through the rack (REQ-030)', () => {
   it('topples at least three pins, not just the head pin', () => {
     const world = makeWorld();
-    addBed(world);
-    addDeck(world);
+    addLaneSurface(world);
     addContainment(world);
     const pins = addTetheredRack(world);
     for (let i = 0; i < 60; i += 1) world.step(); // settle the rack
 
-    // A straight centred shot into the head pin: the ball must drive on through
-    // and carry the pins behind it. The "only the first pin gets hit" bug left a
-    // launched ball clipping one pin; a flat-rolling ball into the rack reaches
-    // the rows behind the head pin and topples several.
-    const ball = addBall(world, 0);
-    launch(ball, ballLaunchVelocity(0, 0, 0));
+    // A solid pocket shot (slight spin + stance into the pocket, the line the
+    // control scheme produces) must drive on through the head pin and carry the
+    // pins behind it. The "only the first pin gets hit" bug left a launched ball
+    // clipping one pin; a flat-rolling ball into the pocket reaches the rows
+    // behind the head pin and topples several. A dead-centre straight ball is
+    // deliberately weak in duckpin (it splits the second row and barely carries,
+    // GDD REQ-030 strike rarity, asserted in carry-through.smoke), so the pocket
+    // line is the right "solid hit" to check here.
+    const ball = addBall(world, 0.04);
+    launch(ball, ballLaunchVelocity(0.15, 0, 0.04));
 
     const minUpAxisY = pins.map(() => 1);
     for (let i = 0; i < 360; i += 1) {
@@ -194,8 +254,7 @@ describe('a solid pocket hit drives through the rack (REQ-030)', () => {
 describe('a ball aimed hard into the side becomes a gutter ball (REQ-031)', () => {
   it('ends up down in the gutter channel, not bounced back onto the lane', () => {
     const world = makeWorld();
-    addBed(world);
-    addDeck(world);
+    addLaneSurface(world);
     addContainment(world);
     // A realistic errant shot: full-speed down-lane with a steady drift to the
     // right, the kind of throw that should leak into the gutter.

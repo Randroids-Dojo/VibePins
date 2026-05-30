@@ -449,9 +449,11 @@
       "requirement": "Ball rolls down the lane under physics from the launch impulse",
       "gddRef": "docs/gdd/06-reuse-and-tech.html#scene",
       "status": "done",
+      "note": "PLAYTEST FIX (deck-lip launch): the lane bed and pin deck were built as two SEPARATE overlapping coplanar collider cuboids (they overlapped ~0.15m around the head spot). The deck cuboid's front vertical face was an internal seam edge in the playable surface, and a fast ball rolling off the bed onto the deck caught that edge and was kicked roughly 0.33m into the air right around the second row of pins (just behind the head pin), sailing over the rack (same class as the PR #47 gutter-lip rail). Root-caused in real Rapier at fixed 60fps. Fix: build ONE continuous lane-surface collider from the foul line to the back of the pin deck (config.laneSurfaceSpan, world3d.buildLaneSurfaceCollider replacing the separate buildLaneCollider + buildPinDeckCollider). The bed and deck are still drawn as two meshes for the look; only the physics is unified, so there is no internal seam for the ball to climb. The lane-physics smoke now adds a pocket-line no-airborne assertion across the whole deck (head pin through the second row to the pit) that fails against the old overlapping geometry and passes after.",
       "implementationRefs": [
         "src/ball.ts",
         "src/config.ts",
+        "src/world3d.ts",
         "src/main.ts"
       ],
       "testRefs": [

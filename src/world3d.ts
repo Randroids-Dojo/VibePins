@@ -18,6 +18,7 @@ import {
   MATERIALS,
   gutterBoxes,
   pitBoxes,
+  laneSurfaceSpan,
   pinsetterRigParts,
   machineRoomParts,
   ballReturnParts,
@@ -94,8 +95,7 @@ export class World3D {
     // ball and pins something to rest on in later slices.
     this.physics = new RAPIER.World({ x: 0, y: LANE.gravity, z: 0 });
     this.physics.timestep = FIXED_STEP;
-    this.buildLaneCollider();
-    this.buildPinDeckCollider();
+    this.buildLaneSurfaceCollider();
     this.buildGutterColliders();
     this.buildPitColliders();
 
@@ -665,22 +665,23 @@ export class World3D {
     return { centerZ: (frontZ + backZ) / 2, length: frontZ - backZ };
   }
 
-  private buildPinDeckCollider(): void {
+  // The single playable-surface collider: ONE continuous slab from the foul line
+  // (lane front, z=0) back to the back of the pin deck. The bed and deck are drawn
+  // as two separate meshes (oiled wood, then brushed steel) for the look, but their
+  // physics MUST be one slab. Two overlapping coplanar cuboids (the old bed +
+  // deck colliders, which overlapped by 0.15m around the head spot) present an
+  // internal vertical face at the deck front: a fast ball rolling off the bed onto
+  // the deck caught that seam edge and was kicked into the air around the second
+  // row of pins (playtest lip bug, same class as the PR #47 gutter-lip rail). A
+  // single slab has no internal seam, so the ball rolls flat across the whole
+  // surface and into the pit. Its top stays coplanar with the bed at floorY.
+  private buildLaneSurfaceCollider(): void {
+    const span = laneSurfaceSpan();
     const body = this.physics.createRigidBody(
-      RAPIER.RigidBodyDesc.fixed().setTranslation(0, LANE.floorY - 0.05, this.deckSpan.centerZ),
+      RAPIER.RigidBodyDesc.fixed().setTranslation(0, LANE.floorY - 0.05, span.centerZ),
     );
     this.physics.createCollider(
-      RAPIER.ColliderDesc.cuboid(LANE.width / 2, 0.05, this.deckSpan.length / 2),
-      body,
-    );
-  }
-
-  private buildLaneCollider(): void {
-    const body = this.physics.createRigidBody(
-      RAPIER.RigidBodyDesc.fixed().setTranslation(0, LANE.floorY - 0.05, -LANE.length / 2),
-    );
-    this.physics.createCollider(
-      RAPIER.ColliderDesc.cuboid(LANE.width / 2, 0.05, LANE.length / 2),
+      RAPIER.ColliderDesc.cuboid(LANE.width / 2, 0.05, span.length / 2),
       body,
     );
   }
