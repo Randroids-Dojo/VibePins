@@ -21,10 +21,10 @@ import {
   pinsetterRigParts,
   machineRoomParts,
   ballReturnParts,
-  BALL_RETURN,
   type Box,
   type RigBeam,
   type RigCylinder,
+  type RigTube,
   type RigCone,
   type SurfaceMaterial,
   type Vec3,
@@ -166,28 +166,23 @@ export class World3D {
     this.scene.add(approach);
   }
 
-  // The metal ball return (REQ-039 / REQ-041): the chrome rack and return runway
-  // a Pins Mechanical lane brings the ball back along, modeled in polished steel
-  // and staged on the throwing-hand side just outside the approach. The pure
-  // ballReturnParts layout is the single source of truth (see config + the
+  // The metal ball return (REQ-039 / REQ-041): the curved chrome tubular track a
+  // Pins Mechanical lane brings the ball back along, a pair of parallel round
+  // rails bent into a low runway that curves the ball home, modeled in polished
+  // chrome and staged on the throwing-hand side just outside the approach. The
+  // pure ballReturnParts layout is the single source of truth (see config + the
   // tests/ball-return.test.ts bounds checks). On the lane bed itself the ball
   // still rests on a small brushed-steel pedestal at SHOT_CAMERA.ballReturnPos,
-  // where the shot-setup pickup grabs it; the new rack/runway sit just outboard
-  // of it so the return reads as the track the ball came up. The tilted runway
-  // rails carry the eye down-lane; the rack cradles the ball at the bowler end.
+  // where the shot-setup pickup grabs it; the curved runway sits just outboard
+  // of it so the return reads as the track the ball came up. The bent rails
+  // carry the eye down-lane; short posts and a cross frame hold the runway low.
   private buildBallReturn(): void {
     const parts = ballReturnParts();
-    const steel = this.surfaceMaterial(MATERIALS.polishedSteel);
+    const chrome = this.surfaceMaterial(MATERIALS.polishedSteel);
 
-    // The runway rails tilt down toward the bowler so the ball would roll home.
-    const tilt = Math.atan2(BALL_RETURN.runwayRise, BALL_RETURN.zFront - BALL_RETURN.zBack);
-    for (const rail of parts.rails) {
-      const mesh = this.rigBeamMesh(rail, steel);
-      mesh.rotation.x = tilt;
-      this.scene.add(mesh);
-    }
-    this.scene.add(this.rigBeamMesh(parts.rack, steel));
-    for (const leg of parts.legs) this.scene.add(this.rigBeamMesh(leg, steel));
+    for (const rail of parts.rails) this.scene.add(this.rigTubeMesh(rail, chrome));
+    this.scene.add(this.rigTubeMesh(parts.frame, chrome));
+    for (const post of parts.posts) this.scene.add(this.rigCylinderMesh(post, chrome));
 
     // The pedestal the playable ball actually rests on, on the lane side.
     const p = SHOT_CAMERA.ballReturnPos;
@@ -199,6 +194,21 @@ export class World3D {
     pedestal.castShadow = true;
     pedestal.receiveShadow = true;
     this.scene.add(pedestal);
+  }
+
+  // A round chrome tube swept along a curved centerline (the ball-return rails
+  // and cross frame). A CatmullRomCurve3 smooths the sampled points into the
+  // bent runway, and TubeGeometry sweeps the tube along it. A 2-point centerline
+  // (the cross frame) becomes a straight bar.
+  private rigTubeMesh(tube: RigTube, mat: THREE.Material): THREE.Mesh {
+    const pts = tube.points.map((p) => new THREE.Vector3(p.x, p.y, p.z));
+    const curve = new THREE.CatmullRomCurve3(pts, false, 'centripetal');
+    const segments = Math.max(1, (pts.length - 1) * 6);
+    const geo = new THREE.TubeGeometry(curve, segments, tube.radius, 12, false);
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    return mesh;
   }
 
   // Flat inlay markers on the lane surface: the foul line, a row of guide dots
