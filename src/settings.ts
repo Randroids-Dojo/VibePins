@@ -12,6 +12,20 @@
 
 const STORAGE_KEY = 'vibepins-settings-v1';
 
+// The per-device credential bound to one seat of one match (GDD 05 identity,
+// REQ-052). The secret authorizes that seat's submissions; it must persist so a
+// player who closes the tab and reopens the match resumes the same seat without
+// re-claiming. Keyed by match id in the settings store.
+export interface MatchCredential {
+  // 1-based seat this device owns in the match.
+  seat: number;
+  // The per-seat secret minted by the server on create/join. Authorizes PATCH
+  // submissions for this seat (sent via the X-Match-Secret header).
+  secret: string;
+  // The display name this device claimed the seat under, echoed by the server.
+  name: string;
+}
+
 export interface SettingsState {
   // Whether the procedural audio engine is allowed to make sound. Defaults on;
   // the player can mute from the menu. Persisted across sessions.
@@ -25,12 +39,17 @@ export interface SettingsState {
   // name entry on the summary screen pre-fills with the last name used. Empty
   // until the player first types one.
   playerName: string;
+  // Per-match seat credentials (REQ-052), keyed by match id, so reopening a
+  // match on the same device resumes the same seat. Pruned only by the store's
+  // own writes; the server's week-long TTL bounds how long any entry stays live.
+  matchCredentials: Record<string, MatchCredential>;
 }
 
 const DEFAULTS: SettingsState = {
   audioEnabled: true,
   tutorialSeen: false,
   playerName: '',
+  matchCredentials: {},
 };
 
 // A minimal storage port so the store works without a real localStorage (tests,
@@ -51,10 +70,26 @@ function parse(raw: string | null): SettingsState {
       audioEnabled: typeof data.audioEnabled === 'boolean' ? data.audioEnabled : DEFAULTS.audioEnabled,
       tutorialSeen: typeof data.tutorialSeen === 'boolean' ? data.tutorialSeen : DEFAULTS.tutorialSeen,
       playerName: typeof data.playerName === 'string' ? data.playerName : DEFAULTS.playerName,
+      matchCredentials: parseMatchCredentials(data.matchCredentials),
     };
   } catch {
     return { ...DEFAULTS };
   }
+}
+
+// Parse the persisted match-credential map, dropping any entry whose shape does
+// not match (a hand-edited or older payload cannot inject malformed seats).
+function parseMatchCredentials(raw: unknown): Record<string, MatchCredential> {
+  if (!raw || typeof raw !== 'object') return {};
+  const out: Record<string, MatchCredential> = {};
+  for (const [id, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (!value || typeof value !== 'object') continue;
+    const cred = value as Partial<MatchCredential>;
+    if (typeof cred.seat === 'number' && typeof cred.secret === 'string' && typeof cred.name === 'string') {
+      out[id] = { seat: cred.seat, secret: cred.secret, name: cred.name };
+    }
+  }
+  return out;
 }
 
 // Resolve a usable storage: the provided one, else the browser's localStorage,
@@ -118,6 +153,22 @@ export class Settings {
   // in the markup, so no extra trimming is needed here.
   setPlayerName(name: string): void {
     this.state = { ...this.state, playerName: name };
+    this.save();
+  }
+
+  // The credential this device holds for a match, or null when this device has
+  // never claimed a seat in it (a fresh recipient opening a handoff link).
+  matchCredential(matchId: string): MatchCredential | null {
+    return this.state.matchCredentials[matchId] ?? null;
+  }
+
+  // Persist the seat credential a create/join handed back, so reopening the
+  // match on this device resumes the same seat (REQ-052, REQ-055 resume).
+  setMatchCredential(matchId: string, cred: MatchCredential): void {
+    this.state = {
+      ...this.state,
+      matchCredentials: { ...this.state.matchCredentials, [matchId]: cred },
+    };
     this.save();
   }
 

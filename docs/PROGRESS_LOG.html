@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="match-client-wiring" data-date="2026-05-29">
+    <h3>Async Multiplayer: Client Match Module (Create/Join/Resume + Per-Frame Submission) (REQ-053/055/052)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/20260529-210822-match-client-wiring</code></dd>
+      <dt>PR</dt><dd>#40</dd>
+      <dt>Changed</dt><dd>The browser half of the async-match backend. Added <code>src/matchClient.ts</code>, a <code>MatchClient</code> class mirroring the <code>src/leaderboard.ts</code> style: an injectable fetch port, non-fatal failure handling (every method resolves to a result with an <code>ok</code> flag and an <code>error</code> string, never throws), and held state for the latest authoritative public match plus this device's seat. It drives the three lifecycle flows over the existing route (<code>createMatch</code> POST, <code>joinMatch</code> POST with id, <code>resumeMatch</code> GET) and submits a completed frame's per-ball pin-fall with <code>submitFrame</code> (PATCH), forwarding only the pin-fall counts (never a claimed score) so the server keeps sole scoring authority (REQ-053). The per-seat secret rides the <code>X-Match-Secret</code> header on resume and submit, never a URL. Bound the device to its seat by persisting a per-match credential (seat, secret, name) keyed by match id in the Settings store (<code>src/settings.ts</code>: <code>matchCredential</code> / <code>setMatchCredential</code>, with a malformed-entry-dropping parser), so reopening a match on the same device resumes the same seat (REQ-052/055 resume). Exposed <code>isMyTurn</code> and <code>currentPlayerName</code> turn-state helpers for the upcoming your-turn/waiting UI (REQ-051).</dd>
+      <dt>Verification</dt><dd>em-dash grep clean on all changed files; <code>git diff --check</code> clean; <code>npm run typecheck</code> clean; <code>npm run test</code> 463/463 passing (19 new in <code>tests/matchClient.test.ts</code> covering create/join/resume, secret-via-header submission, credential persistence, turn-state helpers, and the non-fatal failure paths; 6 new in <code>tests/settings.test.ts</code> for credential persistence; two existing serialized-shape assertions updated for the new field); <code>npm run build</code> succeeds. <code>.env.local</code> not staged.</dd>
+      <dt>Assumptions</dt><dd>This slice ships the pure client module and its persistence only, no shell/overlay wiring; that is the next slice (REQ-050/051) so this stays PR-sized and fully testable with a mocked fetch. The client submits a whole completed frame to match the server's <code>submitTurn</code> contract (the model validates per-frame completeness). Credentials are pruned only by the server's week-long TTL bounding their useful life, not by client eviction.</dd>
+      <dt>GDD coverage</dt><dd>REQ-053, REQ-055, and REQ-052 notes and refs updated (client wiring shipped; in-game overlay still deferred). Build log appended to <code>docs/gdd/05-async-multiplayer.html</code>.</dd>
+      <dt>Followups</dt><dd>None new. Remaining match dots: handoff link plus your-turn/waiting overlay that wires <code>MatchClient</code> into the shell and derives pin-fall from the sim (REQ-050/051), final-standings ranking and UI (REQ-056 remainder), and posting a finished match line to the leaderboard (REQ-058).</dd>
+    </dl>
+  </article>
+
   <article data-slice="match-turn-submit-scoring" data-date="2026-05-29">
     <h3>Async Multiplayer: Turn Order, Out-of-Turn Rejection, and Server-Authoritative Frame Scoring (REQ-049/053/056)</h3>
     <dl>

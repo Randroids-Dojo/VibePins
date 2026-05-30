@@ -809,7 +809,7 @@
         "tests/match.smoke.test.ts"
       ],
       "followupRefs": [],
-      "note": "Identity is a display name plus a per-seat secret minted with crypto.randomUUID on create/join and returned only to the claiming device (api/match.ts). seatForSecret resolves which seat a device owns for the resume flow. The secret never appears in the public match view (toPublicMatch). The full per-device-token-bound-to-seat client wiring is a follow-on slice."
+      "note": "Identity is a display name plus a per-seat secret minted with crypto.randomUUID on create/join and returned only to the claiming device (api/match.ts). seatForSecret resolves which seat a device owns for the resume flow. The secret never appears in the public match view (toPublicMatch). The client now binds the per-seat secret to the device: Settings persists a per-match credential (seat, secret, name) keyed by match id (src/settings.ts), and MatchClient (src/matchClient.ts) sends it via the X-Match-Secret header on resume and submit, so reopening a match on the same device resumes the same seat. The in-game UI that surfaces this is the follow-on handoff slice."
     },
     {
       "id": "REQ-053",
@@ -818,14 +818,16 @@
       "status": "partial",
       "implementationRefs": [
         "api/match.ts",
-        "src/match.ts"
+        "src/match.ts",
+        "src/matchClient.ts"
       ],
       "testRefs": [
         "tests/match.test.ts",
-        "tests/match.api.test.ts"
+        "tests/match.api.test.ts",
+        "tests/matchClient.test.ts"
       ],
       "followupRefs": [],
-      "note": "Server authority shipped: a turn submission carries the frame's pin-fall (the balls array), and submitTurn (src/match.ts) re-validates the seat's whole line with the shared scoreGame engine (src/scoring.ts), rejecting incomplete frames, over-rack counts, and illegal ball values. The server, not the client, owns the scored line. The bowling-client wiring that derives the per-ball pin-fall from the Rapier sim and PATCHes it is the follow-on handoff-UI slice (REQ-050/051)."
+      "note": "Server authority shipped: a turn submission carries the frame's pin-fall (the balls array), and submitTurn (src/match.ts) re-validates the seat's whole line with the shared scoreGame engine (src/scoring.ts), rejecting incomplete frames, over-rack counts, and illegal ball values. The server, not the client, owns the scored line. The client wiring now lives in src/matchClient.ts: MatchClient.submitFrame PATCHes a completed frame's per-ball pin-fall with the per-seat secret in the X-Match-Secret header, never a claimed score, and replaces its held view with the authoritative public match the server returns. The in-game overlay that derives the pin-fall from the Rapier sim and shows the your-turn/waiting handoff is the follow-on slice (REQ-050/051)."
     },
     {
       "id": "REQ-054",
@@ -851,15 +853,18 @@
       "status": "partial",
       "implementationRefs": [
         "api/match.ts",
-        "src/match.ts"
+        "src/match.ts",
+        "src/matchClient.ts",
+        "src/settings.ts"
       ],
       "testRefs": [
         "tests/match.test.ts",
         "tests/match.api.test.ts",
-        "tests/match.smoke.test.ts"
+        "tests/match.smoke.test.ts",
+        "tests/matchClient.test.ts"
       ],
       "followupRefs": [],
-      "note": "Create (POST, claims seat 1), join (POST with id, claims the next open seat, activates when full), and resume (GET ?id=, returns the public match plus mySeat for a valid per-seat secret) all ship in api/match.ts over the pure src/match.ts transitions. The in-game UI for these flows is a follow-on slice."
+      "note": "Create (POST, claims seat 1), join (POST with id, claims the next open seat, activates when full), and resume (GET ?id=, returns the public match plus mySeat for a valid per-seat secret) all ship in api/match.ts over the pure src/match.ts transitions. The client side now ships in src/matchClient.ts: MatchClient.createMatch / joinMatch / resumeMatch drive these flows behind an injectable fetch port, persisting the returned per-seat credential through Settings (src/settings.ts) so a reopen resumes the same seat, and exposing isMyTurn / currentPlayerName turn-state helpers. The in-game overlay that wires these into the shell is a follow-on slice (REQ-050/051)."
     },
     {
       "id": "REQ-056",
