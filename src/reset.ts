@@ -1,18 +1,29 @@
 // String pinsetter reset cycle (GDD 03-string-pinsetter, REQ-018 to REQ-021).
 //
-// A reset reels fallen pins up by their cords and sets them back on their home
-// spots, with no sweep (REQ-020). During the cycle each targeted pin is carried
-// kinematically: righted and raised straight up off the deck, moved over its
-// home spot while raised, then lowered onto the spot, after which it is handed
-// back to the dynamics at rest. The overhead cords (rendered from the fixed
-// anchor to each pin neck) follow the carried pins, so the lift reads as strings
-// pulling the pins up, not a sweep. Standing pins are never targeted, so they
-// respot exactly where they came to rest (REQ-021).
+// Two reset shapes, both sweepless (REQ-020), both carrying pins kinematically by
+// their cords with the rendered cords following the carried necks so the motion
+// reads as strings, not a sweep:
+//
+//   between-balls (REQ-009): only the fallen pins are reeled. They are righted at
+//   their settled spot and raised straight up OFF the deck, then left held aloft.
+//   They are NOT lowered back: between balls the fallen pins are cleared out of
+//   the way and stay gone, so only the standing pins remain for the next ball.
+//   Standing pins are never targeted, so they respot exactly in place (REQ-021).
+//
+//   rerack (REQ-010): at frame end all ten pins are reeled. Each is righted,
+//   raised, carried over its home spot, and lowered onto it, then handed back to
+//   the dynamics at rest. This is the only motion that sets pins back down on the
+//   deck, so the deck reads as a clean fresh rack of ten.
+//
+// So a between-balls cycle ends after the lift (the fallen pins are cleared and
+// held), while a rerack runs the full lift, reposition, and lower. The caller
+// hands the carried pins back to the dynamics only on a rerack; the cleared pins
+// from a between-balls reset stay kinematic and aloft until the next rerack.
 //
 // This controller is pure: no Three.js, no Rapier. It is a frame-counted state
 // machine returning, per fixed step, the carried pin world targets. The physics
 // adapter (PinSet) makes the targeted pins kinematic, applies the targets, and
-// returns them to dynamic when the cycle completes.
+// returns them to dynamic when a rerack completes.
 
 import type { Vec3 } from './config.js';
 
@@ -71,12 +82,17 @@ export function pinTargetFor(phase: ResetPhase, progress: number, home: Vec3, se
 
 export class ResetCycle {
   private running = false;
+  private mode: ResetMode = 'rerack';
   private frame = 0;
   private accumulator = 0;
   private targetIndices: number[] = [];
   private homes: readonly Vec3[] = [];
   private settled: readonly Vec3[] = [];
 
+  // Frame boundaries for the full rerack cycle (settle-hold, lift, reposition,
+  // lower). A between-balls cycle ends at b2 (after the lift); a rerack runs to
+  // the full total. totalFrames is the rerack length so the GDD timing test and
+  // the config tunables stay anchored to the complete cycle.
   readonly totalFrames: number;
   private readonly b1: number;
   private readonly b2: number;
@@ -89,8 +105,16 @@ export class ResetCycle {
     this.totalFrames = this.b3 + cfg.lowerFrames;
   }
 
-  // Begin a cycle. In between-balls mode only the given fallen pins are reeled;
-  // rerack mode reels all ten. homeSpots are the pin home spots and
+  // Frames this cycle runs for in the active mode: a between-balls reset stops
+  // after the lift (the fallen pins are cleared and held aloft), a rerack runs
+  // the full settle-lift-reposition-lower.
+  private get activeFrames(): number {
+    return this.mode === 'rerack' ? this.totalFrames : this.b2;
+  }
+
+  // Begin a cycle. In between-balls mode only the given fallen pins are reeled
+  // (and only lifted clear, never set back down); rerack mode reels all ten and
+  // sets them on their home spots. homeSpots are the pin home spots and
   // settledPositions are where each pin currently rests, both in pin order.
   start(
     mode: ResetMode,
@@ -98,6 +122,7 @@ export class ResetCycle {
     homeSpots: readonly Vec3[],
     settledPositions: readonly Vec3[],
   ): void {
+    this.mode = mode;
     this.homes = homeSpots;
     this.settled = settledPositions;
     this.targetIndices = mode === 'rerack' ? homeSpots.map((_, i) => i) : [...fallenPinIndices];
@@ -118,7 +143,10 @@ export class ResetCycle {
     if (frame < this.b2) return { phase: 'lift', progress: within(this.b1, this.cfg.liftFrames) };
     if (frame < this.b3) return { phase: 'reposition', progress: within(this.b2, this.cfg.repositionFrames) };
     if (frame < this.totalFrames) return { phase: 'lower', progress: within(this.b3, this.cfg.lowerFrames) };
-    return { phase: 'idle', progress: 1 };
+    // Held: the lifted pins sit clear of the deck at the top of the lift. A
+    // between-balls cycle ends here (cleared pins stay aloft); a rerack only
+    // reaches this on the final frame after lowering, where it is idle.
+    return { phase: this.mode === 'rerack' ? 'idle' : 'lift', progress: 1 };
   }
 
   private targetsAtFrame(frame: number): ResetTarget[] {
@@ -134,7 +162,7 @@ export class ResetCycle {
     if (!this.running) return [];
     const targets = this.targetsAtFrame(this.frame);
     this.frame += 1;
-    if (this.frame >= this.totalFrames) this.running = false;
+    if (this.frame >= this.activeFrames) this.running = false;
     return targets;
   }
 
@@ -160,6 +188,6 @@ export class ResetCycle {
   }
 
   isComplete(): boolean {
-    return this.frame >= this.totalFrames;
+    return this.frame >= this.activeFrames;
   }
 }

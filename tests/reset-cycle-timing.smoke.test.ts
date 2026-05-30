@@ -108,11 +108,16 @@ function runLiveCycle(): { settleFrames: number; resetFrames: number; phaseOrder
   expect(fallen.length).toBeGreaterThanOrEqual(3);
 
   // Phases 2-4 plus ready: lift, reposition, lower (the ResetCycle), then hand
-  // the carried pins back to the dynamics (the "ready" handoff).
+  // the carried pins back to the dynamics (the "ready" handoff). The GDD's
+  // "roughly three to five seconds total" claim is about the full reset, the
+  // frame-end re-rack that carries every pin home; the between-balls lift is
+  // deliberately shorter (it stops after the lift), so the full-cycle timing is
+  // measured against a re-rack of all ten.
+  const all = pins.map((_, i) => i);
   const settledPositions = pins.map((b) => b.translation());
-  for (const i of fallen) pins[i].setBodyType(RAPIER.RigidBodyType.KinematicPositionBased, true);
+  for (const i of all) pins[i].setBodyType(RAPIER.RigidBodyType.KinematicPositionBased, true);
   const reset = new ResetCycle(cfg);
-  reset.start('between-balls', fallen, homes, settledPositions);
+  reset.start('rerack', all, homes, settledPositions);
 
   const phaseOrder: ResetPhase[] = [];
   let last: ResetPhase | null = null;
@@ -129,7 +134,7 @@ function runLiveCycle(): { settleFrames: number; resetFrames: number; phaseOrder
     world.step();
     resetFrames += 1;
   }
-  for (const i of fallen) {
+  for (const i of all) {
     pins[i].setBodyType(RAPIER.RigidBodyType.Dynamic, true);
     pins[i].setLinvel({ x: 0, y: 0, z: 0 }, true);
     pins[i].setAngvel({ x: 0, y: 0, z: 0 }, true);
