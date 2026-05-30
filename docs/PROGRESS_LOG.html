@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="fix-gutter-lip-ball-launch" data-date="2026-05-29">
+    <h3>Fix the lane-edge rail that launched the ball and blocked the gutters (playtest)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/20260529-ball-physics</code></dd>
+      <dt>PR</dt><dd>#47</dd>
+      <dt>Changed</dt><dd>A human playtest reported the ball hitting an unintended ramp and launching into the air to strike pins on the lane sides, only the first pin ever falling, and gutter balls being impossible. Root cause was one bad collider in <code>gutterParts</code> (<code>src/config.ts</code>): the gutter's <em>inner lip</em> box overlapped the outer 0.1m of the playable lane bed and rose 0.03m above the bed surface, forming a continuous raised rail down both lane edges. A ball drifting to the edge hit that rail and was deflected up and sideways (the ramp launch), an airborne ball then clipped a single pin instead of rolling flat through the pocket (the "only first pin" symptom), and the rail blocked any ball from leaking off the bed into the recessed channel (the "no gutter balls" symptom). Removed the inner lip entirely: a real gutter is just a recessed trough whose mouth is the bed's own thick edge, with an outer wall closing the far side. The gutter is now a recessed floor plus an outer wall (<code>gutterBoxes</code> returns four boxes, not six). Removed the now-unused <code>LANE.gutterLipHeight</code> tunable and updated the containment comment block.</dd>
+      <dt>Verification</dt><dd>Added a real-Rapier integration smoke <code>tests/lane-physics.smoke.test.ts</code> that builds the full production lane (bed, pin deck, gutters, pit, tethered rack) and asserts: a centred normal-speed ball stays at bed height the whole way down (never airborne above a 0.03m epsilon) and reaches the deck; a straight pocket shot topples at least three pins; a ball drifting hard to the side drops into the recessed gutter and is carried down-lane. All three assertions FAILED before the fix (ball never reached the deck, zero pins toppled, never entered the gutter) and PASS after. Updated <code>tests/containment.test.ts</code> for the new four-box layout and added a regression guard that no gutter part rises above the bed where it overlaps the playable bed (no edge rail). em-dash grep (U+2014/U+2013) clean on changed files; <code>git diff --check</code> clean; <code>npx tsc --noEmit</code> clean; <code>npx vitest run</code> 545 passing (45 files); <code>npx vite build</code> succeeds. <code>.env.local</code> not staged. Dependency Upgrade Gate: watched pins all current; no bump due.</dd>
+      <dt>Assumptions</dt><dd>The recessed channel depth (<code>gutterDepth</code> 0.09) plus the bed's 0.1m-thick edge are enough to keep a gutter ball off the lane without any raised inner lip; the wide-ball containment smoke (lateral push x=2.6) confirms the ball stays in the channel and is carried down-lane. The three reported dots share this one root cause, so all three are closed by this slice.</dd>
+      <dt>GDD coverage</dt><dd>No status changes. Added <code>tests/lane-physics.smoke.test.ts</code> to the testRefs of REQ-029, REQ-030, and REQ-031 in <code>docs/GDD_COVERAGE.json</code>. Build log appended to <code>docs/gdd/06-reuse-and-tech.html</code>.</dd>
+      <dt>Followups</dt><dd>None new.</dd>
+    </dl>
+  </article>
+
   <article data-slice="zod-payload-validation" data-date="2026-05-29">
     <h3>zod-Validated Serverless Payloads (REQ-064 done)</h3>
     <dl>

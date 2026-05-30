@@ -435,7 +435,8 @@
       "testRefs": [
         "tests/ball.test.ts",
         "tests/ball.smoke.test.ts",
-        "tests/containment.smoke.test.ts"
+        "tests/containment.smoke.test.ts",
+        "tests/lane-physics.smoke.test.ts"
       ],
       "followupRefs": [
         "F-004"
@@ -453,7 +454,8 @@
       ],
       "testRefs": [
         "tests/scatter.smoke.test.ts",
-        "tests/config.test.ts"
+        "tests/config.test.ts",
+        "tests/lane-physics.smoke.test.ts"
       ],
       "followupRefs": []
     },
@@ -472,7 +474,8 @@
       "testRefs": [
         "tests/containment.test.ts",
         "tests/containment.smoke.test.ts",
-        "tests/gutter.test.ts"
+        "tests/gutter.test.ts",
+        "tests/lane-physics.smoke.test.ts"
       ],
       "followupRefs": [
         "F-004"
