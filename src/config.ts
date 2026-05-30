@@ -686,79 +686,119 @@ export function machineRoomParts(): {
   return { walls, ceiling, conduits, gauges, neighborRig };
 }
 
+// A tubular rig part: a round tube swept along a curved centerline (a list of
+// world-space points), rendered as a polished-chrome TubeGeometry. Used for the
+// ball-return runway rails, which bend round metal into a curved track rather
+// than straight beams (GDD 04-look-and-feel#environment).
+export interface RigTube {
+  readonly points: readonly Vec3[];
+  readonly radius: number;
+}
+
 // The metal ball return (GDD 04-look-and-feel#environment, REQ-039 / REQ-041),
-// the chrome rack and return runway a real Pins Mechanical lane brings the ball
+// the curved chrome tubular track a real Pins Mechanical lane brings the ball
 // back along. It is set dressing plus the visible runway the ball reads as
 // returning along: pure geometry, no colliders, staged on the throwing-hand
 // side (+x) just outside the approach so it never touches the lane, pins, or
-// cords. The rack sits at the bowler end where the ball waits (around
-// SHOT_CAMERA.ballReturnPos); the runway is a pair of polished rails that run
-// down-lane from the rack so the eye reads a track the ball came up. Sizes are
-// tunable here so the return can be re-staged from one place (REQ-025).
+// cords. A pair of parallel round chrome rails sweep down-lane and curve in a
+// low bend back toward the bowler (around SHOT_CAMERA.ballReturnPos), carried by
+// a few short upright posts and a low cross frame, matching the bent tubular
+// look of the reference photo. Sizes are tunable here so the return can be
+// re-staged from one place (REQ-025).
 export const BALL_RETURN = {
   // Centre x of the return assembly: in the band on the throwing-hand (+x) side
   // between the gutter and the machine-room side wall, so the whole rig reads
   // clear of the lane yet stays in front of the wall (not buried in it). The
-  // widest part is the rack (rackSize.x), so this midpoint keeps the rack inner
-  // edge outboard of the gutter and its outer edge inboard of the wall inner face.
+  // rail centerlines and their tube radius stay inboard of the wall inner face
+  // and outboard of the gutter (asserted in tests/ball-return.test.ts).
   centerX: (LANE.width / 2 + LANE.gutterWidth + (MACHINE_ROOM.wallHalfX - MACHINE_ROOM.wallThickness)) / 2,
-  // The polished rails the ball rides: two parallel runners with a ball-width gap.
-  railHalfX: 0.04, //          half-width of each runner
-  railGap: 0.09, //            inner gap between the two runners (just under a ball)
-  railTopY: LANE.floorY + 0.16, // rail height at the bowler end (where the ball waits)
+  // The two round chrome tubes the ball rides: tube radius and the centerline
+  // gap between the two parallel rails (a ball nestles in the gap).
+  tubeRadius: 0.018,
+  railGap: 0.09, //            centre-to-centre gap between the two rail tubes
+  railTopY: LANE.floorY + 0.13, // rail height at the bowler end (where the ball waits)
   // The runway runs from just behind the bowler down toward the foul line so it
   // reads as the track the ball returned up. zFront is nearer the camera (+z).
-  zFront: SHOT_CAMERA.ballReturnPos.z + 0.45,
-  zBack: -0.2,
-  // The runway tilts down toward the bowler so the ball would roll home: the
+  zFront: SHOT_CAMERA.ballReturnPos.z + 0.5,
+  zBack: -0.15,
+  // The runway rises toward the down-lane end so the ball would roll home: the
   // far (down-lane) end sits this much higher than the bowler end.
-  runwayRise: 0.14,
-  // The rack housing the ball waits in: a chrome cradle box around ballReturnPos.
-  rackSize: { x: 0.34, y: 0.2, z: 0.5 } as Vec3,
-  // Two upright legs carry the runway off the approach floor.
-  legHalf: { x: 0.03, z: 0.03 } as Vec3,
-  legY: LANE.floorY, //        legs stand on the floor
+  runwayRise: 0.12,
+  // Lateral bend: the track curves outboard (toward the wall) through its middle
+  // and swings back in at the bowler end, so the rails read as a bent runway
+  // rather than a straight chute. The centerline x shifts by this much at the bend.
+  bendOut: 0.06,
+  // Short upright posts carry the runway off the floor. Posts stand at these z.
+  postRadius: 0.012,
+  postY: LANE.floorY, //       posts stand on the floor
+  // Low cross frame at the bowler end that ties the two rails together.
+  frameRadius: 0.014,
 } as const;
 
 // Pure layout of the metal ball return (REQ-039 / REQ-041), derived from
 // BALL_RETURN, SHOT_CAMERA, and LANE so the world3d meshes and a unit test share
-// one source of truth. Returns the two polished runway rails (each a tilted beam),
-// the chrome rack cradle at the bowler end, and the support legs. No physics: set
-// dressing staged off the playfield (every part sits beyond the bed + gutter on
-// the +x side).
+// one source of truth. Returns the two curved chrome rail tubes (each a swept
+// centerline), the low cross frame that ties them at the bowler end, and the
+// support posts. No physics: set dressing staged off the playfield (every part
+// sits beyond the bed + gutter on the +x side, inboard of the side wall).
 export function ballReturnParts(): {
-  rails: RigBeam[];
-  rack: RigBeam;
-  legs: RigBeam[];
+  rails: RigTube[];
+  frame: RigTube;
+  posts: RigCylinder[];
 } {
   const b = BALL_RETURN;
-  const centerZ = (b.zFront + b.zBack) / 2;
-  const halfZ = (b.zFront - b.zBack) / 2;
-  // The runway midline rides at the rail-top height, lifted half the rise so the
-  // tilt pivots about its centre (front end low at the bowler, back end raised).
-  const railCenterY = b.railTopY + b.runwayRise / 2;
 
-  const rails: RigBeam[] = ([-1, 1] as const).map((side) => ({
-    center: { x: b.centerX + side * (b.railGap / 2 + b.railHalfX), y: railCenterY, z: centerZ },
-    half: { x: b.railHalfX, y: 0.03, z: halfZ },
-  }));
-
-  // The chrome rack cradle sits at the bowler end, centred on where the ball waits.
-  const rack: RigBeam = {
-    center: { x: b.centerX, y: b.railTopY - b.rackSize.y / 2 + 0.04, z: SHOT_CAMERA.ballReturnPos.z },
-    half: { x: b.rackSize.x / 2, y: b.rackSize.y / 2, z: b.rackSize.z / 2 },
+  // Sample the runway centerline from the down-lane end (zBack, raised) to the
+  // bowler end (zFront, low). t = 0 at the back, 1 at the front. The lateral
+  // bend swings outboard (+x) at the middle and back inboard at the ends, and
+  // the height eases down toward the bowler so the ball would roll home.
+  const SAMPLES = 14;
+  const centerline = (offsetX: number): Vec3[] => {
+    const pts: Vec3[] = [];
+    for (let i = 0; i < SAMPLES; i += 1) {
+      const t = i / (SAMPLES - 1);
+      const z = b.zBack + t * (b.zFront - b.zBack);
+      // Bend: a half-sine hump that peaks outboard at the runway middle.
+      const x = b.centerX + offsetX + b.bendOut * Math.sin(t * Math.PI);
+      const y = b.railTopY + b.runwayRise * (1 - t);
+      pts.push({ x, y, z });
+    }
+    return pts;
   };
 
-  // Two legs under the runway (one near each end) carrying it off the floor.
-  const legs: RigBeam[] = ([b.zFront - 0.3, b.zBack + 0.3] as const).map((z) => {
-    const top = railCenterY - 0.03;
-    return {
-      center: { x: b.centerX, y: (b.legY + top) / 2, z },
-      half: { x: b.legHalf.x, y: (top - b.legY) / 2, z: b.legHalf.z },
-    };
-  });
+  const rails: RigTube[] = ([-1, 1] as const).map((side) => ({
+    points: centerline(side * (b.railGap / 2)),
+    radius: b.tubeRadius,
+  }));
 
-  return { rails, rack, legs };
+  // A low cross tube ties the two rails together at the bowler end (a short
+  // chrome bar running across the gap just at the front of the runway).
+  const frontX = b.centerX + b.bendOut * Math.sin(Math.PI); // 0 at t=1, so centerX
+  const frame: RigTube = {
+    points: [
+      { x: frontX - b.railGap / 2 - b.tubeRadius, y: b.railTopY + 0.005, z: b.zFront },
+      { x: frontX + b.railGap / 2 + b.tubeRadius, y: b.railTopY + 0.005, z: b.zFront },
+    ],
+    radius: b.frameRadius,
+  };
+
+  // Short upright posts under the runway (one near each end and one at the bend)
+  // carrying the rails off the floor. Each post stands under the rail midline.
+  const posts: RigCylinder[] = ([b.zFront - 0.25, (b.zFront + b.zBack) / 2, b.zBack + 0.25] as const).map(
+    (z) => {
+      const t = (z - b.zBack) / (b.zFront - b.zBack);
+      const topY = b.railTopY + b.runwayRise * (1 - t) - b.tubeRadius;
+      const x = b.centerX + b.bendOut * Math.sin(t * Math.PI);
+      return {
+        center: { x, y: (b.postY + topY) / 2, z },
+        radius: b.postRadius,
+        length: topY - b.postY,
+        axis: 'y' as const,
+      };
+    },
+  );
+
+  return { rails, frame, posts };
 }
 
 // Pin standing/fallen detection tunables (GDD 03-string-pinsetter, REQ-016/017).
