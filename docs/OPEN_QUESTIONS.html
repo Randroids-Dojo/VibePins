@@ -38,6 +38,24 @@
 <main id="open">
   <h2>Open</h2>
 
+  <section data-q="Q-039" data-status="open">
+    <h3>Q-039: How much neighbouring-lane content and lighting lift to add for venue atmosphere</h3>
+    <dl>
+      <dt>Context</dt><dd>Playtest 2026-05-30: the venue is too dark and feels dead, it needs to read like a real bowling alley while keeping the mechanical / industrial mood. Two coupled decisions: how far to lift the lighting without washing out the moody falloff, and how much neighbouring-lane content (lanes, pins, bowler figures, animation) to add for a lively venue while keeping performance reasonable (instancing / low-poly, kinematic figures, no physics).</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li>Lift the lighting by adding warm FILL (a hemisphere fill plus a few short-range warm lane-glow pools) and warming the ambient/key/fog, leaving the hero pin-deck and pickup spotlights untouched, AND add one low-poly silhouette bowler lane per side (instanced pins, a few boxes/spheres, a looped kinematic approach-and-swing). Lifts the dark and adds life without flattening the mood or ballooning the bundle.</li>
+          <li>Only lift the lighting now; defer all neighbouring lanes to a later slice. Smaller, but leaves the venue still feeling like a solo booth.</li>
+          <li>A full crowd: several lanes per side, varied figures, thrown neighbour balls, idle poses. The richest, but a much larger slice with real bundle / draw-cost risk for a background that the player rarely looks straight at.</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>A. Add warm fill (hemisphere + lane-glow pools) and warming WITHOUT touching the hero pools, so the venue brightens but the industrial falloff is preserved, AND add one looped silhouette bowler lane per side (instanced neighbour pins, a boxes/spheres figure, a kinematic loop, no physics) so the venue reads as a row of bays and feels alive. This is the clear visible improvement the playtest asked for at a small, instanced cost. Shipped under A. Richer crowd / animation polish (C) is deferred to a follow-on dot (F-017).</dd>
+      <dt>Owner</dt><dd>Playtest gate (Q-010).</dd>
+      <dt>Status</dt><dd>open</dd>
+      <dt>Resolution</dt><dd>(shipped under Recommended default A in the atmosphere-and-neighbor-lanes slice, PR #71; left open for dev override after the re-playtest)</dd>
+    </dl>
+  </section>
+
   <section data-q="Q-035" data-status="open">
     <h3>Q-035: How to remove the deck-lip seam that launched the ball</h3>
     <dl>

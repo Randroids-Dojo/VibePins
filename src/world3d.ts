@@ -13,6 +13,8 @@ import {
   SHOT_CAMERA,
   PINSETTER,
   MACHINE_ROOM,
+  ATMOSPHERE,
+  NEIGHBOR_LANES,
   VICTORY,
   THROW_LIGHT_3D,
   MATERIALS,
@@ -22,9 +24,12 @@ import {
   laneSurfaceSpan,
   pinsetterRigParts,
   machineRoomParts,
+  neighborLaneLayout,
+  bowlerFigurePose,
   ballReturnParts,
   ballRackPositions,
   BALL_RACK,
+  type NeighborLanePlacement,
   type Box,
   type RigBeam,
   type RigCylinder,
@@ -52,6 +57,17 @@ export class World3D {
   // burst is playing, mirrored each frame from the pure VictoryRoutine sim.
   private readonly debrisMeshes: THREE.Mesh[] = [];
 
+  // Neighbour-lane bowler figures (REQ-039). Each is a low-poly silhouette whose
+  // body translates (walk-up) and swing arm rotates each frame from the pure
+  // bowlerFigurePose loop, so the venue reads as alive. animateNeighbors advances
+  // them; they are background atmosphere with no physics.
+  private readonly bowlerFigures: {
+    group: THREE.Group;
+    arm: THREE.Object3D;
+    standZ: number;
+    phase: number;
+  }[] = [];
+
   // The lane-end go/stop signal lenses (REQ-038). The two stacked lenses of the
   // down-lane traffic signal; setThrowLight swaps each between its lit and dark
   // material so exactly one glows for the current state.
@@ -77,9 +93,11 @@ export class World3D {
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
 
     // Scene: warm, moody machine-room dark with fog for depth (GDD 04-look-and-feel).
+    // The background and fog share ATMOSPHERE.bgColor (a warm near-black) so the
+    // venue recedes into warm dark, not flat black.
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0x0b0806);
-    this.scene.fog = new THREE.Fog(0x0b0806, LANE.fogNear, LANE.fogFar);
+    this.scene.background = new THREE.Color(ATMOSPHERE.bgColor);
+    this.scene.fog = new THREE.Fog(ATMOSPHERE.bgColor, LANE.fogNear, LANE.fogFar);
 
     this.camera = new THREE.PerspectiveCamera(LANE.cameraFov, 1, 0.1, 100);
     this.camera.position.set(LANE.cameraPos.x, LANE.cameraPos.y, LANE.cameraPos.z);
@@ -87,6 +105,7 @@ export class World3D {
 
     this.buildLighting();
     this.buildMachineRoom();
+    this.buildNeighborLanes();
     this.buildApproach();
     this.buildLane();
     this.buildLaneMarkers();
@@ -112,11 +131,43 @@ export class World3D {
   }
 
   private buildLighting(): void {
-    // Low warm ambient: enough to read the lane, dark enough to stay moody.
-    this.scene.add(new THREE.AmbientLight(0xc79a6a, 0.38));
+    // Low warm ambient: enough to read the venue, dark enough to stay moody
+    // (ATMOSPHERE, REQ-041). Lifted from the near-black it played as so the dark
+    // machine room reads as moody rather than pitch black.
+    this.scene.add(new THREE.AmbientLight(ATMOSPHERE.ambientColor, ATMOSPHERE.ambientIntensity));
+
+    // Warm hemisphere fill: a soft sky/ground gradient that gives the room volume
+    // and depth without a hard shadow, so the neighbour lanes and walls are not flat
+    // black. Low intensity so it lifts the dark without flattening the industrial
+    // mood (GDD: "soft falloff into a dim machine room").
+    this.scene.add(
+      new THREE.HemisphereLight(
+        ATMOSPHERE.hemisphereSky,
+        ATMOSPHERE.hemisphereGround,
+        ATMOSPHERE.hemisphereIntensity,
+      ),
+    );
+
+    // Dim warm lane-glow pools spaced down the venue: the soft pools a row of
+    // work-lights throws over the lanes, lighting the neighbour lanes and the player
+    // bed midway down so the venue reads inhabited. Short range and low intensity so
+    // the falloff into the dark machine room is preserved, not washed out.
+    const frontZ = 0;
+    const backZ = LANE.headSpot.z;
+    for (let i = 0; i < ATMOSPHERE.laneGlowCount; i += 1) {
+      const t = (i + 0.5) / ATMOSPHERE.laneGlowCount;
+      const glow = new THREE.PointLight(
+        ATMOSPHERE.laneGlowColor,
+        ATMOSPHERE.laneGlowIntensity,
+        ATMOSPHERE.laneGlowRange,
+        2,
+      );
+      glow.position.set(0, ATMOSPHERE.laneGlowY, frontZ + t * (backZ - frontZ));
+      this.scene.add(glow);
+    }
 
     // Warm directional fill across the whole lane (GDD 04-look-and-feel palette).
-    const key = new THREE.DirectionalLight(0xffd9a0, 1.0);
+    const key = new THREE.DirectionalLight(ATMOSPHERE.keyColor, ATMOSPHERE.keyIntensity);
     key.position.set(1.5, 8, 2);
     key.castShadow = true;
     key.shadow.mapSize.set(1024, 1024);
@@ -459,6 +510,153 @@ export class World3D {
       const face = new THREE.Mesh(new THREE.CircleGeometry(g.radius * 0.8, 24), faceMat);
       face.position.set(g.center.x, g.center.y, g.center.z + 0.01);
       this.scene.add(face);
+    }
+  }
+
+  // Neighbouring lanes with other bowlers (GDD 04-look-and-feel#environment,
+  // REQ-039). The venue is a row of lanes: a low-detail neighbour lane sits on each
+  // side of the player's lane (NEIGHBOR_LANES / neighborLaneLayout), each with its
+  // own dim wood bed, a standing duckpin rack at the far end, and a simple looped
+  // bowler figure that walks up and swings. All background atmosphere: pure geometry
+  // plus a kinematic figure animation, NO physics and NO colliders, staged off the
+  // player's playfield so it never touches the ball, pins, or cords. The standing
+  // pins are instanced (one InstancedMesh for all neighbour pins) to keep the bundle
+  // and draw cost down. Lit by the warm fill and lane-glow, dim against the fog so
+  // the neighbours read in the periphery without pulling focus from the player lane.
+  private buildNeighborLanes(): void {
+    const lanes = neighborLaneLayout();
+    if (lanes.length === 0) return;
+
+    const n = NEIGHBOR_LANES;
+    const bedMat = new THREE.MeshStandardMaterial({
+      color: n.bedColor,
+      roughness: 0.55,
+      metalness: 0.1,
+    });
+    const bedCenterZ = (n.bedFrontZ + n.bedBackZ) / 2;
+    const bedLength = Math.abs(n.bedFrontZ - n.bedBackZ);
+    const bedGeo = new THREE.BoxGeometry(n.bedWidth, 0.1, bedLength);
+
+    // The neighbour pin rack: the same duckpin triangle as the player's, drawn as
+    // squat capsule stand-ins. One instance per pin across all neighbour lanes.
+    const rack = pinRackPositions();
+    const pinGeo = new THREE.CapsuleGeometry(
+      LANE.pinBellyRadius,
+      LANE.pinHeight - 2 * LANE.pinBellyRadius,
+      4,
+      8,
+    );
+    const pinMat = new THREE.MeshStandardMaterial({
+      color: n.pinColor,
+      roughness: 0.7,
+      metalness: 0.05,
+    });
+    const pins = new THREE.InstancedMesh(pinGeo, pinMat, rack.length * lanes.length);
+    const m = new THREE.Matrix4();
+    let pinIndex = 0;
+
+    for (const lane of lanes) {
+      const bed = new THREE.Mesh(bedGeo, bedMat);
+      bed.position.set(lane.centerX, LANE.floorY - 0.05, bedCenterZ);
+      bed.receiveShadow = true;
+      this.scene.add(bed);
+
+      for (const p of rack) {
+        m.makeTranslation(lane.centerX + p.x, p.y, p.z);
+        pins.setMatrixAt(pinIndex, m);
+        pinIndex += 1;
+      }
+
+      this.bowlerFigures.push(this.buildBowlerFigure(lane));
+    }
+
+    pins.instanceMatrix.needsUpdate = true;
+    this.scene.add(pins);
+  }
+
+  // One low-poly neighbour bowler figure (REQ-039): a dark silhouette of a person
+  // built from a few boxes/spheres (legs, torso, head) plus a swing arm holding a
+  // ball, parented to a group so the whole figure can be translated (walk-up) and
+  // the arm rotated (swing) each frame from the pure bowlerFigurePose loop. Returns
+  // the group, the arm pivot, the figure's resting z, and its loop phase offset.
+  private buildBowlerFigure(lane: NeighborLanePlacement): {
+    group: THREE.Group;
+    arm: THREE.Object3D;
+    standZ: number;
+    phase: number;
+  } {
+    const n = NEIGHBOR_LANES;
+    const h = n.figureHeight;
+    const bodyMat = new THREE.MeshStandardMaterial({
+      color: n.figureColor,
+      roughness: 0.85,
+      metalness: 0.1,
+    });
+    const ballMat = new THREE.MeshStandardMaterial({
+      color: n.ballColor,
+      roughness: 0.4,
+      metalness: 0.2,
+    });
+
+    const group = new THREE.Group();
+
+    // Two legs.
+    const legGeo = new THREE.BoxGeometry(0.12, h * 0.45, 0.14);
+    for (const dx of [-0.09, 0.09]) {
+      const leg = new THREE.Mesh(legGeo, bodyMat);
+      leg.position.set(dx, h * 0.225, 0);
+      leg.castShadow = true;
+      group.add(leg);
+    }
+    // Torso.
+    const torso = new THREE.Mesh(new THREE.BoxGeometry(0.34, h * 0.4, 0.2), bodyMat);
+    torso.position.set(0, h * 0.65, 0);
+    torso.castShadow = true;
+    group.add(torso);
+    // Head.
+    const head = new THREE.Mesh(new THREE.SphereGeometry(h * 0.09, 12, 10), bodyMat);
+    head.position.set(0, h * 0.93, 0);
+    head.castShadow = true;
+    group.add(head);
+
+    // Swing arm: a pivot at the shoulder (toward the lane side) the arm hangs from,
+    // so rotating the pivot about x swings the arm back (behind, +z) and forward
+    // (toward the lane, -z). The forearm and a held ball hang below the pivot.
+    const arm = new THREE.Object3D();
+    const shoulderSide = lane.side === -1 ? 0.2 : -0.2; // arm on the lane-facing side
+    arm.position.set(shoulderSide, h * 0.78, 0);
+    const armLen = h * 0.42;
+    const upper = new THREE.Mesh(new THREE.BoxGeometry(0.08, armLen, 0.08), bodyMat);
+    upper.position.set(0, -armLen / 2, 0);
+    upper.castShadow = true;
+    arm.add(upper);
+    const ball = new THREE.Mesh(new THREE.SphereGeometry(LANE.ballRadius, 14, 12), ballMat);
+    ball.position.set(0, -armLen, 0);
+    ball.castShadow = true;
+    arm.add(ball);
+    group.add(arm);
+
+    // Face the figure down-lane (toward the pins, -z) so the back reads to the camera.
+    group.position.set(lane.centerX, LANE.floorY, n.standZ);
+    this.scene.add(group);
+
+    return { group, arm, standZ: n.standZ, phase: lane.phase };
+  }
+
+  // Advance the neighbour bowler figures (REQ-039) for the elapsed wall-clock time.
+  // Each figure runs the pure bowlerFigurePose loop at its own phase offset, so the
+  // venue is alive and the lanes are not in lockstep. The body translates down-lane
+  // (walk-up) and the swing arm rotates (the swing), both observable motion driven
+  // by elapsed time (RULE 10: not paused on focus, runs whenever the scene renders).
+  animateNeighbors(elapsedSeconds: number): void {
+    const period = NEIGHBOR_LANES.cycleSeconds;
+    for (const fig of this.bowlerFigures) {
+      const t = elapsedSeconds / period + fig.phase;
+      const pose = bowlerFigurePose(t);
+      // Walk toward the foul line (-z) by the pose's walk offset.
+      fig.group.position.z = fig.standZ - pose.walkOffset;
+      // Swing the arm: rotate about x (negative draws back / +z, positive forward).
+      fig.arm.rotation.x = pose.armSwing;
     }
   }
 
