@@ -201,22 +201,12 @@ export class World3D {
     pedestal.receiveShadow = true;
     this.scene.add(pedestal);
 
-    // The collection of resting balls nestled in the cradle (REQ-039: the ball
-    // returns to a rack of balls, not the floor). The front slot (index 0) is
-    // left to the live playable ball, which rests there between shots and is
-    // lifted by the pickup; the remaining slots hold decorative balls so the
-    // bowler end reads as a rack holding several balls. Same dark polished look
-    // as the playable ball (matches src/ball.ts).
-    const ballMat = new THREE.MeshStandardMaterial({ color: 0x2b2f36, roughness: 0.35, metalness: 0.5 });
-    const ballGeo = new THREE.SphereGeometry(LANE.ballRadius, 24, 12);
-    for (let i = 1; i < rack.length; i += 1) {
-      const slot = rack[i];
-      const mesh = new THREE.Mesh(ballGeo, ballMat);
-      mesh.position.set(slot.x, slot.y, slot.z);
-      mesh.castShadow = true;
-      mesh.receiveShadow = true;
-      this.scene.add(mesh);
-    }
+    // The resting balls nestled in the cradle are no longer decorative meshes on
+    // the pedestal: they are now real dynamic Rapier bodies physically held in a
+    // collider trough (src/ballRack.ts, BALL_CRADLE), so the returned ball can
+    // roll in, bump them, and settle against them. BallRack owns those bodies and
+    // the cradle colliders; this builder only stages the visible chrome rig and
+    // the brushed-steel pedestal they rest on.
   }
 
   // A round chrome tube swept along a curved centerline (the ball-return rails

@@ -14,6 +14,7 @@
 import { createWorld3D } from './world3d.js';
 import { PinSet, pinRackPositions } from './pins.js';
 import { Ball, ballSpawnPosition, ballRackFront } from './ball.js';
+import { BallRack } from './ballRack.js';
 import { detectPins, isRackSnagged, SettleWindow } from './detection.js';
 import { ResetCycle, type ResetMode, type ResetPhase } from './reset.js';
 import { ShotCamera, ChaseCam, canThrow, lineupMarkerOffset, lineupFractionFromOffset, shotMetersVisibility } from './camera.js';
@@ -146,6 +147,11 @@ const GAUGE_RAIL_INSET = 38;
 const world = await createWorld3D(canvas);
 const pins = new PinSet(world);
 const ball = new Ball(world);
+// The physical ball rack: a queue of dynamic balls held at rest in the static
+// cradle trough at the bowler end (REQ-039). The returned playable ball rolls in
+// and settles against this queue; the queue itself just sits there held by the
+// cradle colliders, synced each frame.
+const ballRack = new BallRack(world);
 
 // The pure game spine: tracks frames/balls, decides re-racks, and scores. It has
 // no reset of its own, so a new game replaces this instance (see restartGame).
@@ -1267,6 +1273,7 @@ function frame(now: number): void {
   world.step(dt);
   pins.sync();
   ball.sync();
+  ballRack.sync();
   world.render();
   requestAnimationFrame(frame);
 }

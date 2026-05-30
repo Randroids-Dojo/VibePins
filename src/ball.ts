@@ -18,6 +18,7 @@ import {
   BALL_RETURN,
   ballReturnPathPoint,
   ballRackPositions,
+  ballCradleRestPositions,
   type Vec3,
 } from './config.js';
 import type { World3D } from './world3d.js';
@@ -129,9 +130,6 @@ export function ballReturnTravelPos(p: number): Vec3 {
 export class Ball {
   private readonly mesh: THREE.Mesh;
   private readonly body: RAPIER.RigidBody;
-  // Elapsed seconds into the kinematic return-to-rack animation, or null when no
-  // return is playing.
-  private returnElapsed: number | null = null;
 
   constructor(private readonly world: World3D) {
     const spawn = ballSpawnPosition();
@@ -218,39 +216,38 @@ export class Ball {
     return { x: t.x, z: t.z, speed: Math.hypot(v.x, v.y, v.z) };
   }
 
-  // Begin the kinematic return: take the just-thrown ball (wherever it resolved,
-  // the pit or the lane) and animate it back up the return track to the rack
-  // (REQ-039). The ball becomes a kinematic body for the travel; stepReturn
-  // advances it each frame and settleAtRack parks it once home.
+  // Begin the PHYSICAL return: take the just-thrown ball (wherever it resolved,
+  // the pit or the lane) and drop it into the cradle as a dynamic body rolling
+  // home toward the bowler end (REQ-039). It is placed just behind the back of
+  // the queued balls (a touch raised so it drops onto the trough floor) and given
+  // a down-cradle roll toward the front stop, so it physically bumps the queued
+  // balls and settles against them (the bump-and-settle of a real return). The
+  // world step advances the body from here, so stepReturn no longer drives the
+  // travel; respawn parks the ball at the rack front for the next pickup once the
+  // cradle has settled.
   startReturn(): void {
-    this.body.setBodyType(RAPIER.RigidBodyType.KinematicPositionBased, true);
-    this.body.setLinvel({ x: 0, y: 0, z: 0 }, true);
-    this.body.setAngvel({ x: 0, y: 0, z: 0 }, true);
-    this.returnElapsed = 0;
+    const queue = ballCradleRestPositions();
+    const back = queue[queue.length - 1];
+    // Enter just behind the back ball, a hair raised so it drops onto the floor.
+    const start = { x: back.x, y: back.y + LANE.ballRadius * 0.5, z: back.z - LANE.ballRadius * 2.4 };
+    this.body.setBodyType(RAPIER.RigidBodyType.Dynamic, true);
+    this.body.setTranslation(start, true);
+    // Roll toward the bowler end (+z, into the queue) at the tuned return speed.
+    this.body.setLinvel({ x: 0, y: 0, z: BALL_RETURN.returnRollSpeed }, true);
+    // Forward roll about -x so a +z roll reads as rolling, not skidding.
+    this.body.setAngvel({ x: -BALL_RETURN.returnRollSpeed / LANE.ballRadius, y: 0, z: 0 }, true);
   }
 
-  // Advance the return-to-rack animation by dt. Returns true once the ball has
-  // reached the rack front (the travel is complete), false while still in
-  // transit. A no-op returning true if no return is in progress.
-  stepReturn(dt: number): boolean {
-    if (this.returnElapsed === null) return true;
-    this.returnElapsed += dt;
-    const p = Math.min(1, this.returnElapsed / BALL_RETURN.returnSeconds);
-    const pos = ballReturnTravelPos(p);
-    this.body.setNextKinematicTranslation(pos);
-    this.body.setNextKinematicRotation({ x: 0, y: 0, z: 0, w: 1 });
-    if (p >= 1) {
-      this.returnElapsed = null;
-      return true;
-    }
-    return false;
+  // Retained for the shot-loop call sites: the physical return is driven by the
+  // world step, so this is a no-op. Returns true (no kinematic travel pending).
+  stepReturn(_dt: number): boolean {
+    return true;
   }
 
   // Park the ball at rest at the rack front as a kinematic carried body, ready
   // for the next shot's pickup/walk-up. The pickup lifts it off the rack.
   respawn(): void {
     const rest = ballRackFront();
-    this.returnElapsed = null;
     this.body.setBodyType(RAPIER.RigidBodyType.KinematicPositionBased, true);
     this.body.setNextKinematicTranslation(rest);
     this.body.setNextKinematicRotation({ x: 0, y: 0, z: 0, w: 1 });
