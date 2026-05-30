@@ -279,8 +279,6 @@ describe('genuine-snag up/down shake recovery controller (REQ-024)', () => {
     rc.reportSnag(true);
     expect(rc.phase).toBe('shake-down');
     // Shake-down pays the cord out longer than the lifted length (the visible drop).
-    const downEnd = rc.step();
-    void downEnd;
     let downLast = rc.step();
     while (rc.phase === 'shake-down') downLast = rc.step();
     expect(downLast.reel[0].ropeLength).toBeGreaterThan(RESET.liftRopeLength);

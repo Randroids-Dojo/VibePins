@@ -14,10 +14,11 @@
 
 import { describe, it, expect, beforeAll } from 'vitest';
 import RAPIER from '@dimforge/rapier3d-compat';
-import { LANE, GROUP, TETHER, DETECTION, RESET, PIN_REST_Y } from '../src/config.js';
-import { pinRackPositions, pinMassProperties, neckLocalAnchor } from '../src/pins.js';
-import { classifyRack, type PinKinematics } from '../src/detection.js';
-import { ResetCycle, type ReelTarget, type ResetTarget } from '../src/reset.js';
+import { LANE, TETHER, DETECTION, RESET, PIN_REST_Y } from '../src/config.js';
+import { pinRackPositions } from '../src/pins.js';
+import { classifyRack } from '../src/detection.js';
+import { ResetCycle } from '../src/reset.js';
+import { addRack, reelPin, kinematics, type RackPin } from './helpers/rack-physics.js';
 
 beforeAll(async () => {
   await RAPIER.init();
@@ -43,65 +44,6 @@ function addDeck(world: RAPIER.World): void {
   world.createCollider(RAPIER.ColliderDesc.cuboid(LANE.width / 2, 0.05, (frontZ - backZ) / 2), deck);
 }
 
-// A pin and its overhead anchor plus the mutable rope joint, so a reel step can
-// shorten the cord (the rope length is not runtime-settable in the compat build,
-// so reeling removes and recreates the joint), mirroring PinSet.reelStep.
-interface RackPin {
-  body: RAPIER.RigidBody;
-  anchor: RAPIER.RigidBody;
-  joint: RAPIER.ImpulseJoint;
-  ropeLength: number;
-}
-
-function addRack(world: RAPIER.World): RackPin[] {
-  const mass = pinMassProperties();
-  return pinRackPositions().map((spot) => {
-    const body = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(spot.x, spot.y, spot.z));
-    world.createCollider(
-      RAPIER.ColliderDesc.cylinder(LANE.pinHeight / 2, LANE.pinBellyRadius)
-        .setMassProperties(mass.mass, mass.centerOfMass, mass.principalAngularInertia, IDENTITY)
-        .setCollisionGroups((GROUP.PIN << 16) | 0xffff),
-      body,
-    );
-    const anchor = world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(spot.x, TETHER.topY, spot.z));
-    const joint = world.createImpulseJoint(
-      RAPIER.JointData.rope(TETHER.slackLength, neckLocalAnchor(), { x: 0, y: 0, z: 0 }),
-      body,
-      anchor,
-      true,
-    );
-    return { body, anchor, joint, ropeLength: TETHER.slackLength };
-  });
-}
-
-// Reel a pin's cord to a new length (PinSet.reelStep equivalent).
-function reelPin(world: RAPIER.World, pin: RackPin, length: number): void {
-  if (pin.ropeLength === length) return;
-  world.removeImpulseJoint(pin.joint, true);
-  pin.joint = world.createImpulseJoint(
-    RAPIER.JointData.rope(length, neckLocalAnchor(), { x: 0, y: 0, z: 0 }),
-    pin.body,
-    pin.anchor,
-    true,
-  );
-  pin.ropeLength = length;
-  pin.body.wakeUp();
-}
-
-function kinematics(pins: RackPin[]): PinKinematics[] {
-  return pins.map(({ body }) => {
-    const t = body.translation();
-    const r = body.rotation();
-    const lv = body.linvel();
-    const av = body.angvel();
-    return {
-      position: { x: t.x, y: t.y, z: t.z },
-      rotation: { x: r.x, y: r.y, z: r.z, w: r.w },
-      linSpeed: Math.hypot(lv.x, lv.y, lv.z),
-      angSpeed: Math.hypot(av.x, av.y, av.z),
-    };
-  });
-}
 const upAxisY = (b: RAPIER.RigidBody): number => {
   const r = b.rotation();
   return 1 - 2 * (r.x * r.x + r.z * r.z);
@@ -155,8 +97,8 @@ function runReset(
       captured = true;
     }
 
-    for (const r of reel as ReelTarget[]) reelPin(world, pins[r.pinIndex], r.ropeLength);
-    for (const t of targets as ResetTarget[]) {
+    for (const r of reel) reelPin(world, pins[r.pinIndex], r.ropeLength);
+    for (const t of targets) {
       pins[t.pinIndex].body.setNextKinematicTranslation({ x: t.x, y: t.y, z: t.z });
       pins[t.pinIndex].body.setNextKinematicRotation(IDENTITY);
     }
