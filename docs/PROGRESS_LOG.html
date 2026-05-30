@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="req018-reset-cycle-timing-done" data-date="2026-05-29">
+    <h3>Reset-Cycle End-To-End Timing Confirmed (REQ-018 complete)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/20260529-190128-req018-cycle-timing</code></dd>
+      <dt>PR</dt><dd>#TBD</dd>
+      <dt>Changed</dt><dd>Finished REQ-018 (the reset cycle runs settle, lift fallen, reposition, lower and ready in roughly three to five seconds, GDD 03-string-pinsetter#reset-cycle). No runtime change: the cycle was already built (<code>src/reset.ts</code> <code>ResetCycle</code>) and wired into the live loop (<code>src/main.ts</code> drives the settle-and-detect <code>SettleWindow</code> into the returned between-balls / re-rack reset). The requirement sat <code>partial</code> because the reset was originally a manual R-key trigger with first-pass durations, and the automated settle-detect-reset-score loop (followup F-008) had not yet landed; it has since, so the cycle now runs unattended. The one remaining unproven part was REQ-018's exact timing claim across the WHOLE sequence in live-loop order, not just the four reel phases in isolation. New headless smoke <code>tests/reset-cycle-timing.smoke.test.ts</code> shoves three front pins down on the real Rapier rack, drives the production <code>SettleWindow</code> (real <code>DETECTION</code> config) until it latches, then carries the detected fallen pins through the real <code>ResetCycle</code> to ready, counting fixed steps end to end.</dd>
+      <dt>Verification</dt><dd>em-dash grep (U+2014/U+2013) clean on changed files; <code>git diff --check</code> clean; <code>tsc --noEmit</code> clean; <code>vitest run</code> full suite green (346 tests, 3 new). The new smoke proves the phases run in GDD order (settle-hold, lift, reposition, lower) and the full settle-through-ready time lands at ~3.85s for the fastest settle and ~4.30s for the slowest timed-out settle, both inside the 3-5s window with margin. Dependency upgrade gate run before the PR: rapier 0.19.3 and three 0.184.0 match the pinned values; vite/vitest/typescript current; vibekit not installed. No bump due.</dd>
+      <dt>Assumptions</dt><dd>REQ-018 was already met by shipped code; the remaining gap was proof of the end-to-end timing in live-loop order, so this is a test-only slice (slice discipline: no source touched). The smoke runs the production <code>DETECTION</code> and <code>RESET</code> config and the real settle-then-reset sequence, so the timing holds for the actual game loop. The cord remains visually-following rather than physically taut (a documented, deliberate trade-off from the reset slice; REQ-020 "reads as strings" is already done) and the phase durations stay first-pass tunables for the playtest gate (Q-010).</dd>
+      <dt>GDD coverage</dt><dd>REQ-018 flipped <code>partial</code> to <code>done</code> in <code>docs/GDD_COVERAGE.json</code> (43 of 64 done). Test ref <code>tests/reset-cycle-timing.smoke.test.ts</code> added to the row. Build log appended to <code>docs/gdd/03-string-pinsetter.html</code> (the section stays <code>partial</code> overall: REQ-014 remains partial pending the playtest gate).</dd>
+      <dt>Followups</dt><dd>None opened. F-008 (the automated game loop) was already resolved; this slice consumes that resolution to close REQ-018.</dd>
+    </dl>
+  </article>
+
   <article data-slice="req029-ball-roll-done" data-date="2026-05-29">
     <h3>Ball Roll Under Physics Confirmed End To End (REQ-029 complete)</h3>
     <dl>
