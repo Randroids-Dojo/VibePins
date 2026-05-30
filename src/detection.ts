@@ -144,16 +144,18 @@ export interface SnagThresholds {
   readonly clearanceTolerance: number;
 }
 
-// Is any pin genuinely snagged after the cord-tension reel-up (REQ-024)? A clean
-// rack reels every pin up so its neck rises to within clearanceTolerance of the
-// lifted clearance height. A genuine tangle, the only one a real string machine
-// hits (a downed pin lying across another pin's cord), holds a pin's cord low so
-// it cannot rise: that pin's neck stays well below the clearance. This reads the
-// neck height (centre offset up the pin by neckLocalY along its up-axis) rather
-// than the centre, since a hanging pin's neck is what the cord reels. Pure: the
-// adapter passes the live sim reading at the checkpoint. Returns true only on a
-// real snag, so a clean rack never enters the shake recovery (no false-positive
-// shake on every reset).
+// Is any pin genuinely snagged after the cord-tension reel-up (REQ-024)? Defined on
+// CONE-SEATING: the reel-up pulls each pin's head up into its centering cone, whose
+// slot sits at the lifted clearance neck height (clearanceNeckY). A pin that SEATS
+// into its cone reaches that height; a clean rack seats every pin. A genuine tangle,
+// the only one a real string machine hits (a downed pin lying across another pin's
+// cord), holds a pin's cord low so it cannot rise into its cone: that pin's neck
+// stays more than clearanceTolerance below the cone slot, FAILING to seat. This
+// reads the neck height (centre offset up the pin by neckLocalY along its up-axis)
+// rather than the centre, since a hanging pin's neck is what the cord reels into the
+// cone. Pure: the adapter passes the live sim reading at the checkpoint. Returns
+// true only on a missed cone seat, so a clean rack never enters the shake recovery
+// (no false-positive shake on every reset).
 export function isRackSnagged(
   states: readonly PinKinematics[],
   neckLocalY: number,

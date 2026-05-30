@@ -27,6 +27,9 @@ beforeAll(async () => {
 const IDENTITY = { x: 0, y: 0, z: 0, w: 1 };
 const restY = PIN_REST_Y;
 const cfg = { ...RESET, restY };
+// The live cone-seat config: the seat height is the carried clearance, mirroring
+// main.ts. The reel-up pulls each pin's head up into its cone at this height.
+const seatCfg = { ...RESET, restY, seatY: RESET.liftPinY };
 
 function makeWorld(): RAPIER.World {
   const world = new RAPIER.World({ x: 0, y: LANE.gravity, z: 0 });
@@ -88,7 +91,7 @@ function runReset(
       continue;
     }
 
-    if (phase === 'reposition' && !captured) {
+    if (phase === 'seat' && !captured) {
       for (const i of reeled) {
         pins[i].body.setBodyType(RAPIER.RigidBodyType.KinematicPositionBased, true);
         reelPin(world, pins[i], TETHER.slackLength);
@@ -177,7 +180,7 @@ describe('cord-tension lift: pins are reeled up BY THE NECK and dangle (REQ-024)
     const anchorY = TETHER.topY;
     let belowAnchorWhileLifted = false;
     let steps = 0;
-    while (reset.isRunning && reset.phase !== 'reposition' && steps < cfg.settleHoldFrames + cfg.liftFrames + 5) {
+    while (reset.isRunning && reset.phase !== 'seat' && steps < cfg.settleHoldFrames + cfg.liftFrames + 5) {
       const { reel } = reset.step();
       if (reset.needsSnagVerdict) {
         reset.reportSnag(false);
@@ -244,6 +247,118 @@ describe('reset cycle: between-balls recall-all then re-spot standing (REQ-009, 
     // Fallen pins stayed reeled up and aloft, cleared (REQ-009).
     for (const i of fallen) {
       expect(pins[i].body.translation().y).toBeGreaterThan(LANE.pinHeight);
+    }
+    world.free();
+  });
+});
+
+describe('cone-seat: a reeled-up pin is caught in its cone, straightened vertical and centered (REQ-024)', () => {
+  // Drive the cycle through the lift and the seat phase (the cone catch), stopping
+  // at the start of lower, and return each pin's pose at the top of its seat: the
+  // pin should be vertical (up-axis near 1) and centered under its cone (home x/z)
+  // at the seat height, NOT crooked or hanging off over its swung spot.
+  function runToSeated(world: RAPIER.World, pins: RackPin[], reset: ResetCycle) {
+    const reeled = [...reset.targets];
+    let captured = false;
+    let steps = 0;
+    const cap = reset.totalFrames + 600;
+    while (reset.isRunning && reset.phase !== 'lower' && steps < cap) {
+      const phase = reset.phase;
+      const { targets, reel } = reset.step();
+      if (reset.needsSnagVerdict) {
+        reset.reportSnag(false);
+        world.step();
+        steps += 1;
+        continue;
+      }
+      if (phase === 'seat' && !captured) {
+        for (const i of reeled) {
+          pins[i].body.setBodyType(RAPIER.RigidBodyType.KinematicPositionBased, true);
+          reelPin(world, pins[i], TETHER.slackLength);
+        }
+        reset.updateSettled(kinematics(pins).map((s) => s.position));
+        captured = true;
+      }
+      for (const r of reel) reelPin(world, pins[r.pinIndex], r.ropeLength);
+      for (const t of targets) {
+        pins[t.pinIndex].body.setNextKinematicTranslation({ x: t.x, y: t.y, z: t.z });
+        pins[t.pinIndex].body.setNextKinematicRotation(IDENTITY);
+      }
+      world.step();
+      steps += 1;
+    }
+    // Prove we stopped at the seat/lower boundary, not by hitting the safety cap
+    // (a cap exit would mask a phase regression and read a meaningless pose).
+    return { seated: kinematics(pins), reachedLower: reset.phase === 'lower', captured };
+  }
+
+  it('a lifted pin ends up VERTICAL and centered under its cone (seated), not crooked', () => {
+    const world = makeWorld();
+    addBed(world);
+    addDeck(world);
+    const pins = addRack(world);
+    const homes = pinRackPositions();
+
+    knockFrontPins(world, pins);
+
+    const all = pins.map((_, i) => i);
+    const settled = pins.map((p) => p.body.translation());
+    const reset = new ResetCycle(seatCfg);
+    reset.start('rerack', all, homes, settled);
+
+    const { seated, reachedLower, captured } = runToSeated(world, pins, reset);
+    // The cycle reached the lower boundary through the seat phase (the cone catch
+    // actually ran), so the seated pose below is the real top-of-seat pose.
+    expect(captured).toBe(true);
+    expect(reachedLower).toBe(true);
+
+    for (const i of all) {
+      // Centered under its cone: the cone sits over the home spot, so a seated pin's
+      // x/z are at its home spot, not off over where it swung after the lift.
+      expect(Math.hypot(seated[i].position.x - homes[i].x, seated[i].position.z - homes[i].z)).toBeLessThan(0.05);
+      // Caught up in the cone at the seat height.
+      expect(seated[i].position.y).toBeCloseTo(seatCfg.seatY, 1);
+      // Straightened vertical (up-axis near vertical), the cone arrested the swing.
+      const r = pins[i].body.rotation();
+      const upAxis = 1 - 2 * (r.x * r.x + r.z * r.z);
+      expect(upAxis).toBeGreaterThan(0.99);
+    }
+    world.free();
+  });
+
+  it('standing pins then lower STRAIGHT DOWN out of their cones onto their home spots, vertical', () => {
+    const world = makeWorld();
+    addBed(world);
+    addDeck(world);
+    const pins = addRack(world);
+    const homes = pinRackPositions();
+
+    knockFrontPins(world, pins);
+    const before = classifyRack(kinematics(pins), DETECTION);
+    const standing = before.filter((p) => p.standing).map((p) => p.pinIndex);
+    expect(standing.length).toBeGreaterThan(0);
+
+    const settled = pins.map((p) => p.body.translation());
+    const reset = new ResetCycle(seatCfg);
+    reset.start('between-balls', before.filter((p) => !p.standing).map((p) => p.pinIndex), homes, settled);
+
+    const { maxLift } = runReset(world, pins, reset);
+    expect(reset.isComplete()).toBe(true);
+    for (const i of pins.map((_, i) => i)) expect(maxLift[i]).toBeGreaterThan(LANE.pinHeight);
+
+    for (const i of reset.landedTargets) {
+      pins[i].body.setBodyType(RAPIER.RigidBodyType.Dynamic, true);
+      pins[i].body.setLinvel({ x: 0, y: 0, z: 0 }, true);
+      pins[i].body.setAngvel({ x: 0, y: 0, z: 0 }, true);
+    }
+    for (let i = 0; i < 60; i += 1) world.step();
+
+    // The standing pins lowered straight down out of their cones onto their HOME
+    // spots, upright (vertical), already centered from the cone seat.
+    for (const i of standing) {
+      const p = pins[i].body.translation();
+      expect(Math.hypot(p.x - homes[i].x, p.z - homes[i].z)).toBeLessThan(0.1);
+      expect(upAxisY(pins[i].body)).toBeGreaterThan(0.9);
     }
     world.free();
   });

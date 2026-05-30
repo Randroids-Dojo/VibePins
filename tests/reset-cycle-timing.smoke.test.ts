@@ -136,7 +136,7 @@ function runLiveCycle(): { settleFrames: number; resetFrames: number; phaseOrder
     // At the first carry phase, capture the pins kinematic (the reposition/lower
     // carry). The cord-tension lift itself is timing-only here, so the lift frames
     // simply elapse; the cycle's frame counts are what this smoke measures.
-    if (reset.phase === 'reposition' && !captured) {
+    if (reset.phase === 'seat' && !captured) {
       for (const i of all) pins[i].setBodyType(RAPIER.RigidBodyType.KinematicPositionBased, true);
       captured = true;
     }
@@ -157,10 +157,10 @@ function runLiveCycle(): { settleFrames: number; resetFrames: number; phaseOrder
 }
 
 describe('reset cycle end-to-end timing (REQ-018)', () => {
-  it('runs settle, lift, reposition, lower, ready in order over the live loop', () => {
+  it('runs settle, lift, seat (cone catch), lower, ready in order over the live loop', () => {
     const { phaseOrder } = runLiveCycle();
     // The reset's own phases, in the GDD order, ending idle (the ready handoff).
-    expect(phaseOrder).toEqual(['settle-hold', 'lift', 'reposition', 'lower']);
+    expect(phaseOrder).toEqual(['settle-hold', 'lift', 'seat', 'lower']);
   });
 
   it('completes the whole settle-through-ready cycle inside the GDD 3-5s window', () => {

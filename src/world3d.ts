@@ -24,6 +24,7 @@ import {
   type Box,
   type RigBeam,
   type RigCylinder,
+  type RigCone,
   type SurfaceMaterial,
   type Vec3,
 } from './config.js';
@@ -286,13 +287,44 @@ export class World3D {
       roughness: 0.6,
       metalness: 0.6,
     });
+    // Brushed/polished steel for the pin table and centering cones: the bright
+    // machined cups the reeled-up pin heads are caught and straightened in.
+    const coneMat = new THREE.MeshStandardMaterial({
+      color: PINSETTER.coneColor,
+      roughness: 0.3,
+      metalness: 0.8,
+      side: THREE.DoubleSide, // the funnel is hollow; show the inner cup from below
+    });
 
     for (const beam of rig.beams) this.scene.add(this.rigBeamMesh(beam, frameMat));
     for (const shaft of rig.shafts) this.scene.add(this.rigCylinderMesh(shaft, steelMat));
     for (const drum of rig.drums) this.scene.add(this.rigCylinderMesh(drum, steelMat));
     for (const tube of rig.guideTubes) this.scene.add(this.rigCylinderMesh(tube, steelMat));
+    for (const cone of rig.cones) this.scene.add(this.coneMesh(cone, coneMat));
     this.scene.add(this.rigBeamMesh(rig.driveUnit, driveMat));
     this.buildMachineAccents(rig.driveUnit);
+  }
+
+  // A downward-opening centering cone on the pin table (GDD 03-string-pinsetter):
+  // a truncated funnel with the narrow slot up and the wide mouth toward the deck,
+  // so a reeled-up pin head is pulled up into the mouth and straightened toward the
+  // throat. Three.js cylinders take (radiusTop, radiusBottom): the slot is the top,
+  // the mouth the bottom, so the funnel opens downward. openEnded so the funnel
+  // reads as a hollow cup the head enters.
+  private coneMesh(cone: RigCone, mat: THREE.Material): THREE.Mesh {
+    const geo = new THREE.CylinderGeometry(
+      cone.slotRadius,
+      cone.mouthRadius,
+      cone.height,
+      20,
+      1,
+      true,
+    );
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.set(cone.center.x, cone.center.y, cone.center.z);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    return mesh;
   }
 
   // The machine's accent details on the drive unit (GDD 04-look-and-feel,

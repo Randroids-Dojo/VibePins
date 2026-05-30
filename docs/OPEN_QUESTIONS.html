@@ -38,6 +38,22 @@
 <main id="open">
   <h2>Open</h2>
 
+  <section data-q="Q-028" data-status="open">
+    <h3>Q-028: Pin-table centering-cone geometry and the cone seat tolerance</h3>
+    <dl>
+      <dt>Context</dt><dd>Playtest: the reeled-up pin hung crooked with no overhead component to catch it. The fix adds a stationary pin table with one downward-opening centering cone per home spot that the pin head is pulled up into, straightening it vertical before it lowers onto its spot. Open tunables: the cone mouth/slot radii, the cone height, the pin-centre seat height (the cone centre is derived from it so the funnel mouth sits at the seated pin-head top), and how far below the cone slot a pin's neck may sit and still count as seated (the snag tolerance).</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li>First-pass values: cone mouth radius 0.06m, slot radius 0.018m, cone height 0.09m, seat (pin-centre) height = the carried clearance <code>RESET.liftPinY</code> (0.6m) with the cone centre derived from it so the funnel mouth sits at the seated pin-head top (one source for the geometry and the seat behaviour), and the existing snag tolerance <code>TANGLE.clearanceTolerance</code> 0.5m (now read as the cone-seat miss threshold).</li>
+          <li>Larger cone mouth / tighter slot, or a different seat height, after watching the catch read on a real playtest.</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>A. The cone sits directly over each home spot at the carried clearance, so the reel-up clearance, the cone seat, and the snag-read slot height are one source: the pin is straightened and held at exactly the height the carry then lowers it from, and the lower comes straight down with no lateral wander. The mouth (0.06m) is wide enough that a swinging head reads as caught, the slot (0.018m) narrow enough to read as a throat the neck seats into, and the cone tucks just above the seated head and below the guide tubes. The simplest consistent rule (RULE 7) is one cone per home spot with the same geometry. These are first-pass tunables; the product owner will re-playtest the catch/straighten read and may resize the cones or move the seat.</dd>
+      <dt>Status</dt><dd>open</dd>
+      <dt>Resolution</dt><dd>(shipped under Recommended default A in the centering-cones / seat-into-cone slice; left open for dev override after the re-playtest)</dd>
+    </dl>
+  </section>
+
   <section data-q="Q-027" data-status="open">
     <h3>Q-027: Metal ball-return placement and whether the ball routes along it</h3>
     <dl>

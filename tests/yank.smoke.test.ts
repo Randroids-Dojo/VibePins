@@ -236,7 +236,7 @@ describe('crossed/tangled cords are tolerated and cleared by the next re-rack (R
     let captured = false;
     while (reset.isRunning && steps < reset.totalFrames + 5) {
       const { targets } = reset.step();
-      if (reset.phase === 'reposition' && !captured) {
+      if (reset.phase === 'seat' && !captured) {
         for (const i of all) pins[i].setBodyType(RAPIER.RigidBodyType.KinematicPositionBased, true);
         captured = true;
       }

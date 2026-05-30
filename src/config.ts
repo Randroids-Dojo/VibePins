@@ -347,12 +347,29 @@ export const PINSETTER = {
   // rig (down-lane end), the single housing the rig is driven from.
   driveUnitSize: { x: 0.5, y: 0.32, z: 0.7 } as Vec3,
 
+  // Pin table with centering cones (the missing real-machine component). A real
+  // string pinsetter has a stationary pin table above the deck carrying one
+  // downward-opening centering cone (a funnel with a slot) per home spot. When the
+  // cord reels a pin up by its neck, the pin's head is pulled UP INTO its cone,
+  // which CATCHES the swinging pin and STRAIGHTENS it perpendicular to the deck,
+  // holding it vertical and centered. To set, the pin lowers STRAIGHT DOWN out of
+  // the cone onto its home spot, already vertical. coneMouthRadius is the wide
+  // lower opening the swinging head enters; coneSlotRadius is the narrow throat the
+  // straightened neck seats into; coneHeight is the funnel depth.
+  coneMouthRadius: 0.06,
+  coneSlotRadius: 0.018,
+  coneHeight: 0.09,
+
   // Industrial palette (REQ-041): painted-red frame, blackened-steel drums and
   // tubes, dark cast-iron drive unit. The steels are warm-neutral (red >= blue)
   // so the rig sits in the warm machine-room palette rather than reading cool.
   frameColor: 0x7a1f17,
   steelColor: 0x52504a,
   driveColor: 0x2b2826,
+  // The pin table and centering cones: brushed/polished steel, the machined metal
+  // the pins are caught and straightened in. Lighter and glossier than the frame
+  // steel so the cones read as the bright cups the heads seat into.
+  coneColor: 0x8f8a82,
 } as const;
 
 // A beam (centre + half-extents), reusing the Box shape so the rig renders with
@@ -372,6 +389,19 @@ export interface RigCylinder {
   readonly axis: 'x' | 'y' | 'z';
 }
 
+// A centering cone on the pin table: a downward-opening funnel (truncated cone)
+// above a home spot. mouthRadius is the wide lower opening (toward the deck) the
+// reeled-up pin head enters; slotRadius is the narrow upper throat the straightened
+// neck seats into; height is the funnel depth, centred at center.y. seatY is the
+// pin-centre height when the head is pulled up into this cone and held vertical.
+export interface RigCone {
+  readonly center: Vec3;
+  readonly mouthRadius: number;
+  readonly slotRadius: number;
+  readonly height: number;
+  readonly seatY: number;
+}
+
 // Pure layout of the visible pinsetter rig (REQ-040), derived from the rack
 // positions and PINSETTER tunables so the world3d meshes (and a smoke test) share
 // one source of truth. Returns the frame beams, the per-pin guide tubes, the
@@ -382,6 +412,7 @@ export function pinsetterRigParts(rackPositions: readonly Vec3[]): {
   guideTubes: RigCylinder[];
   drums: RigCylinder[];
   shafts: RigCylinder[];
+  cones: RigCone[];
   driveUnit: RigBeam;
 } {
   const t = PINSETTER.beamThickness;
@@ -441,6 +472,27 @@ export function pinsetterRigParts(rackPositions: readonly Vec3[]): {
     });
   }
 
+  // Centering cones on the stationary pin table: one downward-opening funnel over
+  // each home spot at the height a reeled-up pin's head reaches. The reel-up pulls
+  // the swinging pin's head up into its cone, which catches and straightens it
+  // vertical; the set lowers it straight down out of the cone. seatY (the pin-centre
+  // height when seated) is the carried clearance RESET.liftPinY, so the cone seat
+  // and the reel-up clearance share one source: the pin is straightened and held at
+  // exactly the height the carry then lowers it from.
+  const seatY = RESET.liftPinY;
+  // Place the funnel mouth (its lowest point) right at the seated pin-head top so
+  // the head tucks up into the cone, deriving the cone centre from seatY and the pin
+  // geometry rather than a hand-tuned constant: coneCenterY - coneHeight/2 = the
+  // seated head top (seatY + pinHeight/2).
+  const coneCenterY = seatY + LANE.pinHeight / 2 + PINSETTER.coneHeight / 2;
+  const cones: RigCone[] = rackPositions.map((p) => ({
+    center: { x: p.x, y: coneCenterY, z: p.z },
+    mouthRadius: PINSETTER.coneMouthRadius,
+    slotRadius: PINSETTER.coneSlotRadius,
+    height: PINSETTER.coneHeight,
+    seatY,
+  }));
+
   // The overhead drive unit: mounted on the frame at the down-lane back end.
   const d = PINSETTER.driveUnitSize;
   const driveUnit: RigBeam = {
@@ -448,7 +500,7 @@ export function pinsetterRigParts(rackPositions: readonly Vec3[]): {
     half: { x: d.x / 2, y: d.y / 2, z: d.z / 2 },
   };
 
-  return { beams, guideTubes, drums, shafts, driveUnit };
+  return { beams, guideTubes, drums, shafts, cones, driveUnit };
 }
 
 // Machine-room interior staging (GDD 04-look-and-feel#environment, REQ-039). The
@@ -732,13 +784,16 @@ export const TANGLE = {
   // Retry cap: after this many up/down shakes the machine force-clears (sets the
   // rack regardless) so the reset is always bounded.
   maxRetries: 4,
-  // Genuine-snag read (REQ-024). After the cord-tension reel-up, a pin whose neck
-  // failed to rise to within clearanceTolerance of the lifted clearance height is
-  // genuinely snagged: its cord is held low by another pin lying across it, so it
-  // could not be reeled up. A clean rack lifts every pin to the clearance, so this
-  // never fires; only a real cord snag leaves a pin held low. The clearance height
-  // is the lifted neck height (anchor TETHER.topY minus RESET.liftRopeLength); a
-  // pin reeled to its cord limit hangs its neck near that height.
+  // Genuine-snag read, redefined on CONE-SEATING (REQ-024). The reel-up pulls each
+  // pin's head up into its centering cone, whose slot sits at the lifted clearance
+  // neck height (anchor TETHER.topY minus RESET.liftRopeLength). A pin that SEATS
+  // into its cone reaches that height; a pin that FAILS to seat (its cord held low
+  // by another pin lying across it, so it could not be reeled up into the cone)
+  // stays well below it and is genuinely snagged. clearanceNeckY is the cone slot
+  // height; a pin whose neck is more than clearanceTolerance below it never reached
+  // its cone. A clean rack seats every pin, so this never fires; only a real snag
+  // leaves a pin unseated. This is cleaner and more accurate than a raw neck-height
+  // heuristic: it reads a missed cone seat, the actual failure a real machine hits.
   clearanceNeckY: TETHER.topY - RESET.liftRopeLength,
   clearanceTolerance: 0.5,
 } as const;

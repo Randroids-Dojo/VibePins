@@ -362,17 +362,20 @@
    "requirement": "Crossed/tangled cords are tolerated visually without the simulation deadlocking; next re-rack clears geometry. The reset lift is genuinely cord-tension driven (pins reeled up by the neck, hanging and swinging under gravity, never snapped upright). Tangles are RARE and GENUINE: only when a downed pin lies across another pin's cord so a pin cannot reel to its clearance height. A clean rack reels straight up with no shake; only a genuine snag runs a bounded up/down motor shake recovery, force-clearing at the retry cap.",
    "gddRef": "docs/gdd/03-string-pinsetter.html#tangle-drop-unwind",
    "status": "done",
+   "note": "Extended with the pin table and centering cones (the missing real-machine component). The reel-up pulls each pin's head up INTO a downward-opening centering cone over its home spot (pinsetterRigParts in src/config.ts returns one RigCone per home spot; world3d.coneMesh renders the brushed-steel funnel), which catches the swinging pin and straightens it vertical and centered before lowering. The reset's kinematic carry is now seat (the cone catch / straighten) then lower (straight down out of the cone); held-aloft pins stay seated in their cones. The snag read (isRackSnagged, src/detection.ts) is redefined on cone-seating: a pin that failed to seat into its cone (neck stayed more than TANGLE.clearanceTolerance below the cone slot height) is genuinely snagged. The clean-rack-no-shake regression is preserved.",
    "implementationRefs": [
     "src/pins.ts",
     "src/reset.ts",
     "src/detection.ts",
     "src/config.ts",
+    "src/world3d.ts",
     "src/main.ts"
    ],
    "testRefs": [
     "tests/yank.smoke.test.ts",
     "tests/reset.test.ts",
     "tests/reset.smoke.test.ts",
+    "tests/pinsetter.test.ts",
     "tests/tangle-recovery.smoke.test.ts"
    ],
    "followupRefs": []
@@ -647,7 +650,7 @@
    "requirement": "The pinsetter rig is visible on stage: guide tubes, cords, winding drums, overhead drive unit",
    "gddRef": "docs/gdd/04-look-and-feel.html#rube-goldberg",
    "status": "done",
-   "note": "The string machine is now staged above the pin deck as set dressing. pinsetterRigParts in src/config.ts is pure layout derived from the rack home spots and a single tunable PINSETTER block: two longitudinal painted-red rails plus a cross beam over each pin row at the cord anchor height (PINSETTER.frameTopY = TETHER.topY, so the beams visibly carry the strings the pins already hang from), one blackened-steel guide tube hung below the frame over each pin (above the standing pins, below the frame), one winding drum per pin riding a per-row cross-shaft, and a dark cast-iron overhead drive unit mounted at the down-lane back end. world3d.buildPinsetterRig turns the parts into box and cylinder meshes via rigBeamMesh/rigCylinderMesh; the cords themselves were already rendered per pin in src/pins.ts (REQ-013). No colliders: the rig never touches physics or the cords' behaviour. The pure layout is unit tested headless (one tube and drum per pin, one shaft and cross beam per row, frame at anchor height, tubes clear of the standing pins, drive unit above and behind the rack, frame within lane width).",
+   "note": "The string machine is now staged above the pin deck as set dressing. pinsetterRigParts in src/config.ts is pure layout derived from the rack home spots and a single tunable PINSETTER block: two longitudinal painted-red rails plus a cross beam over each pin row at the cord anchor height (PINSETTER.frameTopY = TETHER.topY, so the beams visibly carry the strings the pins already hang from), one blackened-steel guide tube hung below the frame over each pin (above the standing pins, below the frame), one winding drum per pin riding a per-row cross-shaft, and a dark cast-iron overhead drive unit mounted at the down-lane back end. world3d.buildPinsetterRig turns the parts into box and cylinder meshes via rigBeamMesh/rigCylinderMesh; the cords themselves were already rendered per pin in src/pins.ts (REQ-013). No colliders: the rig never touches physics or the cords' behaviour. The pure layout is unit tested headless (one tube and drum per pin, one shaft and cross beam per row, frame at anchor height, tubes clear of the standing pins, drive unit above and behind the rack, frame within lane width). Extended with the pin table and centering cones: pinsetterRigParts now also returns one downward-opening brushed/polished-steel centering cone (RigCone) per home spot at the height a reeled-up pin's head reaches (seatY = RESET.liftPinY), rendered by world3d.coneMesh; the cones are the overhead component the pins are pulled up into and straightened in (REQ-024), unit tested in tests/pinsetter.test.ts (one cone over every home spot, cone seat = RESET.liftPinY, the mouth tucks over the seated head and below the guide tubes).",
    "implementationRefs": [
     "src/config.ts",
     "src/world3d.ts",
