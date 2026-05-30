@@ -181,7 +181,13 @@ export class PinSet {
       this.world.scene.add(mesh);
 
       const body = this.world.physics.createRigidBody(
-        RAPIER.RigidBodyDesc.dynamic().setTranslation(spot.x, spot.y, spot.z),
+        RAPIER.RigidBodyDesc.dynamic()
+          .setTranslation(spot.x, spot.y, spot.z)
+          // Modest damping so a knocked-down, still-tethered pin bleeds off residual
+          // spin and comes to rest instead of pumping a tetherball limit cycle on its
+          // cord (playtest bug 4: a pin kept swinging after the reset). See LANE.
+          .setLinearDamping(LANE.pinLinearDamping)
+          .setAngularDamping(LANE.pinAngularDamping),
       );
       const collider = RAPIER.ColliderDesc.cylinder(
         LANE.pinHeight / 2,

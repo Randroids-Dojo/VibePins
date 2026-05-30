@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="fix-swinging-pin-after-reset" data-date="2026-05-30">
+    <h3>Fixed the pin that kept swinging after a reset (playtest bug 4)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/20260530-swinging-pin</code></dd>
+      <dt>PR</dt><dd>#TBD</dd>
+      <dt>Changed</dt><dd>Playtest bug 4: after a shot and reset, one pin kept swinging around the screen and never settled. Reproduced with a deterministic real-Rapier 60fps integration test rather than the browser (the live tab throttled requestAnimationFrame to ~1fps, so the throw/reset could not run at a watchable rate; the game was not stuck, just throttled). Root cause: a pin collider is a plain cylinder, so a knocked-down pin lying on its side is a perfect roller, and with its neck still on its cord the cord's restoring pull plus the belly contact drive a tetherball-style limit cycle. The pin spins about its long axis indefinitely (angular speed pinned near 1 rad/s, far above the 0.1 at-rest ceiling) and never reaches rest. The cord is the driver: the same toppled pin with no cord decays to rest, and angular damping alone under ~6 cannot win against the cord pumping the spin. A real duckpin (belly plus a flat foot, not a true cylinder) sheds that residual spin into the deck. Fix: give the dynamic pin bodies modest damping modelling that loss. New <code>LANE.pinLinearDamping</code> (0.4) and <code>LANE.pinAngularDamping</code> (6.0), applied in <code>PinSet</code> at body creation; the test helper rack (<code>tests/helpers/rack-physics.ts</code>) matches so the reset/tangle/yank smokes run the same damped pins. The angular term (larger than the gentle ball value) breaks the cord-driven limit cycle; the linear term stops a slow on-deck drift. No change to the cord-tension lift, cone-seat, recall-all-then-respot, or clean-rack-no-shake behaviour.</dd>
+      <dt>Verification</dt><dd>New real-Rapier regression <code>tests/reset-settle.smoke.test.ts</code> drives the REAL <code>PinSet</code> at a fixed 60fps: (1) a toppled, still-tethered on-deck pin reaches rest within the settle window (this assertion FAILS pre-fix, the pin spinning at ~0.6 rad/s forever, and PASSES post-fix), and (2) several full shot+reset cycles (a between-balls respot then a frame-end rerack, carrying held-aloft pins across cycles) each COMPLETE within a bounded step count and leave every on-deck pin at rest with ten pins standing on their home spots. Full vitest green (50 files, 624 tests), including the cord-tension/dangle, cone-seat, tangle-recovery, yank, scatter, and reset-timing smokes unchanged. <code>tsc --noEmit</code> clean; <code>vite build</code> succeeds; em-dash / en-dash grep clean on changed files; <code>git diff --check</code> clean; <code>.env.local</code> not staged.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: model the duckpin's belly-plus-foot energy loss as body damping (<code>pinLinearDamping</code> 0.4, <code>pinAngularDamping</code> 6.0) rather than reshaping the collider, the smallest change that reliably settles a tethered toppled pin while leaving the lively topple/scatter (a topple lasts well under a second, so the per-step decay barely touches it). Logged in OPEN_QUESTIONS as Q-032 for the playtest gate.</dd>
+      <dt>GDD coverage</dt><dd>Build log entry added to <code>docs/gdd/03-string-pinsetter.html</code>; REQ-024 / REQ-026 note appended in <code>docs/GDD_COVERAGE.json</code>; both stay done.</dd>
+      <dt>Followups</dt><dd>None.</dd>
+    </dl>
+  </article>
+
   <article data-slice="ball-return-curved-chrome-tubular" data-date="2026-05-30">
     <h3>Ball return restyled as a curved chrome tubular track (playtest bug 2)</h3>
     <dl>
