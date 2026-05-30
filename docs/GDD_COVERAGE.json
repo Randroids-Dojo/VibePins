@@ -512,7 +512,7 @@
       "requirement": "Step 1: player lines up the shot, setting lateral start position and base aim",
       "gddRef": "docs/gdd/08-controls.html#step1-lineup",
       "status": "done",
-      "note": "Lateral start position is settable via keyboard nudge and touch/mouse drag on an on-screen L/R indicator track (PR #18). Base-aim direction now ships: an off-centre stance points the ball back toward the pin deck via baseAimLateralSpeed (AIM config), threaded through ball.launch from the line-up alignment, so step 1 sets both where the ball starts and the direction it points. F-005 resolved.",
+      "note": "Lateral start position is settable via keyboard nudge and touch/mouse drag on an on-screen L/R indicator track (PR #18). Base-aim direction now ships: an off-centre stance points the ball back toward the pin deck via baseAimLateralSpeed (AIM config), threaded through ball.launch from the line-up alignment, so step 1 sets both where the ball starts and the direction it points. F-005 resolved. Playtest polish: the line-up stance now physically steps the first-person camera (shiftX translates only the eye in x while the look-at stays anchored on the centred down-lane aim point), so the pin deck visibly reframes from the bowler POV as the slider moves; the held ball still shifts with the stance and launch aim is unchanged (Q-022).",
       "implementationRefs": [
         "src/camera.ts",
         "src/main.ts",

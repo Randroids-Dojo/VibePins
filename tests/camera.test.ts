@@ -72,25 +72,45 @@ describe('ShotCamera alignment', () => {
     return sc;
   };
 
-  it('shifts the stance and the held ball laterally in x only, clamped to the limit', () => {
+  it('steps the eye laterally with the stance while the look-at stays anchored down-lane', () => {
     const sc = aligned();
     expect(sc.isAligning).toBe(true);
     sc.nudgeAlign(0.5); // beyond the 0.3 limit
     expect(sc.alignment).toBeCloseTo(0.3, 6);
     const f = sc.update(0);
-    // Only x shifts; height and depth of the pose, lookAt, and ball are unchanged.
+    // The eye steps in x; height and depth of the pose are unchanged.
     expect(f.pose.pos.x).toBeCloseTo(linePose.pos.x + 0.3, 6);
     expect(f.pose.pos.y).toBe(linePose.pos.y);
     expect(f.pose.pos.z).toBe(linePose.pos.z);
-    expect(f.pose.lookAt.x).toBeCloseTo(linePose.lookAt.x + 0.3, 6);
+    // The look-at stays anchored on the down-lane aim point so the gaze swings
+    // across the lane and the framing visibly changes from the bowler POV.
+    expect(f.pose.lookAt.x).toBe(linePose.lookAt.x);
     expect(f.pose.lookAt.y).toBe(linePose.lookAt.y);
     expect(f.pose.lookAt.z).toBe(linePose.lookAt.z);
+    // The held ball still shifts with the stance (it is carried in the hands).
     expect(f.ballPos.x).toBeCloseTo(ball.ready.x + 0.3, 6);
     expect(f.ballPos.y).toBe(ball.ready.y);
     expect(f.ballPos.z).toBe(ball.ready.z);
 
     sc.nudgeAlign(-1);
     expect(sc.alignment).toBeCloseTo(-0.3, 6);
+  });
+
+  it('translates the eye monotonically across stance values (observable camera motion)', () => {
+    const left = aligned();
+    left.setAlignFraction(-1);
+    const right = aligned();
+    right.setAlignFraction(1);
+    const centre = aligned();
+    centre.setAlignFraction(0);
+    const lx = left.update(0).pose.pos.x;
+    const cx = centre.update(0).pose.pos.x;
+    const rx = right.update(0).pose.pos.x;
+    // Stepping right moves the eye right, stepping left moves it left, relative
+    // to the centred stance: the camera physically translates with the slider.
+    expect(lx).toBeLessThan(cx);
+    expect(cx).toBeLessThan(rx);
+    expect(rx - lx).toBeCloseTo(2 * cfg.alignLimit, 6);
   });
 
   it('sets the stance from a normalized track fraction, clamped to [-1, +1]', () => {
