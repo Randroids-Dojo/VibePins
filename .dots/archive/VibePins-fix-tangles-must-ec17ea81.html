@@ -1,0 +1,22 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>fix: tangles must be RARE and only on a genuine cord snag, not an up/down unwind on every reset</title>
+<meta name="dot-title" content="fix: tangles must be RARE and only on a genuine cord snag, not an up/down unwind on every reset">
+<meta name="dot-status" content="closed">
+<meta name="dot-priority" content="1">
+<meta name="dot-issue-type" content="task">
+<meta name="dot-created-at" content="2026-05-30T00:36:57.091225-05:00">
+<meta name="dot-closed-at" content="2026-05-30T00:51:28.961113-05:00">
+<meta name="dot-close-reason" content="Deleted the drop-to-deck-and-check-piles model that shook on every reset (isRackTangled, release/verify-clear/re-lift). Tangles now detected only as a genuine snag (isRackSnagged: a pin whose neck failed to reel to its clearance because its cord is held low). Clean rack runs NO shake; genuine snag runs the bounded up/down shake, force-clearing at the retry cap. Proven by the clean-rack-no-shake regression and a constructed-snag recovery smoke.">
+</head>
+<body>
+<article>
+<h1>fix: tangles must be RARE and only on a genuine cord snag, not an up/down unwind on every reset</h1>
+<section id="description">
+Playtest + research. Tangles in real string machines happen LESS THAN once per ~1000 frames, only when a downed pin lies across another pin&#39;s cord so the cords snag during reel-up (abnormal cord resistance). The current detection (src/detection.ts isRackTangled + the drop-just-above-deck-and-check-pile approach from PR #51) produces FALSE POSITIVES and runs the up/down unwind on EVERY reset even when nothing is tangled. That makes no sense and must stop. Replace the let-loose-then-check-pile model: a clean rack reels straight up with NO shake. Detect a real tangle only when a pin cannot reach its lifted clearance height because its cord is genuinely snagged by another pin (a pin still held low / dragged sideways during cord-tension reel-up), which should be rare and ideally emergent from the cord-tension lift. ONLY then run the up/down shake (motor off/on) recovery, bounded with a cap and force-clear. Keep the recovery from the prior slice but gate it behind a real, rare snag. Update GDD + the TANGLE tunables; re-point the deferred tuning dot. Add tests: clean rack does NOT trigger the unwind (the key regression), and a constructed genuine snag does. Pairs with the cord-tension lift fix.
+</section>
+</article>
+</body>
+</html>

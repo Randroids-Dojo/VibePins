@@ -38,6 +38,23 @@
 <main id="open">
   <h2>Open</h2>
 
+  <section data-q="Q-021" data-status="open">
+    <h3>Q-021: Cord-tension lift and genuine-snag shake tunables (supersedes Q-020)</h3>
+    <dl>
+      <dt>Context</dt><dd>The reset lift was reworked to be genuinely cord-tension driven (pins reeled up by the neck, hanging and swinging under gravity, never snapped upright) and tangles were made rare and genuine (only when a downed pin lies across another pin's cord so a pin cannot reel to its clearance), per research and a product-owner playtest. This replaces the drop-and-unwind model Q-020 tuned (the <code>releaseY</code> / <code>verifyFrames</code> / pile-distance read), so those tunables no longer exist. The new feel is governed by: the lifted rope length (<code>RESET.liftRopeLength</code> 1.85m: how high the neck is reeled, so how the dangle reads), the genuine-snag read (<code>TANGLE.clearanceNeckY</code> derived from the lifted rope length, and <code>clearanceTolerance</code> 0.5m: how far below clearance a pin must be held to count as snagged, which sets how rarely the shake ever fires), and the up/down shake (<code>shakeRopeLength</code> 2.4m, <code>shakeDownFrames</code> 24, <code>shakeUpFrames</code> 24, <code>maxRetries</code> 4).</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li>Ship the first-pass defaults above: a cord-tension lift to a 1.85m rope (the neck hangs near ~0.65m so the pin dangles clear of the deck), a snag read with a generous 0.5m clearance tolerance (so only a pin genuinely held low reads snagged and a clean rack never shakes), and a bounded up/down shake capped at 4 retries. Tighten against the playtest gate.</li>
+          <li>Reel higher / lower (change <code>liftRopeLength</code>) to change how far the dangling pin clears the deck and how the swing reads.</li>
+          <li>Tighten or loosen the snag tolerance to make genuine snags more or less frequent, trading the rarity of the charming struggle against false positives that would shake a near-clean rack.</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>A. The defaults give the signature cord-tension dangle (proven in the real-Rapier smoke: a lifting pin's centre hangs below its neck anchor and swings), a clean rack that reels straight up with no shake (the KEY REGRESSION), and a bounded recovery that always force-clears within the cap on a genuine snag. All tunable from the one <code>RESET</code> / <code>TANGLE</code> block (REQ-025); the product owner will playtest the feel. Tracked for tuning as FOLLOWUPS F-014. Supersedes Q-020 (the drop-and-unwind tunables it tuned were deleted).</dd>
+      <dt>Status</dt><dd>open</dd>
+      <dt>Resolution</dt><dd>(shipped under Recommended default A in the cord-tension-lift / genuine-tangle slice; left open for dev override)</dd>
+    </dl>
+  </section>
+
   <section data-q="Q-020" data-status="open">
     <h3>Q-020: Tangle drop-and-unwind recovery tunables (drop height, settle window, retry cap, tangle threshold)</h3>
     <dl>

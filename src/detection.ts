@@ -133,43 +133,38 @@ export function detectPins(pinSet: PinSet, thresholds: StandingThresholds): PinS
   return classifyRack(pinSet.pinStates(), thresholds);
 }
 
-export interface TangleThresholds {
-  // Two pins whose horizontal centres are closer than this have piled on top of
-  // one another (a crossed-cord snag dragged them together), so the rack reads
-  // tangled. A clean rack let loose drops onto its own distinct columns.
-  readonly pileDistance: number;
-  // A pin still swinging/colliding faster than these has not settled, so the rack
-  // is not yet hanging clear and still, and reads tangled.
-  readonly atRestLinSpeed: number;
-  readonly atRestAngSpeed: number;
+export interface SnagThresholds {
+  // The lifted neck height a clean cord-tension reel-up pulls every pin's neck up
+  // to (the cord's overhead anchor minus its reeled-in length).
+  readonly clearanceNeckY: number;
+  // How far below clearanceNeckY a pin's neck may sit and still count as cleared.
+  // A pin whose neck is more than this below the clearance is genuinely snagged:
+  // its cord is held low by another pin lying across it, so the reel could not
+  // raise it.
+  readonly clearanceTolerance: number;
 }
 
-// Horizontal (x,z) distance between two pin centres.
-function horizontalDist(a: PinKinematics, b: PinKinematics): number {
-  return Math.hypot(a.position.x - b.position.x, a.position.z - b.position.z);
-}
-
-// Is the rack tangled when let loose for the reset's hang test (REQ-024)? When the
-// reeled rack is released onto its cords, a clean rack drops onto its own distinct
-// columns and settles still, while a crossed-cord snag drags pins together into a
-// pile and keeps the cluster swinging. The rack reads tangled if any pin is still
-// moving above the at-rest speeds OR any two pins have piled within pileDistance
-// of each other. Pure: reads plain kinematics; the adapter passes the live sim
-// reading at the checkpoint. The clearanceY argument is unused by this read and
-// kept for the adapter call-site signature stability across tuning.
-export function isRackTangled(
+// Is any pin genuinely snagged after the cord-tension reel-up (REQ-024)? A clean
+// rack reels every pin up so its neck rises to within clearanceTolerance of the
+// lifted clearance height. A genuine tangle, the only one a real string machine
+// hits (a downed pin lying across another pin's cord), holds a pin's cord low so
+// it cannot rise: that pin's neck stays well below the clearance. This reads the
+// neck height (centre offset up the pin by neckLocalY along its up-axis) rather
+// than the centre, since a hanging pin's neck is what the cord reels. Pure: the
+// adapter passes the live sim reading at the checkpoint. Returns true only on a
+// real snag, so a clean rack never enters the shake recovery (no false-positive
+// shake on every reset).
+export function isRackSnagged(
   states: readonly PinKinematics[],
-  _clearanceY: number,
-  thresholds: TangleThresholds,
+  neckLocalY: number,
+  thresholds: SnagThresholds,
 ): boolean {
-  const moving = states.some(
-    (s) => s.linSpeed > thresholds.atRestLinSpeed || s.angSpeed > thresholds.atRestAngSpeed,
-  );
-  if (moving) return true;
-  for (let i = 0; i < states.length; i += 1) {
-    for (let j = i + 1; j < states.length; j += 1) {
-      if (horizontalDist(states[i], states[j]) < thresholds.pileDistance) return true;
-    }
-  }
-  return false;
+  const floor = thresholds.clearanceNeckY - thresholds.clearanceTolerance;
+  return states.some((s) => {
+    // Neck world height: centre plus the local neck offset rotated by the pin.
+    // up-axis Y is the cosine of tilt; the neck rides that far up from centre.
+    const upY = getUpAxisY(s.rotation);
+    const neckY = s.position.y + neckLocalY * upY;
+    return neckY < floor;
+  });
 }
