@@ -161,7 +161,55 @@ export const MATERIALS = {
     emissive: 0xff8c1a,
     emissiveIntensity: 1.4,
   },
+  // The lane-end go/stop signal housing: a dark cast-metal lamp body the two
+  // round lenses are set into, mounted down-lane above the pin deck facing the
+  // bowler (the physical Pins Mechanical style traffic signal that replaced the
+  // HUD overlay light).
+  signalHousing: { color: 0x181715, roughness: 0.65, metalness: 0.5 },
+  // The green "go" lens, lit (emissive) when it is the player's turn to throw.
+  signalGoLit: {
+    color: 0x49e85c,
+    roughness: 0.35,
+    metalness: 0.2,
+    emissive: 0x2fd23f,
+    emissiveIntensity: 1.6,
+  },
+  // The red "wait" lens, lit when the machine owns the lane (rolling, settling,
+  // resetting, loading, or not your turn).
+  signalWaitLit: {
+    color: 0xff5b42,
+    roughness: 0.35,
+    metalness: 0.2,
+    emissive: 0xe5391f,
+    emissiveIntensity: 1.6,
+  },
+  // A signal lens when it is dark (the other state). Nearly black glass with a
+  // faint tint so the unlit lens still reads as the right colour up close.
+  signalGoDark: { color: 0x123417, roughness: 0.5, metalness: 0.3 },
+  signalWaitDark: { color: 0x3a120c, roughness: 0.5, metalness: 0.3 },
 } as const satisfies Record<string, SurfaceMaterial>;
+
+// The lane-end go/stop signal lamp (REQ-038, look-and-feel). A physical 3D
+// traffic signal mounted down-lane above the pin deck, facing the bowler, with a
+// red lens over a green lens. It replaces the on-screen HUD overlay light as the
+// at-a-glance "is it my turn to throw" cue: RED while the machine owns the lane
+// (ball rolling, rack settling, pinsetter setting, loading / walk-up, or not your
+// turn in a match), GREEN only once the rack is set and the bowler can aim and
+// throw. Positioned just above and behind the pin deck so it is visible down the
+// whole lane from the bowler view.
+export const THROW_LIGHT_3D = {
+  // Centre of the lamp housing, above and slightly behind the head spot so it
+  // sits over the pin deck and reads down-lane toward the bowler.
+  center: { x: 0, y: 2.05, z: LANE.headSpot.z - 0.35 } as Vec3,
+  // Housing half-extents (a tall narrow box holding the two stacked lenses).
+  housingHalf: { x: 0.16, y: 0.32, z: 0.1 } as Vec3,
+  // Lens radius and how far each lens centre sits above / below the housing
+  // centre (red on top, green below, like a real signal).
+  lensRadius: 0.11,
+  lensOffsetY: 0.15,
+  // How far the lens face sits in front of the housing (+z, toward the bowler).
+  lensFrontZ: 0.1,
+} as const;
 
 // Shot-setup camera sequence (GDD 08-controls, REQ-033 lineup). The camera
 // animates: pick the ball up at the return, walk up to the foul line, then the

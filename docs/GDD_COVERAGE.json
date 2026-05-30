@@ -616,19 +616,22 @@
    "requirement": "Spin and power meters render as mechanical gauges with a click on each stop, sweep speed/sweet-spot tunable",
    "gddRef": "docs/gdd/08-controls.html#feedback",
    "status": "done",
-   "note": "The spin and power meters render as mechanical gauges on riveted metal plates (#meters in index.html): each has a recessed rail, a highlighted centred sweet-spot/straight band sized from the tuned config (SPIN.straightBand, POWER.sweetSpotBand) via the pure meterBandSpan in src/meter.ts, end labels, and a brass needle that slides to the live cursor each aiming frame using lineupMarkerOffset. Only the active step's gauge is shown. The click on each stop is the existing audio.playClick() cue (REQ-043). Sweep speed and sweet-spot width stay tunable in the SPIN/POWER config blocks. Playtest item 8: the verbose in-game status text was removed in favour of a Pins Mechanical style red/green throw light (#throw-light in index.html) plus the scoreboard. The pure throwLightFor(phase) in src/shotLoop.ts returns 'go' only in the aiming phase and 'wait' for every machine-owned phase; src/main.ts renderThrowLight drives the lamp data-light, the role=status aria-label ('Ready to throw' / 'Wait'), and a visible GO/WAIT plate word so the state is never colour-only (RULE 10). The only remaining HUD text is the first-run tutorial coach and a transient async-match submit prompt; the final score lives on the summary overlay. See gdd 08-controls #hud-throw-light.",
+   "note": "The spin and power meters render as mechanical gauges on riveted metal plates (#meters in index.html): each has a recessed rail, a highlighted centred sweet-spot/straight band sized from the tuned config (SPIN.straightBand, POWER.sweetSpotBand) via the pure meterBandSpan in src/meter.ts, end labels, and a brass needle that slides to the live cursor each aiming frame using lineupMarkerOffset. Only the active step's gauge is shown. The click on each stop is the existing audio.playClick() cue (REQ-043). Sweep speed and sweet-spot width stay tunable in the SPIN/POWER config blocks. Playtest item 8: the verbose in-game status text was removed in favour of a Pins Mechanical style red/green throw light (#throw-light in index.html) plus the scoreboard. The pure throwLightFor(phase) in src/shotLoop.ts returns 'go' only in the aiming phase and 'wait' for every machine-owned phase; src/main.ts renderThrowLight drives the lamp data-light, the role=status aria-label ('Ready to throw' / 'Wait'), and a visible GO/WAIT plate word so the state is never colour-only (RULE 10). The only remaining HUD text is the first-run tutorial coach and a transient async-match submit prompt; the final score lives on the summary overlay. See gdd 08-controls #hud-throw-light. Playtest bugs 1 and 3 (2026-05-30): the go/stop light moved out of the HUD into the 3D scene as a physical lane-end traffic signal (THROW_LIGHT_3D config and signal lens materials in src/config.ts; buildThrowLight/setThrowLight in src/world3d.ts) mounted down-lane above the pin deck facing the bowler, with the #throw-light element kept only as a visually-hidden role=status for screen readers (RULE 10). The timing was corrected: throwLightFor(phase, setup) with the readyToAim predicate in src/shotLoop.ts gates GREEN on the aiming phase AND the shot-setup camera being at align/locked, so RED covers the whole reset/pin-setting cycle, the ball in motion, and the ball load/walk-up, and GREEN appears only once the rack is set and the bowler is at the line.",
    "implementationRefs": [
     "src/meter.ts",
     "src/main.ts",
     "index.html",
     "src/config.ts",
     "src/camera.ts",
-    "src/shotLoop.ts"
+    "src/shotLoop.ts",
+    "src/world3d.ts"
    ],
    "testRefs": [
     "tests/meter.test.ts",
     "tests/camera.test.ts",
-    "tests/shotLoop.test.ts"
+    "tests/shotLoop.test.ts",
+    "tests/config.test.ts",
+    "tests/palette.test.ts"
    ],
    "followupRefs": []
   },

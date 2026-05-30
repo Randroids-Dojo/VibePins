@@ -70,22 +70,45 @@ export function phaseAfterRecord(action: RackAction): ShotPhase {
   return action === 'none' ? 'over' : 'resetting';
 }
 
-// The throw light's two states, a Pins Mechanical style traffic lamp that
-// replaces the verbose on-screen status text (the scoreboard already carries the
-// frame / ball / score, so the HUD does not need a sentence for it). The light is
-// the single at-a-glance "is it my turn to throw" cue:
-//   'go'   GREEN: the player may aim, set spin and power, and throw. The only
-//          phase where a throw is possible is 'aiming'.
+// The throw light's two states, a Pins Mechanical style traffic signal mounted
+// down-lane at the pin deck (a physical 3D lamp, not an on-screen overlay). The
+// scoreboard already carries frame / ball / score, so the signal is the single
+// at-a-glance "is it my turn to throw" cue:
+//   'go'   GREEN: the player may aim, set spin and power, and throw. This is only
+//          true once the rack is fully set AND the bowler has walked up to the
+//          line and can actually aim.
 //   'wait' RED: the machine owns the lane. The ball is rolling, the rack is
-//          settling, the pinsetter is resetting, or the game is over. The player
-//          waits. This is also the state when it is not the player's turn at all
-//          (an async-match line waiting on the opponent), surfaced the same way so
-//          the rule is one consistent thing across solo and match (RULE 7).
+//          settling, the pinsetter is setting pins, the bowler is still loading
+//          the ball and walking up, or the game is over. The player waits. This is
+//          also the state when it is not the player's turn at all (an async-match
+//          line waiting on the opponent), surfaced the same way so the rule is one
+//          consistent thing across solo and match (RULE 7).
 export type ThrowLightState = 'go' | 'wait';
 
-// Map a shot phase to the throw light. GREEN exactly when the player can throw
-// (the aiming phase); RED for every machine-owned phase. Pure so the mapping is
-// unit-tested directly: green only when ready to throw, red otherwise.
-export function throwLightFor(phase: ShotPhase): ThrowLightState {
-  return phase === 'aiming' ? 'go' : 'wait';
+// Whether the bowler is actually ready to aim and throw, given the shot phase and
+// the shot-setup camera phase. The shot phase is 'aiming' from the moment the next
+// shot begins, but that begins during the ball load and the walk-up (camera
+// 'pickup' / 'walkup'), while the pinsetter may still be setting the rack. The
+// bowler can only aim once the walk-up has completed and the line-up / locked step
+// is reached (camera 'align' or 'locked'). So "ready to throw" is the aiming phase
+// AND a camera phase that has reached the line. Pure so the mapping is testable.
+//   ShotSetupPhase mirrors the ShotPhase in src/camera.ts (lifted here so the
+//   light mapping is unit-tested without the browser or Three.js):
+//     'pickup' / 'walkup' the ball is loading and the bowler walks up (not ready).
+//     'align' / 'locked'  the bowler is at the line and can aim and throw (ready).
+export type ShotSetupPhase = 'pickup' | 'walkup' | 'align' | 'locked';
+
+export function readyToAim(phase: ShotPhase, setup: ShotSetupPhase): boolean {
+  return phase === 'aiming' && (setup === 'align' || setup === 'locked');
+}
+
+// Map the live shot state to the throw light. GREEN exactly when the bowler can
+// actually throw: the rack is set and the bowler has walked up to the line (the
+// aiming phase with the camera at 'align' or 'locked'). RED for every other state,
+// which covers the whole reset / pin-setting cycle, the ball in motion, the
+// settling rack, the ball load and walk-up, and game over. Pure so the corrected
+// timing is unit-tested directly: red throughout setting / loading / ball-in-
+// motion, green only when set and ready.
+export function throwLightFor(phase: ShotPhase, setup: ShotSetupPhase): ThrowLightState {
+  return readyToAim(phase, setup) ? 'go' : 'wait';
 }

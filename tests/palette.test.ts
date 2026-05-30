@@ -16,6 +16,16 @@ function rgb(hex: number): { r: number; g: number; b: number } {
 
 const entries = Object.entries(MATERIALS) as [string, SurfaceMaterial][];
 
+// The go/stop signal lenses (REQ-038) are functional signal colours, not venue
+// surfaces: a traffic signal reads as a signal precisely because it is saturated
+// green and red, the universal go/stop cue (the physical lane-end lamp at a Pins
+// Mechanical lane). The warm-metal palette invariant governs the scene's set
+// dressing, not this functional indicator, so the green lens is exempt from the
+// red >= blue warmth rule. The housing and the dark (unlit) lenses stay in the
+// warm palette; only the lit signal lenses are exempt.
+const SIGNAL_LENS = new Set(['signalGoLit', 'signalWaitLit', 'signalGoDark', 'signalWaitDark']);
+const warmEntries = entries.filter(([name]) => !SIGNAL_LENS.has(name));
+
 describe('mechanical material palette (REQ-041)', () => {
   it('exposes every GDD-named scene surface', () => {
     const keys = Object.keys(MATERIALS);
@@ -36,15 +46,17 @@ describe('mechanical material palette (REQ-041)', () => {
     }
   });
 
-  it('keeps every surface warm: red channel at least the blue channel', () => {
-    for (const [name, mat] of entries) {
+  it('keeps every venue surface warm: red channel at least the blue channel', () => {
+    // The functional go/stop signal lenses are exempt (see SIGNAL_LENS): a signal
+    // is meant to read green / red, not warm-metal.
+    for (const [name, mat] of warmEntries) {
       const { r, b } = rgb(mat.color);
       expect(r, `${name} color must be warm (red >= blue)`).toBeGreaterThanOrEqual(b);
     }
   });
 
   it('keeps emissive accents warm too', () => {
-    for (const [name, mat] of entries) {
+    for (const [name, mat] of warmEntries) {
       if (mat.emissive === undefined) continue;
       const { r, b } = rgb(mat.emissive);
       expect(r, `${name} emissive must be warm (red >= blue)`).toBeGreaterThanOrEqual(b);

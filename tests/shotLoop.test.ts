@@ -17,7 +17,14 @@
 
 import { describe, it, expect } from 'vitest';
 import { Game, type BallResult } from '../src/game.js';
-import { rackActionFor, phaseAfterRecord, throwLightFor, type ShotPhase } from '../src/shotLoop.js';
+import {
+  rackActionFor,
+  phaseAfterRecord,
+  throwLightFor,
+  readyToAim,
+  type ShotPhase,
+  type ShotSetupPhase,
+} from '../src/shotLoop.js';
 
 // Record a ball and return both the Game result and the derived rack action, the
 // exact pair the live loop computes per settled ball.
@@ -163,21 +170,49 @@ describe('shot loop: tenth-frame bonus deck clears re-rack (REQ-007)', () => {
   });
 });
 
-describe('throw light: green only when ready to throw', () => {
-  it('is GREEN in the aiming phase, the one phase a throw is possible', () => {
-    expect(throwLightFor('aiming')).toBe('go');
+describe('throw light: green only when the rack is set and the bowler is ready', () => {
+  it('is GREEN only in the aiming phase once the bowler has walked up to the line', () => {
+    // The bowler is at the line (camera align / locked) and the rack is set.
+    expect(throwLightFor('aiming', 'align')).toBe('go');
+    expect(throwLightFor('aiming', 'locked')).toBe('go');
   });
 
-  it('is RED for every machine-owned phase (watching / settling / resetting / over)', () => {
+  it('stays RED through the ball load and walk-up even though the phase is aiming', () => {
+    // The aiming phase begins during the load and walk-up while the pinsetter may
+    // still be setting the rack; the signal must stay red until the bowler reaches
+    // the line (playtest bug 3, the corrected timing).
+    expect(throwLightFor('aiming', 'pickup')).toBe('wait');
+    expect(throwLightFor('aiming', 'walkup')).toBe('wait');
+  });
+
+  it('is RED for every machine-owned phase regardless of the camera phase', () => {
+    // While the ball is in motion, the rack is settling, the pinsetter is setting
+    // pins, or the game is over, the light is red no matter where the camera sits.
     const waitPhases: ShotPhase[] = ['watching', 'settling', 'resetting', 'over'];
+    const setups: ShotSetupPhase[] = ['pickup', 'walkup', 'align', 'locked'];
     for (const phase of waitPhases) {
-      expect(throwLightFor(phase)).toBe('wait');
+      for (const setup of setups) {
+        expect(throwLightFor(phase, setup)).toBe('wait');
+      }
     }
   });
 
-  it('maps exactly one phase to GREEN across the whole phase set', () => {
-    const allPhases: ShotPhase[] = ['aiming', 'watching', 'settling', 'resetting', 'over'];
-    const greens = allPhases.filter((p) => throwLightFor(p) === 'go');
-    expect(greens).toEqual(['aiming']);
+  it('a clean reset shows RED until the rack is set, then GREEN only at the line', () => {
+    // The reset cycle runs red, the loop returns to aiming and walks the bowler up
+    // (still red through pickup / walkup), and the signal turns green only once the
+    // camera reaches the line with the rack set.
+    expect(throwLightFor('resetting', 'locked')).toBe('wait');
+    expect(throwLightFor('aiming', 'pickup')).toBe('wait');
+    expect(throwLightFor('aiming', 'walkup')).toBe('wait');
+    expect(throwLightFor('aiming', 'align')).toBe('go');
+  });
+
+  it('readyToAim is true exactly when aiming at the line (align or locked)', () => {
+    expect(readyToAim('aiming', 'align')).toBe(true);
+    expect(readyToAim('aiming', 'locked')).toBe(true);
+    expect(readyToAim('aiming', 'pickup')).toBe(false);
+    expect(readyToAim('aiming', 'walkup')).toBe(false);
+    expect(readyToAim('watching', 'locked')).toBe(false);
+    expect(readyToAim('resetting', 'align')).toBe(false);
   });
 });

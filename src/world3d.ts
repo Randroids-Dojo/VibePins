@@ -14,6 +14,7 @@ import {
   PINSETTER,
   MACHINE_ROOM,
   VICTORY,
+  THROW_LIGHT_3D,
   MATERIALS,
   gutterBoxes,
   pitBoxes,
@@ -47,6 +48,16 @@ export class World3D {
   // burst is playing, mirrored each frame from the pure VictoryRoutine sim.
   private readonly debrisMeshes: THREE.Mesh[] = [];
 
+  // The lane-end go/stop signal lenses (REQ-038). The two stacked lenses of the
+  // down-lane traffic signal; setThrowLight swaps each between its lit and dark
+  // material so exactly one glows for the current state.
+  private goLens!: THREE.Mesh;
+  private waitLens!: THREE.Mesh;
+  private goLitMat!: THREE.Material;
+  private goDarkMat!: THREE.Material;
+  private waitLitMat!: THREE.Material;
+  private waitDarkMat!: THREE.Material;
+
   constructor(canvas: HTMLCanvasElement) {
     // Renderer: pixel-ratio cap at 2, soft shadows, sRGB output (Hoops convention).
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -74,6 +85,7 @@ export class World3D {
     this.buildBallReturn();
     this.buildPinDeck();
     this.buildPinsetterRig();
+    this.buildThrowLight();
     this.buildVictoryDebris();
 
     // Physics world. Gravity straight down; a fixed bed collider gives the
@@ -449,6 +461,67 @@ export class World3D {
       this.debrisMeshes.push(mesh);
       this.scene.add(mesh);
     }
+  }
+
+  // The lane-end go/stop signal lamp (REQ-038, look-and-feel). A physical traffic
+  // signal mounted down-lane above the pin deck, facing the bowler: a dark
+  // cast-metal housing with a red lens stacked over a green lens, like the signal
+  // at a Pins Mechanical lane. It replaces the on-screen HUD overlay light as the
+  // at-a-glance "is it my turn to throw" cue, visible down the whole lane from the
+  // bowler view. setThrowLight lights exactly one lens for the current state. The
+  // unlit lens drops to a near-black tinted material so only the live state glows.
+  private buildThrowLight(): void {
+    const cfg = THROW_LIGHT_3D;
+
+    this.goLitMat = this.surfaceMaterial(MATERIALS.signalGoLit);
+    this.goDarkMat = this.surfaceMaterial(MATERIALS.signalGoDark);
+    this.waitLitMat = this.surfaceMaterial(MATERIALS.signalWaitLit);
+    this.waitDarkMat = this.surfaceMaterial(MATERIALS.signalWaitDark);
+
+    // The housing the two lenses sit in.
+    const housing = new THREE.Mesh(
+      new THREE.BoxGeometry(cfg.housingHalf.x * 2, cfg.housingHalf.y * 2, cfg.housingHalf.z * 2),
+      this.surfaceMaterial(MATERIALS.signalHousing),
+    );
+    housing.position.set(cfg.center.x, cfg.center.y, cfg.center.z);
+    housing.castShadow = true;
+    this.scene.add(housing);
+
+    // The lens faces sit on the front (+z, toward the bowler) of the housing; red
+    // on top, green below, like a real signal. A circle facing +z reads as the
+    // round lens; it starts dark and setThrowLight lights the active one.
+    const lensGeo = new THREE.CircleGeometry(cfg.lensRadius, 24);
+    const frontZ = cfg.center.z + cfg.lensFrontZ;
+
+    this.waitLens = new THREE.Mesh(lensGeo, this.waitDarkMat);
+    this.waitLens.position.set(cfg.center.x, cfg.center.y + cfg.lensOffsetY, frontZ);
+    this.scene.add(this.waitLens);
+
+    this.goLens = new THREE.Mesh(lensGeo, this.goDarkMat);
+    this.goLens.position.set(cfg.center.x, cfg.center.y - cfg.lensOffsetY, frontZ);
+    this.scene.add(this.goLens);
+
+    // Start RED (the machine owns the lane until the rack is set and the bowler is
+    // ready), matching the initial shot state.
+    this.setThrowLight('wait');
+  }
+
+  // Light the lane-end signal for the given throw-light state (REQ-038): GREEN
+  // ('go') lights the lower lens and darkens the upper, RED ('wait') the reverse.
+  // The mapping from shot state to this value is the pure throwLightFor in
+  // src/shotLoop.ts; main.ts calls this on every phase transition so the visible
+  // lens changes with the live state (RULE 10 observable change, not colour-only:
+  // the accessible role=status label is updated alongside in main.ts).
+  setThrowLight(state: 'go' | 'wait'): void {
+    const go = state === 'go';
+    this.goLens.material = go ? this.goLitMat : this.goDarkMat;
+    this.waitLens.material = go ? this.waitDarkMat : this.waitLitMat;
+  }
+
+  // The current lit state of the lane-end signal, derived from which material each
+  // lens holds. Exposed so a test can assert the signal actually changed state.
+  get throwLightState(): 'go' | 'wait' {
+    return this.goLens.material === this.goLitMat ? 'go' : 'wait';
   }
 
   // Mirror the live debris states onto the pool and (un)hide unused meshes.
