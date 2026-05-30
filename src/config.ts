@@ -359,13 +359,6 @@ export const PINSETTER = {
   coneMouthRadius: 0.06,
   coneSlotRadius: 0.018,
   coneHeight: 0.09,
-  // The cone seat height: the pin CENTRE height when its head is pulled up into the
-  // cone and seated vertical. It sits at the carried clearance (RESET.liftPinY), so
-  // the seated pin clears the standing pins and the lower carry brings it straight
-  // down from here onto the deck. The cone funnel sits just above the seated head.
-  // Set in RESET (liftPinY) so the reel-up clearance and the cone seat share one
-  // source; coneCenterY here places the funnel body above the seated pin head.
-  coneCenterY: 0.78,
 
   // Industrial palette (REQ-041): painted-red frame, blackened-steel drums and
   // tubes, dark cast-iron drive unit. The steels are warm-neutral (red >= blue)
@@ -487,8 +480,13 @@ export function pinsetterRigParts(rackPositions: readonly Vec3[]): {
   // and the reel-up clearance share one source: the pin is straightened and held at
   // exactly the height the carry then lowers it from.
   const seatY = RESET.liftPinY;
+  // Place the funnel mouth (its lowest point) right at the seated pin-head top so
+  // the head tucks up into the cone, deriving the cone centre from seatY and the pin
+  // geometry rather than a hand-tuned constant: coneCenterY - coneHeight/2 = the
+  // seated head top (seatY + pinHeight/2).
+  const coneCenterY = seatY + LANE.pinHeight / 2 + PINSETTER.coneHeight / 2;
   const cones: RigCone[] = rackPositions.map((p) => ({
-    center: { x: p.x, y: PINSETTER.coneCenterY, z: p.z },
+    center: { x: p.x, y: coneCenterY, z: p.z },
     mouthRadius: PINSETTER.coneMouthRadius,
     slotRadius: PINSETTER.coneSlotRadius,
     height: PINSETTER.coneHeight,

@@ -287,7 +287,9 @@ describe('cone-seat: a reeled-up pin is caught in its cone, straightened vertica
       world.step();
       steps += 1;
     }
-    return kinematics(pins);
+    // Prove we stopped at the seat/lower boundary, not by hitting the safety cap
+    // (a cap exit would mask a phase regression and read a meaningless pose).
+    return { seated: kinematics(pins), reachedLower: reset.phase === 'lower', captured };
   }
 
   it('a lifted pin ends up VERTICAL and centered under its cone (seated), not crooked', () => {
@@ -304,7 +306,11 @@ describe('cone-seat: a reeled-up pin is caught in its cone, straightened vertica
     const reset = new ResetCycle(seatCfg);
     reset.start('rerack', all, homes, settled);
 
-    const seated = runToSeated(world, pins, reset);
+    const { seated, reachedLower, captured } = runToSeated(world, pins, reset);
+    // The cycle reached the lower boundary through the seat phase (the cone catch
+    // actually ran), so the seated pose below is the real top-of-seat pose.
+    expect(captured).toBe(true);
+    expect(reachedLower).toBe(true);
 
     for (const i of all) {
       // Centered under its cone: the cone sits over the home spot, so a seated pin's

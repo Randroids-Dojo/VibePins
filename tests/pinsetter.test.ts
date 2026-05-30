@@ -80,11 +80,12 @@ describe('pinsetter rig layout', () => {
     for (let i = 0; i < rig.cones.length; i += 1) {
       const cone = rig.cones[i];
       // A pin seated at seatY has its head (top) at seatY + pinHeight/2. The cone
-      // mouth (its lowest point) sits at or above that head, so the head tucks up
-      // into the funnel rather than the cone floating well above it.
+      // mouth (its lowest point) sits right at that head top (the cone centre is
+      // derived from seatY and the pin/cone geometry), so the head tucks up into the
+      // funnel rather than the cone floating above it.
       const seatedHeadTopY = cone.seatY + LANE.pinHeight / 2;
       const coneMouthY = cone.center.y - cone.height / 2;
-      expect(coneMouthY).toBeLessThanOrEqual(seatedHeadTopY + 0.02);
+      expect(coneMouthY).toBeCloseTo(seatedHeadTopY, 6);
       // The cone sits below the guide tubes (which stop above the standing pins),
       // so the table reads as a distinct overhead component the pins seat up into.
       const tubeBottomY = rig.guideTubes[i].center.y - rig.guideTubes[i].length / 2;
