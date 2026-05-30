@@ -21,6 +21,8 @@ import {
   pinsetterRigParts,
   machineRoomParts,
   ballReturnParts,
+  ballRackPositions,
+  BALL_RACK,
   type Box,
   type RigBeam,
   type RigCylinder,
@@ -184,16 +186,37 @@ export class World3D {
     this.scene.add(this.rigTubeMesh(parts.frame, chrome));
     for (const post of parts.posts) this.scene.add(this.rigCylinderMesh(post, chrome));
 
-    // The pedestal the playable ball actually rests on, on the lane side.
+    // The pedestal (delivery cradle) the rack of balls rests on, on the lane
+    // side. Extended down-lane (-z) so the queue of returned balls sits on it.
     const p = SHOT_CAMERA.ballReturnPos;
+    const rack = ballRackPositions();
+    const cradleDepth = 0.7 + (rack.length - 1) * BALL_RACK.spacingZ;
+    const cradleZ = p.z - ((rack.length - 1) * BALL_RACK.spacingZ) / 2;
     const pedestal = new THREE.Mesh(
-      new THREE.BoxGeometry(0.5, 0.12, 0.7),
+      new THREE.BoxGeometry(0.5, 0.12, cradleDepth),
       this.surfaceMaterial(MATERIALS.brushedSteel),
     );
-    pedestal.position.set(p.x, LANE.floorY + 0.06, p.z);
+    pedestal.position.set(p.x, LANE.floorY + 0.06, cradleZ);
     pedestal.castShadow = true;
     pedestal.receiveShadow = true;
     this.scene.add(pedestal);
+
+    // The collection of resting balls nestled in the cradle (REQ-039: the ball
+    // returns to a rack of balls, not the floor). The front slot (index 0) is
+    // left to the live playable ball, which rests there between shots and is
+    // lifted by the pickup; the remaining slots hold decorative balls so the
+    // bowler end reads as a rack holding several balls. Same dark polished look
+    // as the playable ball (matches src/ball.ts).
+    const ballMat = new THREE.MeshStandardMaterial({ color: 0x2b2f36, roughness: 0.35, metalness: 0.5 });
+    const ballGeo = new THREE.SphereGeometry(LANE.ballRadius, 24, 12);
+    for (let i = 1; i < rack.length; i += 1) {
+      const slot = rack[i];
+      const mesh = new THREE.Mesh(ballGeo, ballMat);
+      mesh.position.set(slot.x, slot.y, slot.z);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      this.scene.add(mesh);
+    }
   }
 
   // A round chrome tube swept along a curved centerline (the ball-return rails

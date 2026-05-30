@@ -13,7 +13,7 @@
 
 import { createWorld3D } from './world3d.js';
 import { PinSet, pinRackPositions } from './pins.js';
-import { Ball, ballSpawnPosition } from './ball.js';
+import { Ball, ballSpawnPosition, ballRackFront } from './ball.js';
 import { detectPins, isRackSnagged, SettleWindow } from './detection.js';
 import { ResetCycle, type ResetMode, type ResetPhase } from './reset.js';
 import { ShotCamera, ChaseCam, canThrow, lineupMarkerOffset, lineupFractionFromOffset, shotMetersVisibility } from './camera.js';
@@ -174,7 +174,7 @@ const shotCamera = new ShotCamera(
   { pos: SHOT_CAMERA.returnPos, lookAt: SHOT_CAMERA.returnLookAt, fov: SHOT_CAMERA.returnFov },
   { pos: LANE.cameraPos, lookAt: LANE.cameraLookAt, fov: LANE.cameraFov },
   SHOT_CAMERA,
-  { rest: SHOT_CAMERA.ballReturnPos, held: SHOT_CAMERA.ballHeldPos, ready: ballSpawnPosition() },
+  { rest: ballRackFront(), held: SHOT_CAMERA.ballHeldPos, ready: ballSpawnPosition() },
 );
 
 // Step 2 and 3 of the throw: a spin/angle meter then a power meter, each a single
@@ -1378,6 +1378,11 @@ function stepShotLoop(dt: number): void {
       // the chase pose so the next shot re-seeds the follow from scratch.
       if (settings.ballCam) applyCameraPose(shotCamera.update(0).pose);
       chaseCam.reset();
+      // The ball has come to rest down-lane: send it home up the return track to
+      // the rack (REQ-039). The travel is kinematic and bounded (BALL_RETURN
+      // .returnSeconds), and overlaps the settle/reset beat so it never delays
+      // the next shot. beginShot parks it at the rack front for the pickup.
+      ball.startReturn();
       settle.reset();
       phase = 'settling';
       // Still the machine's turn (watching -> settling are both red); refresh in
@@ -1385,9 +1390,13 @@ function stepShotLoop(dt: number): void {
       renderThrowLight();
     }
   } else if (phase === 'settling') {
+    // The returning ball rides home up the track while the rack settles.
+    ball.stepReturn(dt);
     const result = settle.step(pins.pinStates());
     if (result.settled) recordSettledBall(result.standingCount);
   } else if (phase === 'resetting') {
+    // Keep the ball travelling home up the track during the reset cycle.
+    ball.stepReturn(dt);
     stepReset(dt);
     if (reset.isComplete()) {
       // The pins lowered onto a home spot are handed back to the dynamics at rest

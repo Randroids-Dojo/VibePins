@@ -156,6 +156,16 @@
     </dl>
   </section>
 
+  <section data-f="F-016" data-priority="polish">
+    <h3>F-016: Richer ball-return roll polish</h3>
+    <dl>
+      <dt>Context</dt><dd>The just-thrown ball now returns up the chrome track to the rack via a bounded kinematic animation along the runway centerline (<code>ballReturnTravelPos</code> / <code>Ball.startReturn</code> / <code>Ball.stepReturn</code> in <code>src/ball.ts</code>, fed by <code>ballReturnPathPoint</code> and <code>BALL_RETURN.returnSeconds</code> in <code>src/config.ts</code>; the rack collection is rendered in <code>world3d.buildBallReturn</code>). It reads as the ball coming home, but it is a position-only kinematic slide: the ball does not visibly roll/spin along the track, there is no return-roll audio cue, and on a clean miss with the rack untouched (no reset cycle) <code>beginShot</code> runs immediately so the brief return snaps home rather than playing out. See <a href="gdd/04-look-and-feel.html#environment">look-and-feel, environment</a>.</dd>
+      <dt>Blocker</dt><dd>none; the rack, the return path, and the travel animation already exist.</dd>
+      <dt>Unblock condition</dt><dd>ready now. Add a rolling spin on the travelling ball (rotate the mesh about the track tangent), a soft return-roll audio cue, and smooth the clean-miss handoff so the return always plays out (e.g. gate the next pickup on the return completing, or let a clean miss still run a short return beat) without delaying the loop.</dd>
+      <dt>PR / Dot reference</dt><dd>(not started)</dd>
+    </dl>
+  </section>
+
   <section data-f="F-003" data-priority="polish">
     <h3>F-003: Code-split the production bundle</h3>
     <dl>

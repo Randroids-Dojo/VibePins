@@ -783,6 +783,39 @@ export const BALL_RETURN = {
   postY: LANE.floorY, //       posts stand on the floor
   // Low cross frame at the bowler end that ties the two rails together.
   frameRadius: 0.014,
+  // How long the just-thrown ball takes to travel kinematically back up the
+  // track to the rack (REQ-039). Bounded so it overlaps the reset cycle and
+  // never holds up the next shot: the reset cycle is the gate on the next shot,
+  // and this is shorter than it.
+  returnSeconds: 1.6,
+} as const;
+
+// The ball rack at the bowler end of the return: a small cradle holding a
+// collection of resting balls (REQ-039, the ball comes home to a rack, not the
+// floor). The balls nestle in a row along the front of the runway, just outboard
+// of the lane on the throwing-hand side near SHOT_CAMERA.ballReturnPos, sitting
+// in the rail gap so they read as resting on the chrome track. The just-thrown
+// ball returns up the track and joins the front of this collection; the pickup
+// lifts that front ball. Pure layout (ballRackPositions) so the row spacing and
+// the cradle bounds stay unit-testable.
+export const BALL_RACK = {
+  // How many balls rest in the cradle (the collection the bowler picks from).
+  count: 4,
+  // Centre-to-centre spacing of the row along z. The balls queue up the runway
+  // (toward the pins, -z) behind the front ball, so a gap a touch over a ball
+  // diameter keeps them nestled but not interpenetrating.
+  spacingZ: LANE.ballRadius * 2 + 0.012,
+  // The front (bowler-most, +z) ball of the row sits at the pickup spot so the
+  // shot-setup pickup lifts a ball off the rack rather than off the floor. This
+  // matches SHOT_CAMERA.ballReturnPos in x and z (the return delivery cradle on
+  // the lane side, where the pickup reaches), so the rack reads as the ball
+  // return tray rather than balls on the floor.
+  frontZ: SHOT_CAMERA.ballReturnPos.z,
+  // Lateral centre of the cradle: the return delivery spot on the lane side.
+  centerX: SHOT_CAMERA.ballReturnPos.x,
+  // Resting height: the balls nestle on the return cradle (the brushed-steel
+  // pedestal at the bowler end), the ball centre a touch above the pedestal top.
+  restY: SHOT_CAMERA.ballReturnPos.y,
 } as const;
 
 // Pure layout of the metal ball return (REQ-039 / REQ-041), derived from
@@ -849,6 +882,37 @@ export function ballReturnParts(): {
   );
 
   return { rails, frame, posts };
+}
+
+// A point on the ball-return runway centerline for a normalized travel fraction
+// (REQ-039), reusing the same parameterization as ballReturnParts so the
+// returning-ball animation rides exactly the visible chrome track. t = 0 is the
+// down-lane end (zBack, raised, where the ball arrives from the pit side) and
+// t = 1 is the bowler end (zFront, low, where the rack sits). The ball rests in
+// the rail gap, so its centre sits a touch above the rail tops (offset by the
+// tube radius plus a fraction of the ball radius). Pure, so the return path
+// sampling is unit-testable against the rail geometry.
+export function ballReturnPathPoint(t: number): Vec3 {
+  const b = BALL_RETURN;
+  const u = Math.max(0, Math.min(1, t));
+  const z = b.zBack + u * (b.zFront - b.zBack);
+  const x = b.centerX + b.bendOut * Math.sin(u * Math.PI);
+  const railY = b.railTopY + b.runwayRise * (1 - u);
+  return { x, y: railY + LANE.ballRadius * 0.35, z };
+}
+
+// Resting positions of the balls nestled in the ball rack (BALL_RACK), front
+// (bowler-most) ball first. The collection queues up the runway behind the front
+// pickup spot: each ball sits one spacing further toward the pins (-z), at the
+// cradle centre x and resting height. Pure so the row layout and its bounds (the
+// balls stay clear of the lane, in the cradle) are unit-testable.
+export function ballRackPositions(): Vec3[] {
+  const r = BALL_RACK;
+  const out: Vec3[] = [];
+  for (let i = 0; i < r.count; i += 1) {
+    out.push({ x: r.centerX, y: r.restY, z: r.frontZ - i * r.spacingZ });
+  }
+  return out;
 }
 
 // Pin standing/fallen detection tunables (GDD 03-string-pinsetter, REQ-016/017).
