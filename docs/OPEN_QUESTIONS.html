@@ -38,6 +38,22 @@
 <main id="open">
   <h2>Open</h2>
 
+  <section data-q="Q-015" data-status="open">
+    <h3>Q-015: Bowling an async-match frame in-browser, and copy-only handoff</h3>
+    <dl>
+      <dt>Context</dt><dd>The multiplayer hub UI (REQ-050/051) shipped the entry / lobby / your-turn / waiting / complete states, the copyable handoff link, and create / join-via-link / resume. It does NOT yet let the your-turn state bowl the frame in the browser: deriving per-ball pin-fall from the Rapier sim and calling <code>matchClient.submitFrame</code> threads match context through the whole live shot loop in <code>src/main.ts</code>, which is materially larger than the hub shell. The hub had standalone value (a friend can create a match, share the link, and follow the live scoreboard) so it shipped first. The GDD also calls for a native share-sheet; the hub ships copy-only.</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li>Ship the hub now with a "bowling in-browser is coming soon, Refresh to follow" note on the your-turn state, and land the in-game per-frame submission as its own PR-sized slice (a dot was created). Copy-only handoff now, native share as followup F-009.</li>
+          <li>Hold the hub until the full in-game submission is wired, shipping one large multiplayer PR.</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>A. Smaller slices compound more cheaply (slice discipline), the hub is independently useful and fully testable, and the deferred work is captured in a dot and reflected honestly in the UI copy. Shipped under A.</dd>
+      <dt>Status</dt><dd>open</dd>
+      <dt>Resolution</dt><dd>(shipped under Recommended default A in the match-handoff/your-turn UI slice; left open for dev override)</dd>
+    </dl>
+  </section>
+
   <section data-q="Q-014" data-status="open">
     <h3>Q-014: Concurrent-join race on a shared match seat</h3>
     <dl>

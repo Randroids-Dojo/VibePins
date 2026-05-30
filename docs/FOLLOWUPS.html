@@ -110,6 +110,16 @@
     </dl>
   </section>
 
+  <section data-f="F-009" data-priority="nice-to-have">
+    <h3>F-009: Native share-sheet for the match handoff link</h3>
+    <dl>
+      <dt>Context</dt><dd>The multiplayer hub (REQ-050) ships a copy-to-clipboard handoff link. The GDD calls for a native share affordance (the OS share sheet) as well, so a bowler can pass the match through whatever app they already talk in with one tap. See <a href="gdd/05-async-multiplayer.html#turn-handoff">async multiplayer, turn and handoff</a>.</dd>
+      <dt>Blocker</dt><dd>none; the link itself already exists (<code>handoffLink</code> in <code>src/matchUI.ts</code>).</dd>
+      <dt>Unblock condition</dt><dd>add a Share button that calls <code>navigator.share({ url })</code> when available, degrading cleanly to the existing copy button where the Web Share API is unsupported.</dd>
+      <dt>PR / Dot reference</dt><dd>(not started)</dd>
+    </dl>
+  </section>
+
   <section data-f="F-002" data-priority="nice-to-have">
     <h3>F-002: Optional web push for "your turn"</h3>
     <dl>

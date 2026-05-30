@@ -26,6 +26,16 @@ import { GutterDetector } from './gutter.js';
 import { Screens, type Screen } from './screens.js';
 import { Settings } from './settings.js';
 import { Leaderboard, renderBoardRows, renderContextRows, type BoardType } from './leaderboard.js';
+import { MatchClient } from './matchClient.js';
+import {
+  matchViewMode,
+  handoffLink,
+  matchIdFromSearch,
+  waitingHeadline,
+  renderLobbyRows,
+  renderMatchScoreboard,
+  type MatchViewMode,
+} from './matchUI.js';
 import { Tutorial } from './tutorial.js';
 import { AudioEngine } from './audio.js';
 import { VictoryRoutine } from './victory.js';
@@ -43,6 +53,7 @@ const menuEl = document.getElementById('menu');
 const summaryEl = document.getElementById('summary');
 const summaryScoreEl = document.getElementById('summary-score');
 const menuPlayBtn = document.getElementById('menu-play');
+const menuMatchBtn = document.getElementById('menu-match');
 const menuAudioBtn = document.getElementById('menu-audio');
 const menuTutorialBtn = document.getElementById('menu-tutorial');
 const menuLeaderboardBtn = document.getElementById('menu-leaderboard');
@@ -66,6 +77,29 @@ const summarySubmitForm = document.getElementById('summary-submit') as HTMLFormE
 const summaryNameInput = document.getElementById('summary-name') as HTMLInputElement | null;
 const summarySubmitBtn = document.getElementById('summary-submit-btn') as HTMLButtonElement | null;
 const summarySubmitStatusEl = document.getElementById('summary-submit-status');
+
+// Async multiplayer hub overlay (REQ-050/051). One overlay whose visible block
+// switches by match view-mode (entry / lobby / your-turn-vs-waiting / complete).
+const matchEl = document.getElementById('match');
+const matchStatusEl = document.getElementById('match-status');
+const matchEntryEl = document.getElementById('match-entry');
+const matchFormEl = document.getElementById('match-form') as HTMLFormElement | null;
+const matchNameInput = document.getElementById('match-name') as HTMLInputElement | null;
+const matchCreateBtn = document.getElementById('match-create-btn') as HTMLButtonElement | null;
+const matchJoinBtn = document.getElementById('match-join-btn') as HTMLButtonElement | null;
+const matchLobbyEl = document.getElementById('match-lobby');
+const matchLobbyListEl = document.getElementById('match-lobby-list');
+const matchLinkInput = document.getElementById('match-link') as HTMLInputElement | null;
+const matchCopyBtn = document.getElementById('match-copy-btn') as HTMLButtonElement | null;
+const matchPlayEl = document.getElementById('match-play');
+const matchHeadlineEl = document.getElementById('match-headline');
+const matchScoreboardEl = document.getElementById('match-scoreboard');
+const matchPlayNoteEl = document.getElementById('match-play-note');
+const matchShareBtn = document.getElementById('match-share-btn') as HTMLButtonElement | null;
+const matchRefreshBtn = document.getElementById('match-refresh-btn') as HTMLButtonElement | null;
+const matchCompleteEl = document.getElementById('match-complete');
+const matchStandingsEl = document.getElementById('match-standings');
+const matchBackBtn = document.getElementById('match-back');
 
 // First-run tutorial coach panel (REQ-047).
 const tutorialEl = document.getElementById('tutorial');
@@ -155,6 +189,13 @@ const settings = new Settings();
 // Global leaderboard client (REQ-057). Posts the completed game's per-frame ball
 // line to the serverless backend, which re-scores it authoritatively.
 const leaderboard = new Leaderboard();
+
+// Async-match client (REQ-050/051). Drives create / join / resume against the
+// match backend and holds the latest authoritative public view, which the match
+// overlay renders. The match id a handoff link pointed at (?match=<id>) is held so
+// the entry block can offer Join instead of Create when one is present.
+const matchClient = new MatchClient(settings);
+let pendingMatchId: string | null = null;
 // Whether the current summary's score has already been submitted, so the player
 // cannot double-post the same game.
 let scoreSubmitted = false;
@@ -410,8 +451,12 @@ function syncAudioToggle(): void {
 function showScreen(screen: Screen): void {
   const isMenu = screen === 'menu';
   const isSummary = screen === 'summary';
+  const isMatch = screen === 'match';
   if (menuEl) menuEl.hidden = !isMenu;
   if (summaryEl) summaryEl.hidden = !isSummary;
+  // The match hub is its own screen; openMatch() reveals it (and hides the menu)
+  // so the listener does not need to. A transition away always hides it.
+  if (matchEl && !isMatch) matchEl.hidden = true;
   // The standings board is a sub-view of the menu/summary; a screen transition
   // always closes it so it never lingers over the wrong screen or the live game.
   if (boardEl) boardEl.hidden = true;
@@ -430,6 +475,7 @@ function showScreen(screen: Screen): void {
 screens.onChange((screen) => {
   showScreen(screen);
   if (screen === 'playing') startNewGame();
+  if (screen === 'match') openMatch();
 });
 
 // Menu and summary controls (mouse / touch / keyboard via native button
@@ -560,6 +606,213 @@ function closeBoard(): void {
   if (summaryEl) summaryEl.hidden = boardReturnVisible !== 'summary';
 }
 
+// Async multiplayer hub (REQ-050/051) -------------------------------------------
+//
+// The overlay shows exactly one block per view-mode derived from the held match.
+// Create / join / resume run through matchClient; the rendered rows, headline, and
+// handoff link come from the pure src/matchUI presenter so this stays a thin shell.
+
+// Reflect a status / error line on the match overlay (neutral / ok / error cue).
+function setMatchStatus(message: string, state: 'neutral' | 'ok' | 'error' = 'neutral'): void {
+  if (!matchStatusEl) return;
+  matchStatusEl.textContent = message;
+  if (state === 'neutral') matchStatusEl.removeAttribute('data-state');
+  else matchStatusEl.setAttribute('data-state', state);
+}
+
+// Show exactly one match block for the current view-mode and fill it from the held
+// match (RULE 10 observable render). Pure-ish: reads matchClient + pendingMatchId,
+// writes the DOM. Called after every match call resolves and on open.
+function renderMatch(): void {
+  if (!matchEl || matchEl.hidden) return;
+  const mode: MatchViewMode = matchViewMode(matchClient.match, matchClient.mySeat, matchClient.loading);
+  const showEntry = mode === 'none' || mode === 'loading';
+  const showLobby = mode === 'lobby';
+  const showPlay = mode === 'yourTurn' || mode === 'waiting';
+  const showComplete = mode === 'complete';
+
+  if (matchEntryEl) matchEntryEl.hidden = !showEntry;
+  if (matchLobbyEl) matchLobbyEl.hidden = !showLobby;
+  if (matchPlayEl) matchPlayEl.hidden = !showPlay;
+  if (matchCompleteEl) matchCompleteEl.hidden = !showComplete;
+
+  if (showEntry) {
+    // A handoff link (?match=<id>) was opened, or this device already holds a
+    // credential for it: offer Join. Otherwise offer Create. Loading disables both.
+    const joining = pendingMatchId != null;
+    if (matchCreateBtn) matchCreateBtn.hidden = joining;
+    if (matchJoinBtn) matchJoinBtn.hidden = !joining;
+    const busy = matchClient.loading;
+    if (matchCreateBtn) matchCreateBtn.disabled = busy;
+    if (matchJoinBtn) matchJoinBtn.disabled = busy;
+    if (mode === 'loading') setMatchStatus('Loading match...');
+    else if (matchClient.error) setMatchStatus(matchClient.error, 'error');
+  }
+
+  if (showLobby) {
+    if (matchLobbyListEl) matchLobbyListEl.innerHTML = renderLobbyRows(matchClient.match, matchClient.mySeat);
+    if (matchLinkInput && matchClient.match) {
+      matchLinkInput.value = handoffLink(window.location.href, matchClient.match.id);
+    }
+    setMatchStatus('Waiting for players to join. Share the link below.');
+  }
+
+  if (showPlay) {
+    const yours = mode === 'yourTurn';
+    if (matchHeadlineEl) {
+      matchHeadlineEl.textContent = yours ? 'Your turn to bowl' : waitingHeadline(matchClient.match);
+    }
+    if (matchScoreboardEl) {
+      matchScoreboardEl.innerHTML = renderMatchScoreboard(matchClient.match, matchClient.mySeat);
+    }
+    // The handoff link is the bowler's tool to pass the match on; show it on both
+    // states so a waiting player can re-share the invite (REQ-050).
+    if (matchShareBtn) matchShareBtn.hidden = false;
+    if (matchPlayNoteEl) {
+      matchPlayNoteEl.textContent = yours
+        ? 'Bowling your frame in-browser is coming soon. Use Refresh to follow the match.'
+        : 'You will see the score update here as players bowl. Use Refresh to check.';
+    }
+    setMatchStatus('');
+  }
+
+  if (showComplete) {
+    if (matchStandingsEl) {
+      matchStandingsEl.innerHTML = renderMatchScoreboard(matchClient.match, matchClient.mySeat);
+    }
+    setMatchStatus('Match complete.', 'ok');
+  }
+}
+
+// Open the match hub. Show the overlay, hide the menu (so the dialog is the only
+// modal surface, like openBoard), then resolve what to show: if a handoff link or
+// a stored credential points at a match, resume it; otherwise show the create entry.
+function openMatch(): void {
+  if (menuEl) menuEl.hidden = true;
+  if (matchEl) matchEl.hidden = false;
+  if (matchNameInput) matchNameInput.value = settings.playerName;
+  setMatchStatus('');
+  renderMatch();
+  if (pendingMatchId) {
+    void matchClient.resumeMatch(pendingMatchId).then(renderMatch);
+  }
+}
+
+// Resume the held match from the server (the Refresh affordance and post-action
+// re-read). Re-renders when it lands. Non-fatal: a failure leaves the prior view.
+function refreshMatch(): void {
+  const id = matchClient.match?.id ?? pendingMatchId;
+  if (!id) return;
+  void matchClient.resumeMatch(id).then(renderMatch);
+}
+
+// Copy a string to the clipboard and flash the button label, degrading to a select
+// on the link field when the clipboard API is unavailable (RULE 10 observable).
+function copyToClipboard(text: string, button: HTMLButtonElement | null): void {
+  const flash = (ok: boolean): void => {
+    if (!button) return;
+    const original = button.textContent ?? 'Copy';
+    button.textContent = ok ? 'Copied' : 'Copy failed';
+    window.setTimeout(() => {
+      button.textContent = original;
+    }, 1500);
+  };
+  try {
+    if (navigator.clipboard?.writeText) {
+      void navigator.clipboard.writeText(text).then(
+        () => flash(true),
+        () => flash(false),
+      );
+      return;
+    }
+  } catch {
+    // Fall through to the manual-select fallback below.
+  }
+  matchLinkInput?.select();
+  flash(false);
+}
+
+menuMatchBtn?.addEventListener('click', () => {
+  wakeAudio();
+  audio.playClick();
+  screens.openMatch();
+});
+
+matchFormEl?.addEventListener('submit', (event) => {
+  event.preventDefault();
+  // The form's submit button is Create; Join (when a link was opened) is a
+  // separate button handled below. Submitting always means create here.
+  if (matchCreateBtn?.hidden) return;
+  void createMatchFromForm();
+});
+
+matchJoinBtn?.addEventListener('click', () => {
+  audio.playClick();
+  void joinMatchFromForm();
+});
+
+matchCopyBtn?.addEventListener('click', () => {
+  audio.playClick();
+  if (matchLinkInput?.value) copyToClipboard(matchLinkInput.value, matchCopyBtn);
+});
+
+matchShareBtn?.addEventListener('click', () => {
+  audio.playClick();
+  if (matchClient.match) copyToClipboard(handoffLink(window.location.href, matchClient.match.id), matchShareBtn);
+});
+
+matchRefreshBtn?.addEventListener('click', () => {
+  audio.playClick();
+  refreshMatch();
+});
+
+matchBackBtn?.addEventListener('click', () => {
+  audio.playClick();
+  screens.toMenu();
+});
+
+// Read the chosen display name from the match name field, persisting it so the
+// next match (and the leaderboard) pre-fills with it. Returns null (and flags the
+// status) when empty so create / join can bail early.
+function matchNameOrWarn(): string | null {
+  const name = (matchNameInput?.value ?? '').trim();
+  if (!name) {
+    setMatchStatus('Enter a name first', 'error');
+    matchNameInput?.focus();
+    return null;
+  }
+  settings.setPlayerName(name);
+  return name;
+}
+
+async function createMatchFromForm(): Promise<void> {
+  if (matchClient.loading) return;
+  const name = matchNameOrWarn();
+  if (!name) return;
+  audio.playClick();
+  setMatchStatus('Creating match...');
+  renderMatch();
+  const result = await matchClient.createMatch(name);
+  if (!result.ok) setMatchStatus(result.error ?? 'Could not create match', 'error');
+  renderMatch();
+}
+
+async function joinMatchFromForm(): Promise<void> {
+  if (matchClient.loading || !pendingMatchId) return;
+  const name = matchNameOrWarn();
+  if (!name) return;
+  setMatchStatus('Joining match...');
+  renderMatch();
+  const result = await matchClient.joinMatch(pendingMatchId, name);
+  if (result.ok) {
+    // The seat is claimed; further actions resume by id, not the pending link.
+    pendingMatchId = null;
+  } else {
+    setMatchStatus(result.error ?? 'Could not join match', 'error');
+  }
+  renderMatch();
+}
+
 menuLeaderboardBtn?.addEventListener('click', () => {
   wakeAudio();
   audio.playClick();
@@ -677,6 +930,17 @@ window.addEventListener('keydown', (event) => {
 // listener and runs startNewGame().
 renderScore();
 showScreen(screens.screen);
+
+// Handoff deep link (REQ-050/055): when the page was opened with ?match=<id>, jump
+// straight into the match hub so the recipient can join (or resume) that match.
+pendingMatchId = matchIdFromSearch(window.location.search);
+if (pendingMatchId) {
+  // A device that already claimed a seat in this match resumes it rather than
+  // joining a new one; openMatch's resume call resolves which seat it owns and the
+  // mode lands on lobby / your-turn / waiting / complete accordingly. A device with
+  // no credential lands on the entry block's Join action for the open seat.
+  screens.openMatch();
+}
 
 let last = performance.now();
 function frame(now: number): void {
