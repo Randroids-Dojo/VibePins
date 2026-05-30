@@ -57,6 +57,18 @@ describe('shot loop: full multi-ball frame sequencing', () => {
     expect(next.result.ballInFrame).toBe(1);
   });
 
+  it('keeps the full rack on a clean first-ball miss instead of re-racking', () => {
+    const game = new Game();
+    // A clean miss downs nothing: ten still stand. The frame continues and the
+    // next ball faces the same ten, but this is a between-balls clear (nothing to
+    // lift), NOT a re-rack: a deck clear must be earned by actually downing pins.
+    const miss = play(game, 0);
+    expect(miss.result.pinsStanding).toBe(10);
+    expect(miss.result.pinsDowned).toBe(0);
+    expect(miss.action).toBe('between-balls');
+    expect(game.pinsStanding).toBe(10);
+  });
+
   it('re-racks immediately when an early ball clears the deck (a spare)', () => {
     const game = new Game();
     const b1 = play(game, 7); // three stand

@@ -36,14 +36,18 @@ export type RackAction = 'rerack' | 'between-balls' | 'none';
 // a fresh rack, not an empty deck (REQ-007, Q-011 default A). The signal is
 // pinsStanding: the Game reports how many pins the NEXT ball should face, and it
 // is ten exactly when the deck was cleared and re-racks for the next ball. So a
-// continuing frame whose next ball faces ten is a rerack, not a clear.
+// continuing frame whose next ball faces ten is a rerack, not a clear. The deck
+// clear must be earned: only a ball that actually downed pins can have cleared
+// the rack, so a clean first-ball miss (zero down, ten still standing) stays a
+// between-balls clear and keeps the same ten, never a spurious re-rack.
 export function rackActionFor(result: BallResult): RackAction {
   if (result.reset === 'none') return 'none';
   if (result.reset === 'rerack') return 'rerack';
-  // result.reset === 'between-balls': the frame continues. If the next ball faces
-  // a full rack the deck was cleared (a bonus-ball re-rack), so rerack; otherwise
-  // lift the fallen pins clear and leave the standing ones (REQ-009).
-  return result.pinsStanding === PINS ? 'rerack' : 'between-balls';
+  // result.reset === 'between-balls': the frame continues. If the ball cleared the
+  // deck (it downed pins and the next ball faces a full rack) it is a bonus-ball
+  // re-rack; otherwise lift the fallen pins clear and leave the standing ones,
+  // including a clean miss that leaves all ten in place (REQ-009).
+  return result.pinsStanding === PINS && result.pinsDowned > 0 ? 'rerack' : 'between-balls';
 }
 
 // The phase of one shot through the live loop (mirrors the Phase type in
