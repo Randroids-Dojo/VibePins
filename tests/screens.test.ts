@@ -51,6 +51,36 @@ describe('Screens: menu / playing / summary state machine (REQ-045)', () => {
     expect(playing.screen).toBe('playing');
   });
 
+  it('opens the match hub from the menu and backs out to the menu (REQ-050/051)', () => {
+    const s = new Screens('menu');
+    expect(s.openMatch()).toBe(true);
+    expect(s.screen).toBe('match');
+    expect(s.toMenu()).toBe(true);
+    expect(s.screen).toBe('menu');
+  });
+
+  it('rejects opening the match hub from anywhere but the menu', () => {
+    const playing = new Screens('playing');
+    expect(playing.openMatch()).toBe(false);
+    expect(playing.screen).toBe('playing');
+
+    const summary = new Screens('summary');
+    expect(summary.openMatch()).toBe(false);
+    expect(summary.screen).toBe('summary');
+
+    const match = new Screens('match');
+    expect(match.openMatch()).toBe(false); // already in the hub
+    expect(match.screen).toBe('match');
+  });
+
+  it('does not start a game or finish from the match hub', () => {
+    const s = new Screens('match');
+    expect(s.start()).toBe(false);
+    expect(s.finish()).toBe(false);
+    expect(s.playAgain()).toBe(false);
+    expect(s.screen).toBe('match');
+  });
+
   it('notifies the listener on every transition with the previous screen', () => {
     const s = new Screens('menu');
     const seen: Array<[Screen, Screen]> = [];

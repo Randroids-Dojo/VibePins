@@ -5,6 +5,10 @@
 //   playing  the live 3D game; the shot loop in src/main.ts owns this state.
 //   summary  the end-of-game screen with the final score and a "play again"
 //            action that returns to a fresh game.
+//   match    the async-multiplayer hub: create / join a match, the lobby, the
+//            your-turn vs waiting-for-player states, and the final standings
+//            (GDD 05-async-multiplayer, REQ-050/051). Reachable from the menu,
+//            and returns to the menu.
 //
 // Pure: no DOM, no Three.js, no clock. It only tracks the current screen and the
 // legal transitions between them, and notifies a listener on every change so the
@@ -14,12 +18,14 @@
 // The transition graph is deliberately small and one-directional per action so
 // the shell stays a single consistent flow (AGENTS rule 7):
 //   menu --start--> playing
+//   menu --openMatch--> match
+//   match --toMenu--> menu
 //   playing --finish--> summary
 //   summary --playAgain--> playing
 //   summary --toMenu--> menu
 //   (any) --reset--> menu        // a hard return to the title, e.g. on boot
 
-export type Screen = 'menu' | 'playing' | 'summary';
+export type Screen = 'menu' | 'playing' | 'summary' | 'match';
 
 export type ScreenListener = (screen: Screen, previous: Screen) => void;
 
@@ -51,6 +57,12 @@ export class Screens {
     return this.transition('playing', this.current === 'menu');
   }
 
+  // Open the async-multiplayer hub from the menu. Only valid on the menu, so a
+  // stray open during play or summary cannot pull the shell off its flow.
+  openMatch(): boolean {
+    return this.transition('match', this.current === 'menu');
+  }
+
   // Finish the live game and show the summary. Only valid while playing.
   finish(): boolean {
     return this.transition('summary', this.current === 'playing');
@@ -61,9 +73,10 @@ export class Screens {
     return this.transition('playing', this.current === 'summary');
   }
 
-  // From the summary, return to the title menu. Only valid on the summary screen.
+  // Return to the title menu from the summary or the match hub. Both back out to
+  // the same calm title screen, keeping the flow consistent (AGENTS rule 7).
   toMenu(): boolean {
-    return this.transition('menu', this.current === 'summary');
+    return this.transition('menu', this.current === 'summary' || this.current === 'match');
   }
 
   private transition(next: Screen, allowed: boolean): boolean {

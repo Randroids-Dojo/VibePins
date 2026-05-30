@@ -365,6 +365,24 @@
       box-shadow: inset 0 0 0 1px rgba(255, 207, 122, 0.35), 0 0 8px rgba(200, 146, 60, 0.25);
     }
     .vp-board-row[data-you="true"] .vp-board-name { color: #ffcf7a; }
+
+    /* Async multiplayer hub (REQ-050/051). One block shows per mode; src/main.ts
+       toggles them. The blocks share the metal-plate overlay language: the lobby
+       and scoreboard reuse the .vp-board-list plate and .vp-board-row rows, and
+       the handoff link is a read-only name-input field with a copy button. An
+       open (unclaimed) lobby seat reads dimmer than a claimed one. */
+    .vp-match-block {
+      display: flex; flex-direction: column; align-items: center; gap: 14px;
+      width: min(460px, 92vw);
+    }
+    .vp-match-handoff { display: flex; flex-direction: column; align-items: center; gap: 10px; width: 100%; }
+    #match-link-label { color: #b9a87a; font-size: 13px; letter-spacing: 0.06em; }
+    .vp-match-link {
+      width: 100%; box-sizing: border-box; text-transform: none;
+      letter-spacing: 0.02em; font-size: 13px; color: #d8cba4;
+    }
+    .vp-board-row[data-open="true"] { opacity: 0.62; }
+    .vp-board-row[data-open="true"] .vp-board-name { color: #9b9173; }
   </style>
 </head>
 <body>
@@ -426,6 +444,7 @@
     <h1 id="menu-title" class="vp-title">VibePins</h1>
     <p class="vp-tagline">Duckpin bowling. Three balls a frame.</p>
     <button id="menu-play" class="vp-btn" type="button">Play</button>
+    <button id="menu-match" class="vp-toggle" type="button">Multiplayer</button>
     <button id="menu-leaderboard" class="vp-toggle" type="button">Leaderboard</button>
     <button id="menu-audio" class="vp-toggle" type="button" aria-pressed="true">Audio: On</button>
     <button id="menu-tutorial" class="vp-toggle" type="button">How To Play</button>
@@ -467,6 +486,61 @@
       <div id="board-context" class="vp-board-context" aria-live="polite"></div>
     </div>
     <button id="board-back" class="vp-btn" type="button">Back</button>
+  </div>
+
+  <!-- Async multiplayer hub (REQ-050/051). One overlay that shows, by mode:
+       - entry:    create a match or (when a ?match= link was opened) join one;
+       - lobby:    the seat roster while a match is still open, with the handoff
+                   link to invite the next player;
+       - your turn / waiting: the calm "waiting for <name>" state with the live
+                   scoreboard, or the unmistakable your-turn prompt;
+       - complete: the final standings.
+       src/main.ts toggles exactly one #match-* block per mode and renders the
+       rows / headline / link into it. Reuses the .vp-overlay z-index so it sits
+       above the canvas and background controls cannot sit over it (RULE 10). -->
+  <div id="match" class="vp-overlay" role="dialog" aria-modal="true" aria-labelledby="match-title" hidden>
+    <h2 id="match-title" class="vp-title">Multiplayer</h2>
+    <p id="match-status" class="vp-submit-status" aria-live="polite"></p>
+
+    <!-- Entry: create a match, or join the one a handoff link pointed at. -->
+    <div id="match-entry" class="vp-match-block" hidden>
+      <form id="match-form" class="vp-submit">
+        <input id="match-name" class="vp-name-input" type="text" maxlength="12"
+               autocomplete="off" autocapitalize="characters" spellcheck="false"
+               placeholder="YOUR NAME" aria-label="Your name for this match" />
+        <button id="match-create-btn" class="vp-btn" type="submit">Create Match</button>
+        <button id="match-join-btn" class="vp-btn" type="button" hidden>Join Match</button>
+      </form>
+    </div>
+
+    <!-- Lobby: roster + the handoff link to invite the next player (REQ-050). -->
+    <div id="match-lobby" class="vp-match-block" hidden>
+      <div id="match-lobby-list" class="vp-board-list" aria-live="polite"></div>
+      <div class="vp-match-handoff">
+        <label id="match-link-label" for="match-link">Share this link to invite a player</label>
+        <input id="match-link" class="vp-name-input vp-match-link" type="text" readonly
+               aria-labelledby="match-link-label" />
+        <button id="match-copy-btn" class="vp-toggle" type="button" aria-live="polite">Copy Link</button>
+      </div>
+    </div>
+
+    <!-- Your turn vs waiting (REQ-051). The headline is the calm waiting line or
+         the unmistakable your-turn prompt; the live scoreboard sits below both. -->
+    <div id="match-play" class="vp-match-block" hidden>
+      <p id="match-headline" class="vp-final" aria-live="polite"></p>
+      <div id="match-scoreboard" class="vp-board-list" aria-live="polite"></div>
+      <p id="match-play-note" class="vp-submit-status"></p>
+      <button id="match-share-btn" class="vp-toggle" type="button" hidden>Copy Handoff Link</button>
+      <button id="match-refresh-btn" class="vp-toggle" type="button">Refresh</button>
+    </div>
+
+    <!-- Complete: the final standings plate (REQ-056). -->
+    <div id="match-complete" class="vp-match-block" hidden>
+      <p class="vp-final">Final standings</p>
+      <div id="match-standings" class="vp-board-list" aria-live="polite"></div>
+    </div>
+
+    <button id="match-back" class="vp-btn" type="button">Main Menu</button>
   </div>
 
   <script type="module" src="/src/main.ts"></script>

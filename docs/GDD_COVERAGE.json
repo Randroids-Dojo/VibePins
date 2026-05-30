@@ -780,19 +780,35 @@
       "id": "REQ-050",
       "requirement": "Finishing a turn presents a shareable handoff link via native share / copy",
       "gddRef": "docs/gdd/05-async-multiplayer.html#turn-handoff",
-      "status": "not_started",
-      "implementationRefs": [],
-      "testRefs": [],
-      "followupRefs": []
+      "status": "partial",
+      "implementationRefs": [
+        "src/matchUI.ts",
+        "src/main.ts",
+        "index.html"
+      ],
+      "testRefs": [
+        "tests/matchUI.test.ts"
+      ],
+      "followupRefs": [],
+      "note": "The multiplayer hub overlay (index.html #match, wired in src/main.ts) shows a copyable handoff link in the lobby and waiting/your-turn states. handoffLink (src/matchUI.ts) builds the absolute ?match=<id> URL (id only, never the per-seat secret), and a Copy button writes it to the clipboard with an observable label flash, degrading to a manual select when the clipboard API is unavailable. Opening a ?match=<id> URL (matchIdFromSearch) jumps straight into the hub on the Join path. Still deferred: the native share-sheet affordance (copy-only for now) and presenting the link automatically at the moment a turn finishes in-browser, which lands with the in-game per-frame submission slice."
     },
     {
       "id": "REQ-051",
       "requirement": "Clear your-turn vs waiting-for-player states, with the live scoreboard shown while waiting",
       "gddRef": "docs/gdd/05-async-multiplayer.html#turn-handoff",
-      "status": "not_started",
-      "implementationRefs": [],
-      "testRefs": [],
-      "followupRefs": []
+      "status": "partial",
+      "implementationRefs": [
+        "src/matchUI.ts",
+        "src/screens.ts",
+        "src/main.ts",
+        "index.html"
+      ],
+      "testRefs": [
+        "tests/matchUI.test.ts",
+        "tests/screens.test.ts"
+      ],
+      "followupRefs": [],
+      "note": "A dedicated match screen (src/screens.ts: menu -> match -> menu) hosts the hub overlay. matchViewMode (src/matchUI.ts) derives the one block shown: entry (create / join), lobby (seat roster + handoff link for seated devices), your-turn (unmistakable 'Your turn to bowl' prompt), waiting (calm 'Waiting for <name>' headline, not a spinner), and complete (final standings). The waiting and complete states render the live ranked scoreboard via renderMatchScoreboard (reusing the leaderboard board-row language), so a waiting player sees where everyone stands. A Refresh control re-resumes the held match. Still deferred: bowling the frame in-browser from the your-turn state (the in-game per-frame submission slice derives pin-fall from the Rapier sim and calls matchClient.submitFrame); the play-note currently tells the player that path is coming."
     },
     {
       "id": "REQ-052",
